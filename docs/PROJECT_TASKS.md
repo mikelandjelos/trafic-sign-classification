@@ -170,7 +170,12 @@ image with perturbed coordinates rather than faking it with padding.
       track**, 0 overlap, 43 classes each side. Per-class val share spans [0.143, 0.250]
       because tracks are atomic (class 0 has only 7). Pure function of (annotations, SEED,
       val_fraction) — no manifest needed. See `docs/report-material/04-splitting-protocol.md`.
-- [ ] **1.3** Write a test asserting no track ID appears in both splits
+- [x] **1.3** Write a test asserting no track ID appears in both splits
+      — `tests/test_split.py`, 13 tests, ~1 s (`poetry run pytest`). Covers leakage,
+      the correctness premises (single-class tracks, composite key), stratification and
+      determinism. **Measured the hazard: a naive random per-image split puts 1,305 of
+      1,307 tracks on both sides, and 100% of val images (7,808/7,808) have a sibling
+      frame in train.** See `docs/report-material/04-splitting-protocol.md`.
 - [ ] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
 - [ ] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
 - [ ] **1.6** Append all results to one tidy CSV: `method, preproc, degradation, level, metric, value`

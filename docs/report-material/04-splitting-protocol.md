@@ -3,7 +3,7 @@
 **Feeds:** Methodology → experimental protocol. This is one of the two things the project
 plan marks as "never cut", so it deserves explicit treatment in the report rather than a
 passing mention.
-**Status:** complete (task 1.2)
+**Status:** complete (tasks 1.2, 1.3)
 
 Implemented as `gtsrb.data.assign_split()` / `train_val_split()`.
 
@@ -23,6 +23,26 @@ The number it reports is inflated and the model selection it drives is unreliabl
 
 This is not a hypothetical concern with GTSRB — it is the standard mistake, and it is
 invisible: nothing errors, and the inflated accuracy looks like success.
+
+### How bad it actually is — measured
+
+A structural measurement, requiring no trained model. Taking a naive random 80/20 split by
+image:
+
+| | |
+|---|---|
+| Tracks appearing on **both** sides | **1 305 of 1 307** (99.8 %) |
+| Validation images with a sibling frame in train | **7 808 of 7 808** (**100 %**) |
+
+**Not one single validation image would be free of contamination.** Every one of them
+would have up to 29 near-duplicate frames of the same physical sign sitting in the
+training set. Under such a split, validation accuracy is not a weakly optimistic estimate
+of generalisation — it is very close to a pure measurement of memorisation.
+
+This number belongs in the report. It is cheap, exact, and far more convincing than the
+usual assertion that "a random split leaks"; it also motivates the protocol before any
+result is shown. Task 4.5 (Q2) completes the picture by measuring the resulting *accuracy*
+inflation.
 
 ## The apparent conflict, and why it dissolves
 
@@ -82,8 +102,24 @@ on-disk manifest:
 
 Both properties are verified, not assumed: repeated calls return identical assignments, and
 shuffling the input dataframe (`sample(frac=1)`) produces the same assignment after
-reindexing. Task 1.3 makes the disjointness property a permanent test rather than a
-one-off check.
+reindexing.
+
+## Enforcement (task 1.3)
+
+`tests/test_split.py` — 13 tests, ~1 s. The suite covers the required assertion (no track
+on both sides) plus the properties the correctness argument depends on, so that the
+argument cannot silently stop holding:
+
+| Group | What is pinned |
+|---|---|
+| Leakage | no track and no image on both sides; the split is an exact partition |
+| Correctness premises | every track is single-class; `track_id` is the composite key, not the raw prefix; no track exceeds 30 frames |
+| Stratification | all 43 classes on both sides; ≥1 track per class per side; overall fraction ≈ 0.2; per-class fraction within quantisation bounds |
+| Determinism | repeatable; independent of input row order; rejects invalid fractions |
+
+The suite was checked against the failures it exists to catch, rather than only being
+observed to pass: a random per-image split trips the disjointness test on 1 305 tracks,
+and the raw-prefix key yields 75 groups where the composite key yields 1 307.
 
 ---
 
