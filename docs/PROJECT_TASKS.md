@@ -182,7 +182,14 @@ image with perturbed coordinates rather than faking it with padding.
       `config.CLASS_NAMES`. **All metrics pinned to `labels=range(43)`** — inferred labels
       would silently yield a 42×42 matrix on degraded runs where a class is never
       predicted. 10 tests. See `docs/report-material/05-evaluation-metrics.md`.
-- [ ] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
+- [x] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
+      — `gtsrb.timing`: `time_training()`, `time_inference()`, and `platform_info()` →
+      `results/platform.json` (CPU, RAM, OS, pinned threads, **achieved** BLAS/torch thread
+      counts, load average, library versions, git commit). Warmup discard justified
+      empirically: first call measured **4.5× slower** than the median. 10 tests.
+      **Timings are relative costs in one recorded environment, not deployment latency —
+      porting to a target platform can reorder the ranking, and the CNN is systematically
+      penalised by the absence of a GPU.** See `docs/report-material/06-cost-measurement.md`.
 - [ ] **1.6** Append all results to one tidy CSV: `method, preproc, degradation, level, metric, value`
 - [ ] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
 - [ ] **2.2** Three named configs for the ablation: `raw_gray`, `clahe_gray`, `clahe_hsv`
@@ -307,5 +314,8 @@ Those are what make this a study rather than a tutorial.
   execution order, so methods would be compared on different pixels. Use
   `config.rng_for(degradation, level, index)`, which derives the seed from content.
 - **Timing** — discard the first inference call (lazy init / cache warmup); median of ≥3 runs.
+  Confirmed at task 1.5: the first call ran **4.5× slower** than the median. Always record
+  `platform.json` with the numbers — a duration without its environment is uninterpretable,
+  and the timings are relative, not deployment latency.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
 - **CNN feature extraction** — put the model in `eval()` and wrap in `torch.no_grad()`, or the penultimate features will carry dropout noise.

@@ -29,6 +29,7 @@ Distinct from:
 | [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (task 0.3) |
 | [04-splitting-protocol.md](04-splitting-protocol.md) | Methodology → experimental protocol | complete (tasks 1.2, 1.3) |
 | [05-evaluation-metrics.md](05-evaluation-metrics.md) | Methodology → evaluation; Table 1; figs 9.2–9.4 | complete (task 1.4) |
+| [06-cost-measurement.md](06-cost-measurement.md) | Methodology → cost; Table 1; **Limitations** | complete (task 1.5) |
 
 <!-- Add a row per note as it is created. Keep status honest: in progress / complete / stale. -->
 
