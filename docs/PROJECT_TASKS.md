@@ -176,7 +176,12 @@ image with perturbed coordinates rather than faking it with padding.
       determinism. **Measured the hazard: a naive random per-image split puts 1,305 of
       1,307 tracks on both sides, and 100% of val images (7,808/7,808) have a sibling
       frame in train.** See `docs/report-material/04-splitting-protocol.md`.
-- [ ] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
+- [x] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
+      — `gtsrb.evaluation.evaluate()` returns one `ClassificationResult` with all of them,
+      plus `most_confused_pairs()` (9.3), `accuracy_by_group()`/`size_buckets()` (9.4) and
+      `config.CLASS_NAMES`. **All metrics pinned to `labels=range(43)`** — inferred labels
+      would silently yield a 42×42 matrix on degraded runs where a class is never
+      predicted. 10 tests. See `docs/report-material/05-evaluation-metrics.md`.
 - [ ] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
 - [ ] **1.6** Append all results to one tidy CSV: `method, preproc, degradation, level, metric, value`
 - [ ] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
