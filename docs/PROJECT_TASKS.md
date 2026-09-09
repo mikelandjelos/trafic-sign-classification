@@ -113,10 +113,17 @@ reconfigure for small square crops — use `skimage.feature.hog`.
 ### Critical: track-disjoint splitting
 
 Training images are grouped into **tracks of 30 frames of the same physical sign**
-(filenames `TTTTT_FFFFF.ppm`, `TTTTT` = track ID). A random train/val split puts
-near-duplicate frames of the same sign on both sides and inflates validation accuracy.
+(filenames `TTTTT_FFFFF.ppm`). A random train/val split puts near-duplicate frames of the
+same sign on both sides and inflates validation accuracy.
 
-**Split by track ID, never by image.** State this explicitly in the report.
+**Split by track, never by image.** State this explicitly in the report.
+
+> **Verified at task 0.2 — `TTTTT` is NOT a global track ID.** The numbering restarts at
+> `00000` inside every class directory: 39,209 images yield only **75** distinct raw
+> prefixes but **1,307** distinct `(class_id, track_id)` pairs (30 frames each, except one
+> 29-frame track in class 33). **The track key must be `(class_id, track_id)`.** Using the
+> raw prefix collapses 1,307 tracks into 75 groups, wrecks per-class stratification, and
+> fails silently. See `docs/report-material/02-dataset-structure.md`.
 
 Annotation CSVs give per-image `Width`, `Height`, `Roi.X1/Y1/X2/Y2`, `ClassId`. The ROI
 coordinates are what make honest bbox jitter possible — you re-crop from the source
@@ -128,8 +135,15 @@ image with perturbed coordinates rather than faking it with padding.
 
 ### Day 1 — Infrastructure (~5.5 h)
 
-- [ ] **0.1** venv, install stack, verify `cv2.SIFT_create` exists *(task 0 = 1.0 h)*
-- [ ] **0.2** Download GTSRB, verify counts: 39,209 / 12,630 / 43
+- [x] **0.1** venv, install stack, verify `cv2.SIFT_create` exists *(task 0 = 1.0 h)*
+      — Python 3.11.11 (pyenv) + Poetry, groups `main` / `research` / `dev`; torch from
+      the explicit CPU index. Verified by `scripts/verify_env.py` (6/6 checks, incl. a
+      real dense `sift.compute()` returning `(9, 128)`). See
+      `docs/report-material/01-environment-and-setup.md`.
+- [x] **0.2** Download GTSRB, verify counts: 39,209 / 12,630 / 43
+      — `scripts/download_data.py` (idempotent; sha256 → `data/CHECKSUMS.txt`). All five
+      count checks pass. **Found: `TTTTT` restarts per class dir — 75 raw prefixes vs
+      1307 real `(class, track)` pairs.** See `docs/report-material/02-dataset-structure.md`.
 - [ ] **0.3** `config.py` with one global seed; seed numpy, torch, sklearn
 - [ ] **1.1** Parse annotation CSVs → dataframe: `path, class_id, track_id, roi_*, w, h` *(task 1 = 2.5 h)*
 - [ ] **1.2** Track-disjoint train/val split (80/20 by track ID, stratified by class)
@@ -188,7 +202,8 @@ image with perturbed coordinates rather than faking it with padding.
 
 ### Day 5 — Report (Serbian)
 
-- [ ] Write up per the proposal structure
+- [ ] Write up, has same formatting as the proposal, but needs to be created based on this research and the implementation:
+  - [ ] consult and brainstorm about sections, before starting to write -- the structure needs to be scaffolded firstly;
 
 ---
 
@@ -240,6 +255,8 @@ Those are what make this a study rather than a tutorial.
 ## 10. Known gotchas
 
 - **Track leakage** — split by track, assert it. See §5.
+- **Track ID is class-scoped** — `TTTTT` restarts per class directory; the key is
+  `(class_id, track_id)`. 75 raw prefixes vs 1,307 real tracks. Confirmed at task 0.2.
 - **Detector SIFT returns zero keypoints** on small crops, silently breaking BoVW. Use dense SIFT.
 - **`SVC(kernel='rbf')`** on 39k samples will run for hours. `LinearSVC`.
 - **Class imbalance** — GTSRB classes differ ~10×. Report macro-F1, not just accuracy. Consider `class_weight='balanced'`.

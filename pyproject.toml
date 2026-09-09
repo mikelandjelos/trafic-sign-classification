@@ -1,0 +1,59 @@
+[tool.poetry]
+name = "gtsrb-representations"
+version = "0.1.0"
+description = "Controlled comparison of image representations (PCA, HOG, BoVW, CNN) for GTSRB traffic sign recognition"
+authors = ["Mihajlo Madić <mihajlo.madic@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "gtsrb", from = "src" }]
+
+# --- core: everything src/gtsrb/ imports -------------------------------------
+# `poetry install --only main` must be enough to reproduce results.csv.
+[tool.poetry.dependencies]
+python = "~3.11"
+numpy = ">=2.1"
+# Upper bounds are deliberate, not laziness. OpenCV 5.0 and pandas 3.0 both resolved
+# cleanly and passed every task-0.1 check, but both carry behaviour changes that fail
+# *quietly* rather than loudly: pandas 3.0 makes copy-on-write default (chained
+# assignment silently becomes a no-op, which would hit the annotation dataframe in
+# task 1.1), and OpenCV 5.0 is a major API break relative to the 4.x that every course
+# reference and tutorial assumes. For a short project, matching the reference material
+# beats being current. See docs/report-material/01-environment-and-setup.md.
+pandas = ">=2.2,<3"
+opencv-python = ">=4.10,<5"
+scikit-image = ">=0.24"
+scikit-learn = ">=1.5"
+matplotlib = ">=3.9"
+tqdm = ">=4.66"
+torch = { version = ">=2.5", source = "pytorch-cpu" }
+
+# --- research: notebooks only, never imported by the package -----------------
+[tool.poetry.group.research.dependencies]
+jupyterlab = ">=4.2"
+ipykernel = ">=6.29"
+seaborn = ">=0.13"
+
+# --- dev: tests and linting --------------------------------------------------
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3"
+ruff = ">=0.6"
+
+# CPU-only wheels. `priority = "explicit"` means this index is consulted *only*
+# for dependencies that name it, so nothing else accidentally resolves here --
+# and torch never pulls the ~2.5 GB CUDA build. No usable GPU on this machine
+# (AMD Vega iGPU, ROCm unsupported); see docs/PROJECT_TASKS.md section 3.
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

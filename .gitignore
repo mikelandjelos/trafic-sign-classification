@@ -219,3 +219,42 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- GTSRB project -----------------------------------------------------------
+
+# Dataset: ~350 MB of archives, ~1 GB extracted. Re-downloadable from the
+# sid.erda.dk mirror by scripts/download_data.py -- never committed.
+data/
+
+# Preprocessed image caches (task 2.3) and model checkpoints -- regenerable.
+*.npy
+results/*.pt
+results/*.joblib
+
+# Generated figures -- regenerable from scripts/, kept out of git to avoid
+# binary churn. Final report figures are copied into docs/report/ explicitly.
+figures/
+
+# results.csv is a DELIVERABLE and IS committed -- do not add it here.
+
+# LaTeX build artifacts (docs/proposition/, docs/report/)
+*.aux
+*.bbl
+*.blg
+*.out
+*.synctex.gz
+*.toc
+*.fdb_latexmk
+*.fls
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+!*.code-workspace
+
+# Built Visual Studio Code Extensions
+*.vsix
