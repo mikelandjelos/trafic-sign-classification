@@ -79,8 +79,14 @@ absence of a usable GPU.
 | CPU-only | `MiniBatchKMeans` for the BoVW vocabulary — full `KMeans` on ~600k descriptors would fit in RAM but is needlessly slow. |
 | CPU-only | Randomized SVD for PCA (`svd_solver='randomized'`). |
 
-Pin thread counts explicitly (`torch.set_num_threads`, `OMP_NUM_THREADS`) — sklearn and
-torch each grabbing 16 threads will thrash.
+Pin thread counts explicitly — sklearn and torch each grabbing 16 threads will thrash.
+
+> **Verified at task 0.3:** `OMP_NUM_THREADS` alone is **not sufficient**. BLAS backends
+> read it only at their own import time, and an import sorter places `import numpy` above
+> a first-party `from gtsrb import config` — so the pinning is silently inert in exactly
+> the scripts that matter. `gtsrb.config.set_seeds()` clamps the already-loaded pools at
+> runtime via `threadpoolctl`; env vars are kept only for subprocesses. Pinned to 8
+> (physical cores), not 16 (SMT).
 
 ---
 
@@ -144,7 +150,12 @@ image with perturbed coordinates rather than faking it with padding.
       — `scripts/download_data.py` (idempotent; sha256 → `data/CHECKSUMS.txt`). All five
       count checks pass. **Found: `TTTTT` restarts per class dir — 75 raw prefixes vs
       1307 real `(class, track)` pairs.** See `docs/report-material/02-dataset-structure.md`.
-- [ ] **0.3** `config.py` with one global seed; seed numpy, torch, sklearn
+- [x] **0.3** `config.py` with one global seed; seed numpy, torch, sklearn
+      — `src/gtsrb/config.py`: `SEED=42`, `set_seeds()`, paths, dataset constants, and
+      `rng_for(*parts)` for **order-independent** degradation seeding (content-derived, so
+      all 5 methods see identical degraded pixels at task 8.1). Threads pinned to 8 at
+      runtime via `threadpoolctl` — env vars alone are inert once an import sorter puts
+      `import numpy` first. See `docs/report-material/03-reproducibility.md`.
 - [ ] **1.1** Parse annotation CSVs → dataframe: `path, class_id, track_id, roi_*, w, h` *(task 1 = 2.5 h)*
 - [ ] **1.2** Track-disjoint train/val split (80/20 by track ID, stratified by class)
 - [ ] **1.3** Write a test asserting no track ID appears in both splits
@@ -260,7 +271,11 @@ Those are what make this a study rather than a tutorial.
 - **Detector SIFT returns zero keypoints** on small crops, silently breaking BoVW. Use dense SIFT.
 - **`SVC(kernel='rbf')`** on 39k samples will run for hours. `LinearSVC`.
 - **Class imbalance** — GTSRB classes differ ~10×. Report macro-F1, not just accuracy. Consider `class_weight='balanced'`.
-- **BLAS oversubscription** — pin thread counts for sklearn and torch.
+- **BLAS oversubscription** — pin thread counts for sklearn and torch, at *runtime*
+  (`threadpoolctl`), not just via env vars. See §3. Confirmed at task 0.3.
+- **Degradation seeding** — seeding once at startup makes the degraded test set depend on
+  execution order, so methods would be compared on different pixels. Use
+  `config.rng_for(degradation, level, index)`, which derives the seed from content.
 - **Timing** — discard the first inference call (lazy init / cache warmup); median of ≥3 runs.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
 - **CNN feature extraction** — put the model in `eval()` and wrap in `torch.no_grad()`, or the penultimate features will carry dropout noise.

@@ -26,6 +26,7 @@ Distinct from:
 |---|---|---|
 | [01-environment-and-setup.md](01-environment-and-setup.md) | Methodology → reproducibility; Appendix | complete (task 0.1) |
 | [02-dataset-structure.md](02-dataset-structure.md) | Data; Methodology → train/val protocol | complete (task 0.2) |
+| [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (task 0.3) |
 
 <!-- Add a row per note as it is created. Keep status honest: in progress / complete / stale. -->
 

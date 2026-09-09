@@ -18,18 +18,16 @@ extraction if the expected file counts are already on disk.
 from __future__ import annotations
 
 import hashlib
-import sys
 import urllib.request
 import zipfile
 from pathlib import Path
 
 from tqdm import tqdm
 
-# NOTE: task 0.3 introduces src/gtsrb/config.py, which will own these paths and the
-# global seed; this script imports from it once that exists.
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = PROJECT_ROOT / "data"
-RAW_DIR = DATA_DIR / "raw"
+from gtsrb import config
+
+DATA_DIR = config.DATA_DIR
+RAW_DIR = config.RAW_DIR
 
 BASE_URL = "https://sid.erda.dk/public/archives/daaeac0d7ce1152aea9b61d9f1e19370"
 ARCHIVES = {
@@ -38,10 +36,10 @@ ARCHIVES = {
     "GTSRB_Final_Test_GT.zip": "test labels: GT-final_test.csv",
 }
 
-# Acceptance criteria for task 0.2, from the GTSRB paper.
-EXPECTED_TRAIN_IMAGES = 39_209
-EXPECTED_TEST_IMAGES = 12_630
-EXPECTED_CLASSES = 43
+# Acceptance criteria for task 0.2, from the GTSRB paper. Owned by gtsrb.config.
+EXPECTED_TRAIN_IMAGES = config.N_TRAIN_IMAGES
+EXPECTED_TEST_IMAGES = config.N_TEST_IMAGES
+EXPECTED_CLASSES = config.N_CLASSES
 
 
 class _DownloadProgress(tqdm):
@@ -56,7 +54,7 @@ def download(name: str, dest: Path) -> Path:
     url = f"{BASE_URL}/{name}"
     target = dest / name
 
-    with urllib.request.urlopen(url) as response:  # noqa: S310 - fixed, known https URL
+    with urllib.request.urlopen(url) as response:
         remote_size = int(response.headers.get("Content-Length", 0))
 
     if target.exists() and remote_size and target.stat().st_size == remote_size:
@@ -67,7 +65,7 @@ def download(name: str, dest: Path) -> Path:
         print(f"  refetch  {name} (size {target.stat().st_size} != remote {remote_size})")
 
     with _DownloadProgress(unit="B", unit_scale=True, unit_divisor=1024, desc=f"  {name}") as bar:
-        urllib.request.urlretrieve(url, target, reporthook=bar.update_to)  # noqa: S310
+        urllib.request.urlretrieve(url, target, reporthook=bar.update_to)
     return target
 
 
