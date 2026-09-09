@@ -190,7 +190,14 @@ image with perturbed coordinates rather than faking it with padding.
       **Timings are relative costs in one recorded environment, not deployment latency —
       porting to a target platform can reorder the ranking, and the CNN is systematically
       penalised by the absence of a GPU.** See `docs/report-material/06-cost-measurement.md`.
-- [ ] **1.6** Append all results to one tidy CSV: `method, preproc, degradation, level, metric, value`
+- [x] **1.6** Append all results to one tidy CSV:
+      `run_id, method, preproc, degradation, level, metric, value`
+      — `gtsrb.results`. **`run_id` added to the planned schema** (`<timestamp>-<commit>`):
+      the file is append-only so runs coexist, and a commit alone can't separate two runs
+      or survive a dirty tree; it keys into `results/platform_<run_id>.json`, which holds
+      the commit. `pivot()` refuses to silently average levels/runs; `append_rows()` refuses
+      NaN; `check_complete()` reports missing grid cells for 8.3. 19 tests.
+      See `docs/report-material/07-results-table.md`.
 - [ ] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
 - [ ] **2.2** Three named configs for the ablation: `raw_gray`, `clahe_gray`, `clahe_hsv`
 - [ ] **2.3** Cached loader — preprocess once, store uint8 `.npy`, reload fast

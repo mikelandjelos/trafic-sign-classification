@@ -76,7 +76,7 @@ def _total_ram_gb() -> float | None:
     return None
 
 
-def _git_commit() -> str | None:
+def git_commit() -> str | None:
     """The commit the measurement was taken at -- makes a timing row traceable to code."""
     try:
         result = subprocess.run(
@@ -126,7 +126,7 @@ def platform_info() -> dict:
 
     return {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "git_commit": _git_commit(),
+        "git_commit": git_commit(),
         "cpu": _cpu_model(),
         "cpu_count_logical": os.cpu_count(),
         "ram_gb": _total_ram_gb(),
