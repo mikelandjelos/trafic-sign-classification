@@ -156,7 +156,13 @@ image with perturbed coordinates rather than faking it with padding.
       all 5 methods see identical degraded pixels at task 8.1). Threads pinned to 8 at
       runtime via `threadpoolctl` — env vars alone are inert once an import sorter puts
       `import numpy` first. See `docs/report-material/03-reproducibility.md`.
-- [ ] **1.1** Parse annotation CSVs → dataframe: `path, class_id, track_id, roi_*, w, h` *(task 1 = 2.5 h)*
+- [x] **1.1** Parse annotation CSVs → dataframe: `path, class_id, track_id, roi_*, w, h` *(task 1 = 2.5 h)*
+      — `src/gtsrb/data.py`, `load_annotations("train"|"test")`. `track_id` is the
+      composite `CCCCC_TTTTT` (globally unique by construction); `roi_w`/`roi_h` derived
+      for task 9.4. Validates row counts, class range, ROI-within-bounds, track count and
+      one-class-per-track. **Gotcha: use `data/GT-final_test.csv`, not
+      `Final_Test/Images/GT-final_test.test.csv` — the latter has no `ClassId` but the same
+      12,630 rows.** Stats in `docs/report-material/02-dataset-structure.md`.
 - [ ] **1.2** Track-disjoint train/val split (80/20 by track ID, stratified by class)
 - [ ] **1.3** Write a test asserting no track ID appears in both splits
 - [ ] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
@@ -270,7 +276,11 @@ Those are what make this a study rather than a tutorial.
   `(class_id, track_id)`. 75 raw prefixes vs 1,307 real tracks. Confirmed at task 0.2.
 - **Detector SIFT returns zero keypoints** on small crops, silently breaking BoVW. Use dense SIFT.
 - **`SVC(kernel='rbf')`** on 39k samples will run for hours. `LinearSVC`.
-- **Class imbalance** — GTSRB classes differ ~10×. Report macro-F1, not just accuracy. Consider `class_weight='balanced'`.
+- **Class imbalance** — measured at task 1.1: **10.7×** train (210 for class 0 vs 2,250 for
+  class 2), 12.5× test. Report macro-F1, not just accuracy. Consider `class_weight='balanced'`.
+- **Two test GT files** — `data/GT-final_test.csv` has `ClassId`;
+  `Final_Test/Images/GT-final_test.test.csv` does not. Same row count, so the wrong one
+  passes every count check. `config.TEST_GT_CSV` names the right one.
 - **BLAS oversubscription** — pin thread counts for sklearn and torch, at *runtime*
   (`threadpoolctl`), not just via env vars. See §3. Confirmed at task 0.3.
 - **Degradation seeding** — seeding once at startup makes the degraded test set depend on

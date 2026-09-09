@@ -3,7 +3,7 @@
 **Feeds:** Data section; Methodology → train/val protocol. The track finding below is
 report-worthy in its own right — it is a concrete instance of the leakage hazard the
 proposal already commits to addressing.
-**Status:** complete (task 0.2)
+**Status:** complete (tasks 0.2, 1.1)
 
 ---
 
@@ -96,6 +96,51 @@ final reporting, and all model selection happens on the track-disjoint validatio
 carved out of the training data.
 
 ---
+
+## Dataset statistics (task 1.1)
+
+Produced by `gtsrb.data.load_annotations()`; regenerate with `python -m gtsrb.data`.
+
+| | train | test |
+|---|---|---|
+| Images | 39 209 | 12 630 |
+| Classes | 43 | 43 |
+| Tracks | 1 307 (29–30 frames) | n/a — single frames |
+| Smallest class | 210 (class 0) | 60 (class 27) |
+| Largest class | 2 250 (class 2) | 750 (class 2) |
+| Imbalance ratio | **10.7×** | 12.5× |
+| Image width | 25–243 px | 25–266 px |
+| Image height | 25–225 px | 25–232 px |
+| ROI height | 15 / 32 / 185 (min/median/max) | 15 / 32 / 193 |
+
+**Class imbalance is 10.7×**, confirming the figure the project plan assumed. This is why
+**macro-F1 must be reported alongside accuracy**: a classifier that simply neglects class 0
+(210 images, 0.5 % of the training set) loses almost nothing in accuracy. `class_weight='balanced'`
+is the corresponding knob on `LinearSVC`.
+
+### Size distribution — free groundwork for task 9.4
+
+Bucketing by ROI height, the accuracy-vs-size figure's x-axis:
+
+| ROI height | [0, 32) | [32, 48) | [48, 72) | [72, ∞) |
+|---|---|---|---|---|
+| train | 18 652 (47.6 %) | 10 996 (28.0 %) | 6 440 (16.4 %) | 3 121 (8.0 %) |
+| test | 6 022 (**47.7 %**) | 3 550 (**28.1 %**) | 2 054 (**16.3 %**) | 1 004 (**7.9 %**) |
+
+Two things worth stating in the report:
+
+1. **The test split is size-representative of train** — the four proportions agree to
+   within 0.1 pp. So the size-stratified analysis at task 9.4 measures a genuine
+   representation × scale effect and is not confounded by a train/test distribution shift.
+2. **Nearly half of all signs are under 32 px**, and the smallest ROI is 15 px. This is not
+   a corner case to note in passing — it is the modal condition. It also means the
+   `[0, 32)` bucket has 6 022 test images, enough for per-class conclusions rather than
+   anecdote, and it sharpens the prediction that BoVW will struggle where dense SIFT
+   descriptors have too little support.
+
+Every crop is upsampled or downsampled to 48×48, so images below that are being
+*interpolated up* — a detail that matters when interpreting why the smallest bucket is
+hard for the gradient-based representations.
 
 ## Incidental: an extraction bug worth remembering
 

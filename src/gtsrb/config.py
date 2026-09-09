@@ -78,6 +78,14 @@ TRAIN_IMAGES_DIR: Path = GTSRB_DIR / "Final_Training" / "Images"
 TEST_IMAGES_DIR: Path = GTSRB_DIR / "Final_Test" / "Images"
 CACHE_DIR: Path = DATA_DIR / "cache"  # preprocessed uint8 .npy arrays (task 2.3)
 
+# Test ground truth. NOTE there are two files and only one is usable:
+#   TEST_GT_CSV            -- has ClassId. This is the one to load.
+#   Final_Test/Images/GT-final_test.test.csv -- the blind-competition version, NO ClassId,
+#                             and it sits next to the images. Same 12 630 rows, so picking
+#                             it by mistake does not fail any count check.
+TEST_GT_CSV: Path = DATA_DIR / "GT-final_test.csv"
+TEST_GT_UNLABELLED_CSV: Path = TEST_IMAGES_DIR / "GT-final_test.test.csv"
+
 RESULTS_DIR: Path = PROJECT_ROOT / "results"
 RESULTS_CSV: Path = RESULTS_DIR / "results.csv"  # the tidy results table (task 1.6)
 MODELS_DIR: Path = RESULTS_DIR / "models"
