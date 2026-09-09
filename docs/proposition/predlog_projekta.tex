@@ -1,0 +1,281 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{array}
+\usepackage{soul}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\geometry{margin=2.2cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+\setlist[itemize]{leftmargin=1.2cm,itemsep=2pt,topsep=4pt}
+\setlist[enumerate]{leftmargin=1.0cm,itemsep=4pt,topsep=6pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.2}
+
+\newcommand{\mvp}[1]{{\setulcolor{ForestGreen}\ul{#1}}}
+\newcommand{\str}[1]{{\setulcolor{BurntOrange}\ul{#1}}}
+
+% Ukloni automatski naslov ("References") iz thebibliography okruženja
+\makeatletter
+\renewenvironment{thebibliography}[1]
+     {\list{\@biblabel{\@arabic\c@enumiv}}%
+           {\settowidth\labelwidth{\@biblabel{#1}}%
+            \leftmargin\labelwidth
+            \advance\leftmargin\labelsep
+            \@openbib@code
+            \usecounter{enumiv}%
+            \let\p@enumiv\@empty
+            \renewcommand\theenumiv{\@arabic\c@enumiv}}%
+      \sloppy
+      \clubpenalty4000
+      \@clubpenalty \clubpenalty
+      \widowpenalty4000%
+      \sfcode`\.\@m}
+     {\def\@noitemerr
+       {\@latex@warning{Empty `thebibliography' environment}}%
+      \endlist}
+\makeatother
+
+\begin{document}
+
+\begin{center}
+{\Large Univerzitet u Nišu\\Elektronski fakultet}\\[1.2cm]
+{\LARGE \textbf{Predlog projekta iz predmeta Računarski vid}}\\[0.6cm]
+{\Large \textbf{Poređenje reprezentacija slike za prepoznavanje saobraćajnih znakova: analiza tačnosti, robusnosti i efikasnosti}}\\[1.2cm]
+{\large Student: Mihajlo Madić, broj indeksa 2119}\\[0.3cm]
+{\large Niš, 2026.}
+\end{center}
+
+\vspace{0.6cm}
+
+\section*{1. Naziv i kratak opis projekta}
+
+\textbf{Naziv projekta:} \textit{Poređenje reprezentacija slike za prepoznavanje saobraćajnih znakova: analiza tačnosti, robusnosti i efikasnosti.}
+
+Cilj projekta je sistematsko poređenje četiri različite reprezentacije~\cite{repr-learning} slike saobraćajnog znaka, od kojih su tri dobijene "klasičnim" metodima, a jedna je naučena -- metodama dubokog učenja. Date reprezentacije se koriste za izradu rešenja klasifikacije saobraćajnih znakova, nad GTSRB~\cite{gtsrb} (\textit{German Traffic Sign Recognition Benchmark}) skupom podataka, koji će biti korišćen za razvoj i evaluaciju rešenja. Ulaz sistema je isečak slike (eng. \textit{crop}), dimenzija između $15\times15$ i $250\times250$ piksela, koji sadrži tačno jedan saobraćajni znak, a izlaz je jedna od 43 klase znakova.
+
+Suština projekta nije u postizanju najviše moguće tačnosti klasifikacije, GTSRB je zasićen skup podataka na kome savremene konvolucione mreže prelaze $99\%$~\cite{ciresan}, već u \textbf{analizi pod kojim uslovima je koja reprezentacija primenljiva}. Četiri posmatrane reprezentacije se razlikuju po više strukturnih osobina istovremeno (globalna nasuprot lokalnoj, sa očuvanim nasuprot odbačenim prostornim rasporedom, ručno projektovana tj. "klasična" nasuprot naučenoj), pa se očekuje da \mvp{redosled uspešnosti metoda zavisi od vrste degradacije ulazne slike}. Upravo ta \textit{interakcija} između reprezentacije i tipa degradacije predstavlja glavni rezultat projekta\footnote{Kroz ceo dokument su \textcolor{ForestGreen}{zelenom bojom} podvučeni elementi koji čine minimalni skup rezultata -- ono što autor smatra da mora biti realizovano da bi se projekat smatrao uspešnim. \textcolor{BurntOrange}{Narandžastom bojom} podvučen je \emph{prošireni skup ciljeva}, koji se realizuju samo ako vreme i resursi dozvole.}. 
+
+Ovakva postavka problema je relevantna zato što daje informaciju pri odabiru date reprezentacije u implementaciji realnog sistema. U realnim okolnostima, odabir određene reprezentacije mora biti donešen u skladu sa nedostacima sistema u okviru koga se dati klasifikator koristi, a u toj odluci je najrelevantnija otpornost klasifikatora na onu vrstu degradacije koja u datoj primeni dominira, npr. zamućenje usled kretanja, šum pri slabom osvetljenju ili nepreciznost izlaza detektora.
+
+\section*{2. Projektni tim}
+
+\begin{tabular}{|>{\raggedright\arraybackslash}p{7cm}|>{\raggedright\arraybackslash}p{4cm}|}
+\hline
+\textbf{Ime i prezime} & \textbf{Broj indeksa} \\
+\hline
+Mihajlo Madić & 2119 \\
+\hline
+\end{tabular} \\
+
+\newpage
+
+\section*{3. Kategorija projekta}
+
+Projekat pripada \textbf{tehnološkoj kategoriji}, sa \textit{eksperimentalno-analitičkim} karakterom.
+
+Tehnološki deo je u implementaciji i praktičnom poređenju metoda obrađenih na časovima -- PCA (metod sopstvenih vektora, isti princip kao Eigenfaces~\cite{eigenfaces}), HOG deskriptora~\cite{hog}, metoda vreća vizuelnih reči nad SIFT deskriptorima~\cite{sift, bovw}, i konvolucione neuronske mreže -- ali u okviru jedinstvenog, kontrolisanog eksperimentalnog protokola. Za razliku od primera sa časova, gde se svaka od ovih metoda demonstrira izolovano i na sopstvenom skupu podataka, ovde se sve metode primenjuju na isti skup, uz isti pretprocesing, isti klasifikator i istu metodologiju evaluacije, čime se razlike u rezultatima mogu pripisati isključivo samoj reprezentaciji.
+
+Analitički deo je u tome što se ne izveštavaju samo skalarne vrednosti tačnosti, već i ponašanje metoda pod kontrolisanim degradacijama ulaza, uz unapred zapisana očekivanja i njihovu naknadnu proveru.
+
+\section*{4. Detaljniji opis projekta i očekivani rezultati}
+
+\subsection*{4.1 Kontekst -- mesto projekta u širem sistemu}
+
+Kompletan sistem za prepoznavanje i razumevanje saobraćajne signalizacije iz video snimka, snimljenog kamerom uperenom u smeru kretanja vozila, u literaturi se standardno razlaže na fazu detekcije i fazu klasifikacije~\cite{tsr-survey, gtsdb}. Radi preciznijeg razgraničenja opsega ovog projekta, ta podela je ovde dodatno raščlanjena na pet modula:
+
+\begin{center}
+\begin{tabular}{|c|p{7.6cm}|p{4.6cm}|}
+\hline
+\textbf{Modul} & \textbf{Uloga} & \textbf{Status u ovom projektu} \\
+\hline
+M1 & \textbf{Detekcija / lokalizacija} -- pronalaženje kandidatnih regiona koji sadrže znak u punom kadru & \textit{Van opsega} \\
+\hline
+M2 & \textbf{Praćenje} -- propagacija detektovanog regiona kroz naredne kadrove pomoću optičkog toka, radi uštede računskih resursa & \textit{Van opsega} \\
+\hline
+M3 & \textbf{Prepoznavanje (klasifikacija)} -- dodeljivanje klase izdvojenom isečku & \textbf{\mvp{Predmet ovog projekta}} \\
+\hline
+M4 & \textbf{Vremenska agregacija} -- objedinjavanje odluka po jednom fizičkom znaku kroz više kadrova & \textit{Van opsega} \\
+\hline
+M5 & \textbf{Semantičko tumačenje} -- prevođenje prepoznatih znakova u ograničenja i preporuke za vozilo & \textit{Van opsega} \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Ovaj projekat realizuje isključivo modul M3, i to nad isečcima čije su granice date anotacijom skupa podataka, a ne izlazom detektora.} Moduli M1, M2, M4 i M5 se u ovom dokumentu opisuju samo radi kontekstualizacije -- oni nisu deo predmeta rada, ne implementiraju se, i ne evaluiraju se. Ovo ograničenje opsega je namerno i proizilazi iz opsega samog predmeta i vremenskih resursa; obrazloženje i pravac daljeg razvoja dati su u Dodatku A.
+
+Jedan element projekta je ipak svesno oblikovan tako da služi budućem povezivanju sa modulom M1: \mvp{merenje osetljivosti klasifikatora na pomeraj i promenu razmere graničnog okvira} (opisano u odeljku 6). Realan detektor nikada ne daje isečke tako precizno centrirane i uokvirene kao ručna anotacija, pa ovo merenje kvantifikuje koliko bi tačnosti bilo izgubljeno kada bi se modul M3 spojio sa modulom M1.
+
+\subsection*{4.2 Formulacija problema}
+
+\begin{itemize}
+  \item \textbf{Ulaz:} slika $I \in \mathbb{R}^{h \times w \times 3}$, isečak koji sadrži tačno jedan saobraćajni znak; $h, w \in [15, 250]$.
+  \item \textbf{Izlaz:} oznaka klase $\hat{y} \in \{1, \dots, 43\}$.
+  \item \textbf{Zadatak:} naučiti preslikavanje $I \mapsto \hat{y}$ i uporediti kvalitet tog preslikavanja za različite izbore funkcije reprezentacije $\phi(I) \mapsto \mathbf{x} \in \mathbb{R}^d$.
+\end{itemize}
+
+\subsection*{4.3 Posmatrane reprezentacije}
+
+Reprezentacije se razlikuju po strukturnim osobinama koje su navedene u tabeli, i upravo se od tih razlika očekuje različito ponašanje pod različitim degradacijama:
+
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Reprezentacija} & \textbf{Prostorni raspored} & \textbf{Domet} & \textbf{Učena?} \\
+\hline
+PCA & holistički, osetljiv na poravnanje & globalni & ne \\
+\hline
+HOG & kruta mreža, raspored očuvan & lokalni & ne \\
+\hline
+BoVW & \textbf{bez rasporeda}, raspored odbačen & lokalni & samo rečnik \\
+\hline
+CNN & hijerarhijski, invarijantan kroz \textit{pooling} & lokalni & u potpunosti \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Ključna metodološka odluka:} klasifikator se drži \emph{fiksnim} (linearni SVM) za sve četiri reprezentacije, kako bi razlike u rezultatima bile pripisive reprezentaciji, a ne klasifikatoru. Zbog toga se konvoluciona mreža evaluira \mvp{u dve varijante}: (a) kao ekstraktor obeležja, gde se izlaz pretposlednjeg sloja prosleđuje istom linearnom SVM klasifikatoru, čime postaje direktno uporediva sa ostale tri metode; i (b) end-to-end, sa sopstvenim softmax slojem. Ukupno se, dakle, poredi \textbf{pet konfiguracija}.
+
+\subsection*{4.4 Očekivani rezultati}
+
+\begin{itemize}
+  \item \mvp{implementirane sve četiri reprezentacije i pet konfiguracija klasifikacije, nad jedinstvenim protokolom evaluacije};
+  \item \mvp{podela na skupove za trening i validaciju izvršena po \textit{sekvencama} (eng. \textit{track}), a ne po pojedinačnim slikama} -- videti odeljak 6.1;
+  \item \mvp{tabela glavnog poređenja}: tačnost, makro-F1 mera, vreme treniranja, vreme inferencije po slici, veličina modela i dimenzija vektora obeležja;
+  \item \mvp{krive robusnosti} -- tačnost kao funkcija jačine degradacije, za četiri tipa degradacije;
+  \item \mvp{analiza tačnosti u funkciji veličine znaka} -- test skup podeljen u opsege po visini graničnog okvira;
+  \item \mvp{matrice konfuzije} za najbolju i najlošiju metodu, uz tabelu najčešće mešanih parova klasa;
+  \item \mvp{tabela poređenja unapred zapisanih očekivanja sa dobijenim rezultatima}, sa obrazloženjem odstupanja;
+  \item \str{ablaciona analiza pretprocesiranja} -- uticaj ekvalizacije histograma i izbora prostora boja;
+  \item \str{pretraga hiperparametara} za svaku od metoda, umesto podrazumevanih vrednosti;
+  \item \mvp{tehnički izveštaj sa analizom arhitekture rešenja i diskusijom rezultata}.
+\end{itemize}
+
+\newpage
+
+\section*{5. Tehnologije koje će biti korišćene}
+
+\begin{itemize}
+  \item \textbf{Python} kao glavni programski jezik.
+  \item \textbf{OpenCV}~\cite{opencv} za SIFT deskriptore, konverziju prostora boja, CLAHE ekvalizaciju i filtriranje.
+  \item \textbf{scikit-image}~\cite{skimage} za HOG deskriptor -- pogodniji od \texttt{cv2.HOGDescriptor} za male kvadratne isečke, čije su podrazumevane vrednosti podešene za detekciju pešaka u prozoru $64\times128$.
+  \item \textbf{scikit-learn}~\cite{sklearn} za PCA, \texttt{MiniBatchKMeans} (izgradnja vizuelnog rečnika), \texttt{LinearSVC} i metrike.
+  \item \textbf{PyTorch}~\cite{pytorch} za konvolucionu mrežu.
+  \item \textbf{NumPy, Pandas i Matplotlib} za obradu rezultata i generisanje grafika.
+\end{itemize}
+
+\textbf{Napomena o računskim resursima.} Razvojna mašina (AMD Ryzen 7 5800H, 8 jezgara / 16 niti, 13\,GB usable RAM) nema upotrebljiv GPU -- integrisana Vega grafika nije podržana od strane ROCm platforme, a CUDA nije primenljiva. Ceo projekat se stoga izvršava isključivo na procesoru. Ovo ograničenje diktira dve konkretne odluke: koristi se \texttt{LinearSVC} umesto SVM-a sa kernel funkcijom, čija je složenost $O(n^2)$--$O(n^3)$ i koja bi nad 39\,000 uzoraka trajala satima; i koristi se \texttt{MiniBatchKMeans} umesto klasičnog $k$-means algoritma pri izgradnji vizuelnog rečnika. Mala konvoluciona mreža (ispod milion parametara, ulaz $48\times48$) se na 16 niti trenira u prihvatljivom vremenu.
+
+\section*{6. Validacija i podaci za testiranje}
+
+\subsection*{6.1 Skup podataka i podela}
+
+Koristi se \textbf{GTSRB} (\textit{German Traffic Sign Recognition Benchmark})~\cite{gtsrb} -- 43 klase, 39\,209 slika za trening i 12\,630 za testiranje, sa anotacijom koja za svaku sliku sadrži dimenzije, koordinate graničnog okvira znaka unutar isečka, i oznaku klase.
+
+Skup ima osobinu koja se u praksi često previdi, tj. trening slike su grupisane u \textbf{sekvence od po 30 kadrova istog fizičkog znaka}, snimljenih dok mu se vozilo približava. Nasumična podela na trening i validaciju bi zato razdvojila skoro identične kadrove istog znaka na obe strane, što veštački podiže validacionu tačnost. \mvp{Podela se stoga vrši po identifikatoru sekvence, a ne po pojedinačnoj slici}, uz automatsku proveru da nijedna sekvenca ne pripada obema stranama podele.
+
+Klase u GTSRB skupu su izrazito nebalansirane (odnos najzastupljenije i najređe klase je oko $10:1$), zbog čega se pored tačnosti obavezno izveštava i \mvp{makro-F1 mera}, koja svakoj klasi daje jednak značaj.
+
+\subsection*{6.2 Kontrolisane degradacije}
+
+Test skup se evaluira u čistom obliku i pod četiri tipa kontrolisane degradacije, svaki na pet nivoa jačine:
+
+\begin{enumerate}
+  \item \mvp{\textbf{Aditivni Gausov šum}} -- $\sigma \in \{0, 5, 10, 20, 40\}$; simulira šum senzora pri slabom osvetljenju.
+  \item \mvp{\textbf{Zamućenje usled kretanja}} -- dužina jezgra $\in \{0, 3, 5, 9, 15\}$ piksela, nasumičan ugao; simulira kretanje vozila.
+  \item \mvp{\textbf{Promena osvetljenosti}} -- gama korekcija, $\gamma \in \{0.4, 0.7, 1.0, 1.5, 2.5\}$; simulira ekstremne uslove ekspozicije.
+  \item \mvp{\textbf{Pomeraj graničnog okvira}} -- perturbacija okvira za $\{0, 10, 20, 30, 40\}\%$ po razmeri i položaju.
+\end{enumerate}
+
+Četvrta degradacija zaslužuje posebno objašnjenje. Ona se \textbf{ne} realizuje veštačkim dopunjavanjem ivica, već ponovnim isecanjem iz izvorne slike sa pomerenim koordinatama okvira -- što je moguće upravo zato što GTSRB anotacija sadrži koordinate okvira unutar isečka. Posledica je da pri većim pomerajima u isečak ulazi stvarna pozadina, tačno kao što bi se desilo sa izlazom realnog detektora. Ovo merenje je, kao što je objašnjeno u odeljku 4.1, direktna priprema za buduće povezivanje sa modulom M1.
+
+\subsection*{6.3 Metrike}
+
+\begin{itemize}
+  \item \textbf{Tačnost} i \textbf{makro-F1 mera} na test skupu;
+  \item \textbf{F1 mera po klasi} i \textbf{matrica konfuzije};
+  \item \textbf{tačnost po opsezima veličine znaka} -- opsezi $[0,32)$, $[32,48)$, $[48,72)$, $[72,\infty)$ piksela visine okvira; manji znak odgovara većoj udaljenosti u realnom scenariju;
+  \item \textbf{krive robusnosti} -- tačnost u funkciji nivoa svake od četiri degradacije;
+  \item \textbf{cena (\textit{computational price})} -- vreme treniranja, vreme inferencije po slici (medijana iz najmanje tri merenja, uz odbacivanje prvog poziva), veličina modela u megabajtima i dimenzija vektora obeležja.
+\end{itemize}
+
+\subsection*{6.4 Kriterijum uspešnosti}
+
+Projekat se smatra uspešnim ako su sve četiri reprezentacije implementirane i evaluirane nad jedinstvenim protokolom, ako je podela po sekvencama sprovedena i proverena, i ako su dobijene krive robusnosti koje omogućavaju smislenu diskusiju o tome koja metoda otkazuje pod kojim uslovima. \textbf{Uspešnost se ne meri postignutom apsolutnom tačnošću}, jer je GTSRB zasićen skup na kome je visoka tačnost očekivana i sama po sebi ne predstavlja rezultat.
+
+Pre pokretanja eksperimenata biće zapisana konkretna očekivanja o tome koja će reprezentacija biti najrobusnija pod kojom degradacijom, sa obrazloženjem izvedenim iz strukturnih osobina iz tabele u odeljku 4.3. Naknadno poređenje očekivanja sa rezultatima -- uključujući i objašnjenje onih očekivanja koja se nisu ostvarila -- predstavlja jezgro diskusije u izveštaju.
+
+\section*{7. Literatura, linkovi i postojeća rešenja}
+
+\bibliographystyle{unsrt}
+\nocite{szeliski, milosavljevic, laganiere}
+\bibliography{references}
+
+\newpage
+
+\subsection*{Dodatak A -- Razlozi odabira teme}
+
+Tema je izabrana iz tri razloga.
+
+\begin{enumerate}
+	\item Prepoznavanje saobraćajnih znakova je zadatak koji prirodno objedinjuje veliki broj oblasti obrađenih na predmetu -- prostore boja i filtriranje kroz pretprocesiranje, detekciju karakterističnih tačaka i SIFT deskriptor kroz metod vreća vizuelnih reči, generativni pristup prepoznavanju kroz PCA (isti princip kao Eigenfaces metod), diskriminacioni pristup kroz HOG deskriptor, i konvolucione mreže kroz duboko učenje. Umesto da se svaka od ovih tema demonstrira izolovano, one se ovde stavljaju u direktno poređenje.
+
+	\item Opseg projekta je namerno i eksplicitno ograničen na jedan modul šireg sistema. Autor smatra da je pošteno i korisnije realizovati jedan modul do kraja, sa urednom metodologijom i proverljivim rezultatima, nego površno dodirnuti ceo lanac obrade. Moduli koji su ostavljeni van opsega -- detekcija u punom kadru, praćenje kroz optički tok, vremenska agregacija odluka -- opisani su u odeljku 4.1 upravo zato da bi granica bila nedvosmislena.
+
+	\item Projekat je zamišljen kao osnova za dalji rad. Klasifikator razvijen ovde postaje komponenta kompletnog sistema za prepoznavanje saobraćajne signalizacije iz video snimka, čiji bi naredni koraci bili: detekcija kandidatnih regiona nad GTSDB skupom~\cite{gtsdb}, propagacija detekcija kroz kadrove pomoću optičkog toka~\cite{lucas-kanade} radi postizanja rada u realnom vremenu, i procena udaljenosti znaka na osnovu modela kamere i poznatih fizičkih dimenzija znaka. Merenje osetljivosti na pomeraj graničnog okvira, uvedeno u ovom projektu, direktno je motivisano tim nastavkom -- ono unapred kvantifikuje gubitak tačnosti pri prelasku sa anotiranih na detektovane isečke. Šire posmatrano, isti metodološki problem -- prepoznavanje objekata iz neprekidnog
+toka kadrova snimljenih pokretnom kamerom iz prvog lica, uz stroga ograničenja
+kašnjenja i računskih resursa -- predstavlja jedno od otvorenih pitanja egocentričnog
+računarskog vida, oblasti koja poslednjih godina beleži izražen rast razvojem nosivih
+uređaja sa kamerom; novija sveobuhvatna pregledna studija te oblasti izdvaja rad u
+realnom vremenu i pri minimalnom kašnjenju kao zahtev koji postojeće metode još uvek
+ne ispunjavaju~\cite{ego-survey}.
+\end{enumerate}
+
+\subsection*{Dodatak B -- Tabela akronima}
+
+\begin{center}
+\begin{tabular}{|l|p{10.5cm}|}
+\hline
+\textbf{Akronim} & \textbf{Značenje} \\
+\hline
+GTSRB & German Traffic Sign Recognition Benchmark \\
+\hline
+GTSDB & German Traffic Sign Detection Benchmark \\
+\hline
+PCA & Principal Component Analysis (analiza glavnih komponenti) \\
+\hline
+HOG & Histogram of Oriented Gradients (histogram orijentisanih gradijenata) \\
+\hline
+SIFT & Scale-Invariant Feature Transform \\
+\hline
+BoVW & Bag of Visual Words (vreća vizuelnih reči) \\
+\hline
+CNN & Convolutional Neural Network (konvoluciona neuronska mreža) \\
+\hline
+SVM & Support Vector Machine (metod potpornih vektora) \\
+\hline
+CLAHE & Contrast Limited Adaptive Histogram Equalization \\
+\hline
+ROI & Region of Interest (region od interesa) \\
+\hline
+RAM & Random Access Memory \\
+\hline
+GPU & Graphics Processing Unit \\
+\hline
+\end{tabular}
+\end{center}
+
+\end{document}
