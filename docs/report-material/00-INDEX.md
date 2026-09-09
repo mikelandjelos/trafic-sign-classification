@@ -27,6 +27,7 @@ Distinct from:
 | [01-environment-and-setup.md](01-environment-and-setup.md) | Methodology → reproducibility; Appendix | complete (task 0.1) |
 | [02-dataset-structure.md](02-dataset-structure.md) | Data; Methodology → train/val protocol | complete (task 0.2) |
 | [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (task 0.3) |
+| [04-splitting-protocol.md](04-splitting-protocol.md) | Methodology → experimental protocol | complete (task 1.2) |
 
 <!-- Add a row per note as it is created. Keep status honest: in progress / complete / stale. -->
 
@@ -36,4 +37,5 @@ Running list; each gets closed with a decision and a rationale, not dropped.
 
 | # | Question | Raised at | Status |
 |---|---|---|---|
+| Q2 | **Opportunity, not a problem.** The claim that a random split inflates validation accuracy is currently argued rather than measured. Training one method twice — track-disjoint split vs. random per-image split — turns it into a number. ~15 min once task 4.3 exists. | task 1.2 | **approved** — scheduled as task **4.5**; see [04](04-splitting-protocol.md) |
 | Q1 | GTSRB crops carry only a ~10 % margin (min 5 px) around the sign, so task 3.4's "±40 % jitter, re-crop from source, no padding" is not literally achievable — an outward 40 % expansion leaves the image for essentially every sample. Need a policy: clamp to image bounds, restrict to inward/positional jitter, or allow padding at high levels and report it as a limitation. | setup, before task 0.1 | **open** — decide at task 3.4 with measured numbers on how many samples clip at each level |

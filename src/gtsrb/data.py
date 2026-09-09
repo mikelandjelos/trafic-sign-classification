@@ -187,6 +187,97 @@ def load_annotations(split: str = "train", validate: bool = True) -> pd.DataFram
     return frame
 
 
+def assign_split(
+    frame: pd.DataFrame, val_fraction: float = config.VAL_FRACTION
+) -> pd.Series:
+    """Task 1.2: assign each training row to "train" or "val", disjointly by track.
+
+    Returns a Series of "train"/"val" aligned to `frame.index`.
+
+    Why per-class track splitting
+    -----------------------------
+    A random split by *image* puts near-duplicate frames of the same physical sign on both
+    sides and inflates validation accuracy -- the central methodological hazard of GTSRB.
+    Splitting by track fixes that but appears to conflict with stratifying by class, since
+    classes hold wildly different track counts (7 to 75).
+
+    The conflict is only apparent: each track belongs to exactly one class (asserted in
+    `_validate`), so partitioning *each class's own tracks* 80/20 satisfies both
+    constraints at once. No track is divided, and every class keeps its ~20 % share.
+
+    Determinism
+    -----------
+    The seed is derived per class from the class id, not drawn from one shared stream, so
+    a class's assignment does not depend on how many classes were processed before it.
+    Track lists are sorted before shuffling, so the result is independent of the row order
+    of `frame`. The split is therefore a pure function of (annotations, SEED,
+    val_fraction) and needs no on-disk manifest to stay stable between runs.
+
+    Granularity caveat
+    ------------------
+    Tracks are ~30 frames, so the split is quantised in whole tracks. Class 0 has only 7
+    tracks, meaning its finest achievable step is 1/7 = 14 %; it cannot land on exactly
+    20 %. Every class is guaranteed at least one track on each side, so no class is absent
+    from validation -- which matters because macro-F1 averages over all 43 classes and an
+    empty class would make it undefined.
+    """
+    if not 0 < val_fraction < 1:
+        raise ValueError(f"val_fraction must be in (0, 1), got {val_fraction}")
+
+    val_tracks: set[str] = set()
+    for class_id, group in frame.groupby("class_id"):
+        tracks = sorted(group["track_id"].unique())
+        n_val = max(1, round(len(tracks) * val_fraction))
+        n_val = min(n_val, len(tracks) - 1)  # never leave a class without training data
+        rng = config.rng_for("train_val_split", class_id)
+        val_tracks.update(rng.permutation(tracks)[:n_val].tolist())
+
+    return pd.Series(
+        ["val" if t in val_tracks else "train" for t in frame["track_id"]],
+        index=frame.index,
+        name="fold",
+    )
+
+
+def train_val_split(
+    frame: pd.DataFrame | None = None, val_fraction: float = config.VAL_FRACTION
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load (if needed) and split the training annotations. Returns (train, val)."""
+    if frame is None:
+        frame = load_annotations("train")
+    fold = assign_split(frame, val_fraction)
+    return frame[fold == "train"].copy(), frame[fold == "val"].copy()
+
+
+def summarise_split(train: pd.DataFrame, val: pd.DataFrame) -> str:
+    """Summary of a split, including the per-class extremes that quantisation affects."""
+    total = len(train) + len(val)
+    train_counts = train.groupby("class_id").size()
+    val_counts = val.groupby("class_id").size()
+    per_class = (val_counts / (train_counts + val_counts)).sort_values()
+
+    train_tracks = train["track_id"].nunique()
+    val_tracks = val["track_id"].nunique()
+    overlap = len(set(train["track_id"]) & set(val["track_id"]))
+
+    return "\n".join(
+        [
+            f"train         : {len(train)} images, {train_tracks} tracks",
+            f"val           : {len(val)} images, {val_tracks} tracks",
+            (
+                f"val fraction  : {len(val) / total:.3f} by image, "
+                f"{val_tracks / (train_tracks + val_tracks):.3f} by track"
+            ),
+            f"classes       : train {train['class_id'].nunique()}, val {val['class_id'].nunique()}",
+            f"track overlap : {overlap}",
+            (
+                f"per-class val : min {per_class.min():.3f} (class {per_class.idxmin()}), "
+                f"max {per_class.max():.3f} (class {per_class.idxmax()})"
+            ),
+        ]
+    )
+
+
 def summarise(frame: pd.DataFrame) -> str:
     """Human-readable summary, for logs and the report's data section."""
     split = frame["split"].iloc[0]
@@ -222,3 +313,4 @@ if __name__ == "__main__":
     for name in ("train", "test"):
         print(summarise(load_annotations(name)))
         print()
+    print(summarise_split(*train_val_split()))

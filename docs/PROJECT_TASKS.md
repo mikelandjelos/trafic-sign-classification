@@ -163,7 +163,13 @@ image with perturbed coordinates rather than faking it with padding.
       one-class-per-track. **Gotcha: use `data/GT-final_test.csv`, not
       `Final_Test/Images/GT-final_test.test.csv` — the latter has no `ClassId` but the same
       12,630 rows.** Stats in `docs/report-material/02-dataset-structure.md`.
-- [ ] **1.2** Track-disjoint train/val split (80/20 by track ID, stratified by class)
+- [x] **1.2** Track-disjoint train/val split (80/20 by track ID, stratified by class)
+      — `data.assign_split()` / `train_val_split()`. Splits *each class's own tracks* 80/20,
+      so disjointness and stratification hold at once (every track is single-class).
+      Achieved: 31,379 / 7,830 images, 1,046 / 261 tracks, **0.200 by both image and
+      track**, 0 overlap, 43 classes each side. Per-class val share spans [0.143, 0.250]
+      because tracks are atomic (class 0 has only 7). Pure function of (annotations, SEED,
+      val_fraction) — no manifest needed. See `docs/report-material/04-splitting-protocol.md`.
 - [ ] **1.3** Write a test asserting no track ID appears in both splits
 - [ ] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
 - [ ] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
@@ -183,6 +189,10 @@ image with perturbed coordinates rather than faking it with padding.
 - [ ] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
 - [ ] **4.3** `LinearSVC` on PCA features; record cost metrics
 - [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
+- [ ] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
+      track-disjoint split and once on a random per-image split, and report the gap in val
+      accuracy. Turns the project's central methodological claim from an argument into a
+      measured number. ~15 min; feeds the discussion section. (Q2, approved)
 - [ ] **5.1** HOG via `skimage.feature.hog` on 48×48 *(task 5 = 1.5 h)*
 - [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
 - [ ] **5.3** `LinearSVC` on HOG features; record cost metrics
