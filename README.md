@@ -54,10 +54,29 @@ time is a different question, scoped as an extension.
 
 ## Two methodological notes
 
-**Track-disjoint splits.** GTSRB training images come in tracks of 30 frames of the
-same physical sign. A random split leaks near-duplicate frames across train and
-validation and inflates accuracy. Splits here are by track ID, with an assertion
-enforcing it.
+**Track-disjoint splits — and the cost of getting it wrong is measured, not asserted.**
+GTSRB training images come in tracks of 30 frames of the same physical sign, so a random
+per-image split puts near-duplicates on both sides. Splits here are by track ID, with an
+assertion enforcing it.
+
+How much that matters was measured by training the identical model twice — same
+hyperparameters, same validation fraction, only the split rule differing:
+
+| split rule | val accuracy | val macro-F1 |
+|---|---|---|
+| track-disjoint | 0.8442 | 0.7977 |
+| random per-image | 0.8950 | 0.8936 |
+| **inflation** | **+5.08 pp** | **+9.58 pp** |
+
+Under the random split, 1,305 of 1,307 tracks land on both sides and **100 % of validation
+images keep a sibling frame in training**. The inflated number is stable across seeds
+(σ ≈ 0.3 pp) and is produced by one line of `train_test_split` — it is reproducibly wrong,
+which is why nothing looks broken.
+
+**Macro-F1 inflates about twice as much as accuracy**, because leakage flatters the rare
+classes most: a class with 7 tracks has almost no diversity to generalise across, so once
+its siblings are in training its held-out frames are close to a lookup. The metric chosen
+*because* of class imbalance is therefore the one leakage corrupts worst.
 
 **Bounding-box jitter is deliberately absent — and the reason is a result.** Feeding a
 classifier *detected* rather than *annotated* boxes is the question that matters for a
