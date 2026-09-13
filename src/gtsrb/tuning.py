@@ -167,3 +167,28 @@ def tune_linear_svc(
                       f"{record.fit_seconds:5.1f}s{flag}")
 
     return TuningResult(best=select_best(records), records=records)
+
+
+def best_from_sweep(csv_path, **filters) -> dict:
+    """The winning grid point from a sweep CSV, as a plain dict.
+
+    Training scripts read their hyperparameters from the sweep that chose them rather than
+    repeating the numbers in source. A literal would drift silently the first time a sweep is
+    re-run with a wider grid, and the model would then be trained at a configuration no
+    recorded experiment selected.
+
+    `filters` restricts before selecting, e.g. `preproc="clahe_gray"`.
+    """
+    import pandas as pd
+
+    frame = pd.read_csv(csv_path)
+    for column, value in filters.items():
+        frame = frame[frame[column] == value]
+    if frame.empty:
+        raise ValueError(f"no rows in {csv_path} matching {filters}")
+
+    best = frame.loc[frame["macro_f1"].idxmax()].to_dict()
+    # pandas reads an absent class_weight as NaN; LinearSVC wants None.
+    if pd.isna(best.get("class_weight")):
+        best["class_weight"] = None
+    return best
