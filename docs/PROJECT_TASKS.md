@@ -231,7 +231,15 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       Found and fixed: `clahe()` bound its params as default args, so the fingerprint could
       change while pixels did not. 18 tests.
       See `docs/report-material/08-preprocessing.md`.
-- [ ] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
+- [x] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
+      — `gtsrb.degradations.apply(images, "noise", level, keys)`. **Governing decision:
+      degradations apply to the preprocessed 48×48 model input, not the source image** —
+      crops span 25–266 px, so degrading at source would make one σ mean different things
+      by sign size and confound fig. 9.5 with fig. 9.4. Seeded per image by
+      `rng_for("noise", σ, path)` — **keyed on path, not row position**, so a subset matches
+      the full batch exactly. Level 0 returns the input unchanged. Found and fixed:
+      `astype(uint8)` truncates, darkening every pixel by −0.49 levels at every σ; now
+      `np.rint`. 22 tests. See `docs/report-material/10-degradations.md`.
 - [ ] **3.2** Degradation: motion blur, kernel ∈ {0, 3, 5, 9, 15} px, random angle
 - [ ] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
 - [x] **3.4** ~~Degradation: bbox jitter~~ — **moved to §11 (extension)**. GTSRB is
