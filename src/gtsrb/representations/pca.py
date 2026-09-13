@@ -13,27 +13,25 @@ Why `whiten=False`
 ------------------
 `sklearn`'s PCA can rescale each retained component to unit variance (`whiten=True`). That
 often helps a downstream linear SVM, because it stops the two or three highest-variance
-directions from dominating the margin. It is deliberately **not** used here, for two
-reasons, the second of which is the important one.
+directions from dominating the margin. It is **not** used here.
 
-1. *Fidelity to the construction being taught.* "PCA representation" in the Eigenfaces
-   sense is an orthogonal projection onto the leading subspace. Whitening adds a diagonal
-   rescaling that is no longer that projection, and the eigenimages of task 4.4 would no
-   longer correspond to the coordinates the classifier actually sees.
+The reason is fidelity to the construction: "PCA representation" in the Eigenfaces sense is
+an orthogonal projection onto the leading subspace. Whitening composes that projection with
+a diagonal rescaling, so the coordinates the classifier sees would no longer be the
+projections the eigenimages of task 4.4 depict -- the figure and the features would describe
+different things. That reason stands on its own and does not depend on any expected result.
 
-2. *It would attack the mechanism the study predicts.* The recorded prediction
-   (`predictions.md`) is that PCA is the **most** robust representation under additive
-   noise, on the argument that isotropic noise spreads its energy evenly over all 2304
-   dimensions while only k are retained, so most of it is discarded and what remains is
-   small relative to the signal in the leading directions. That argument depends on the
-   retained components staying weighted by their variance. Whitening divides each component
-   by its own standard deviation, which amplifies exactly the low-variance retained
-   directions -- the ones where the signal is weakest and the noise share is highest. It
-   would suppress the effect under test by construction.
+Note what whitening would *also* do, as a fact about the operator rather than a reason for
+the choice: dividing each component by its own standard deviation amplifies the low-variance
+retained directions, which are where an isotropic perturbation has the largest share
+relative to signal. So whitened PCA is plausibly a **differently robust representation**,
+not merely a rescaled one.
 
-Whitening is therefore a *hypothesis about the mechanism*, not a free preprocessing knob,
-and baking it in would prejudge the result. It stays available as `whiten=True` so it can
-be run as an ablation later if the noise curve turns out to be interesting.
+That is a reason to treat it as a separate condition worth measuring, and explicitly **not**
+a reason to prefer unwhitened because unwhitened is what some prediction assumed. If
+whitened PCA is ever run and proves more robust, that is a finding to report, not a
+contamination to avoid. `whiten=True` is supported and tested; it is simply not the
+configuration the headline results use, and that limitation is stated in the report.
 
 What is fitted, and on what
 ---------------------------
