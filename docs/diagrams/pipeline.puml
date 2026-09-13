@@ -17,9 +17,14 @@ rectangle "cache .npy\n48x48 uint8, CLEAN\nthe only persisted artifact" as cache
 ppm --> prep
 prep --> cache
 
-rectangle "train + val\n31,379 / 7,830\ntrack-disjoint" as tr <<train>>
+rectangle "train 31,379\ntrack-disjoint" as tr <<train>>
+rectangle "val 7,830" as va <<train>>
+rectangle "select k, C, class_weight\nby val macro-F1" as sel <<train>>
 rectangle "fit representation\nPCA | HOG | BoVW | CNN\n+ LinearSVC" as fit <<train>>
 cache --> tr : read train
+cache --> va : read val
+va --> sel
+sel ..> fit : chosen\nhyperparameters
 tr --> fit
 
 rectangle "test\n12,630" as te <<eval>>
@@ -45,5 +50,7 @@ end note
 note bottom of tr
   Training is always clean.
   No augmentation, no degradation.
+  Fit on train only, never train+val:
+  the CNN needs val for early stopping.
 end note
 @enduml
