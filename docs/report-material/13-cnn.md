@@ -4,6 +4,9 @@
 `cnn_e2e` vs `cnn_feat_svm` distinction throughout.*
 
 Implementation: `src/gtsrb/representations/cnn.py`. Tests: `tests/test_cnn.py` (17).
+Figure: `scripts/figure_cnn_architecture.py` → `figures/report/cnn_architecture.png` — shapes
+and parameter counts are read off the real model with forward hooks, so the diagram cannot
+drift from the code.
 
 ---
 

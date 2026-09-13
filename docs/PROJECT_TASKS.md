@@ -455,6 +455,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       §10 gotcha rather than documenting it — dropout-contaminated features do not error,
       they just make `cnn_feat_svm` quietly worse. 17 tests.
       Measured cost: **116 s/epoch**, 1.2 ms/img inference (~3.6× PCA, batched).
+      Architecture diagram: `figures/report/cnn_architecture.png` (shapes read from the
+      model via forward hooks, so it cannot drift). Shows the branch that makes one
+      network produce two of the five rows.
       See `docs/report-material/13-cnn.md`.
 - [ ] **7.2** Training loop: val each epoch, early stopping, best-checkpoint save
 - [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow

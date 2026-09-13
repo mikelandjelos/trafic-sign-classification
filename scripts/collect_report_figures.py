@@ -84,6 +84,12 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "fact for interpreting PCA's gamma behaviour in the discussion.",
         deliverable=False),
     ReportFigure(
+        "cnn/cnn_architecture.png", "cnn_architecture.png", "7.1",
+        "The CNN's two outputs on one trunk: softmax head (cnn_e2e) and the penultimate "
+        "layer branching into the shared LinearSVC (cnn_feat_svm). Explains why one network "
+        "produces two of the five rows — the central point of the experimental design.",
+        deliverable=False),
+    ReportFigure(
         "demo/preprocessing/preprocessing_configs.png", "preprocessing_configs.png", "2.2",
         "The three preprocessing configs side by side — needed to read the ablation (9.7).",
         deliverable=False),
