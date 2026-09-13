@@ -168,6 +168,14 @@ normalisation addresses a real property of the data rather than being applied by
 
 ## The three ablation configs (task 2.2)
 
+**What the ablation is for.** Not "which preprocessing is most accurate" — that would be a
+minor sweep. Its job (tasks 8.2 / 9.7) is a **ranking-stability check**: show that the
+*ranking* of methods within each stressor is unchanged across all three configs, so the
+project's conclusion is not an artifact of one preprocessing choice. The claim is stated
+**ordinally**, because with a single seed and no repeats we cannot support "the difference
+is not significant". A ranking that *does* flip under some config is a finding and gets
+reported as one.
+
 | Config | Pipeline | Output | Flat dim | What it isolates |
 |---|---|---|---|---|
 | `raw_gray` | gray → resize | 48×48 | 2 304 | baseline, no normalisation |

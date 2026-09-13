@@ -5,30 +5,32 @@
 Every degradation takes uint8 and returns uint8 of the same shape, so a degraded batch
 drops straight into the same estimator as a clean one.
 
-Where in the pipeline the degradation is applied
-------------------------------------------------
-**On the preprocessed 48x48 model input, not on the source image.** This is a deliberate
-choice of *control over physical realism*, and it needs stating in the report because the
-opposite choice is equally defensible.
+What the injected degradation represents
+---------------------------------------
+**It is applied to the preprocessed 48x48 model input, not to the source image.** Injected
+*after* preprocessing, the perturbation is by construction **the degradation preprocessing
+did not remove** -- the residual that actually reaches the representation.
 
-Real sensor noise enters at capture, before any resizing -- so a physically faithful
-simulation would add noise to the source crop and then downsample. The problem is that
-GTSRB crops span 25-266 px against a 48x48 target: downsampling a 200 px crop averages
-noise away, while a 25 px crop is upsampled and keeps all of it. The *same* sigma would
-then mean a different effective noise level depending on sign size, silently coupling the
-noise axis to the size axis (task 9.4) and making "sigma = 20" an ambiguous label.
+That is the quantity this study compares methods on. Preprocessing is never perfect: some
+noise survives denoising, some exposure error survives contrast normalisation. Whatever
+gets through is what the representation must cope with, so the question answered here is
+"given a degradation your pipeline failed to remove, which representation copes best?" --
+which requires no claim about cameras at all.
 
-Applying the degradation to the model input instead gives:
+Four properties follow, and under this framing they are requirements rather than
+trade-offs:
 
-- one well-defined meaning of each level across the whole dataset;
-- independence from sign size, so the robustness curves and the size analysis stay
-  separable rather than confounded;
-- independence from the preprocessing config, so the ablation (task 8.2) does not
-  interact with the degradation axis;
+- one well-defined meaning of each level across the whole dataset -- a residual of a stated
+  magnitude is one condition, not an average over sign sizes;
+- independence from sign size (degrading at source would make sigma = 20 span a measured
+  2.4x range of effective strengths, entangling task 9.5 with task 9.4);
+- independence from the preprocessing config, so the residual is specified directly;
 - identical pixels for all five methods, which is the point of the whole design.
 
-The cost is that these are *controlled perturbations of the classifier's input*, not
-simulations of a camera. The report should say so plainly rather than implying the latter.
+Out of scope, deliberately: this does **not** simulate capture-time degradation, so it
+cannot measure how preprocessing *interacts* with a stressor -- CLAHE amplifying sensor
+noise, or partially undoing a gamma shift applied before it. Those are real effects, named
+as an extension in PROJECT_TASKS.md section 12, not a limitation of this measurement.
 
 Determinism
 -----------

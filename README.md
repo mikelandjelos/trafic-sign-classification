@@ -37,6 +37,13 @@ its own softmax head. Five configurations total.
 Models are evaluated on clean data and under three controlled degradations at five
 levels each: Gaussian noise, motion blur, and gamma shift.
 
+**Degradations are injected after preprocessing**, on the model input. That is deliberate:
+what gets injected is then, by construction, the degradation the preprocessing *failed to
+remove* — the residual the representation actually has to cope with. The question is
+therefore "given a degradation your pipeline didn't remove, which representation copes
+best?", which needs no claim about camera behaviour. Simulating degradation at capture
+time is a different question, scoped as an extension.
+
 ## Two methodological notes
 
 **Track-disjoint splits.** GTSRB training images come in tracks of 30 frames of the
