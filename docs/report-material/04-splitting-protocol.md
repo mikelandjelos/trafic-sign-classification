@@ -3,7 +3,7 @@
 **Feeds:** Methodology → experimental protocol. This is one of the two things the project
 plan marks as "never cut", so it deserves explicit treatment in the report rather than a
 passing mention.
-**Status:** complete (tasks 1.2, 1.3)
+**Status:** complete (tasks 1.2, 1.3, 1.7, 4.5)
 
 Implemented as `gtsrb.data.assign_split()` / `train_val_split()`.
 
@@ -134,6 +134,50 @@ with a random per-image split, and compare validation accuracy. The gap is a dir
 measurement of the leakage this protocol prevents.
 
 **Estimated cost: ~15 minutes after task 4.3.** Logged as an opportunity in `00-INDEX.md`.
+
+### MEASURED (task 4.5) — the claim is now a number
+
+`scripts/measure_leakage.py` → `figures/report/split_leakage_measured.png`, rows in
+`results.csv` (`leakage_*`). Identical model, identical hyperparameters, identical val
+fraction — **only the split rule differs**. The random split is run over 3 seeds, because one
+draw could be lucky.
+
+| split rule | val accuracy | val macro-F1 |
+|---|---|---|
+| **track-disjoint** (ours) | **0.8442** | **0.7977** |
+| random per-image (mean of 3 seeds) | 0.8950 | 0.8936 |
+| **inflation** | **+5.08 pp** | **+9.58 pp** |
+
+The cause, measured on the same assignments:
+
+| | track-disjoint | random per-image |
+|---|---|---|
+| tracks appearing on both sides | **0** of 1,307 | **1,305–1,306** of 1,307 |
+| val images with a sibling frame in train | **0** | **100.0 %** |
+
+**Reporting the random-split number would have overstated this model by 5 points of accuracy
+and nearly 10 points of macro-F1**, with no code that looks wrong anywhere — the naive split
+is one line of `train_test_split`, and every published-looking number it produces is
+reproducible, seeded and stable across seeds (σ ≈ 0.3 pp). It is stably, reproducibly wrong.
+
+### The finding inside the finding: macro-F1 inflates ~2× as much as accuracy
+
++9.58 pp vs +5.08 pp. That is not noise — the gap is consistent across all three seeds.
+
+**Leakage disproportionately flatters the rare classes.** A class with 7 tracks (class 0,
+210 images) has almost no within-class diversity to generalise across; once its siblings are
+in training, recognising the held-out frames is close to lookup. Accuracy is dominated by the
+large classes, which had enough diversity to generalise anyway, so it moves less. Macro-F1
+weights all 43 classes equally, so it absorbs the full benefit of the rare-class leakage.
+
+Two consequences worth stating in the report:
+
+1. **A study reporting only accuracy under a random split understates its own error.** The
+   metric that looks most rigorous — macro-F1, the one chosen *because* of imbalance — is the
+   one leakage corrupts most.
+2. It is a second, independent argument for the selection protocol of §7.4 in `11-pca.md`:
+   macro-F1 is the more honest criterion *and* the more fragile one, so the split protecting
+   it has to be right.
 
 ---
 

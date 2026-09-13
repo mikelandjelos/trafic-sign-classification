@@ -407,10 +407,21 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       triangular (12.7 %, the coarsest class distinction), and the discriminative detail —
       which digit, which pictogram — lives below 1 % per component.** PCA spends capacity in
       order of variance, not usefulness. See `docs/report-material/11-pca.md` §9.
-- [ ] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
+- [x] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
       track-disjoint split and once on a random per-image split, and report the gap in val
       accuracy. Turns the project's central methodological claim from an argument into a
-      measured number. ~15 min; feeds the discussion section. (Q2, approved)
+      measured number. (Q2, **closed**)
+      — `scripts/measure_leakage.py` → `figures/report/split_leakage_measured.png` +
+      `leakage_*` rows in `results.csv`. Identical model and hyperparameters; only the split
+      rule differs; random split averaged over 3 seeds (σ ≈ 0.3 pp).
+      **A random per-image split inflates val accuracy by +5.08 pp (0.8442 → 0.8950) and
+      macro-F1 by +9.58 pp (0.7977 → 0.8936).** Cause measured on the same assignments:
+      1,305–1,306 of 1,307 tracks land on both sides and **100 % of val images keep a sibling
+      frame in train**. **Second finding: macro-F1 inflates ~2× as much as accuracy** —
+      leakage flatters the *rare* classes most (a 7-track class has no diversity to
+      generalise across, so its held-out frames become near-lookup), and macro-F1 weights
+      those equally. So the metric chosen *because* of imbalance is the one leakage corrupts
+      worst. See `docs/report-material/04-splitting-protocol.md`.
 - [ ] **5.1** HOG via `skimage.feature.hog` on 48×48 *(task 5 = 1.5 h)*
 - [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
 - [ ] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
