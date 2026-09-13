@@ -1,0 +1,49 @@
+@startuml pipeline
+title Pipeline — degradation models the residual that preprocessing did not remove
+
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam rectangle {
+  BackgroundColor<<cache>> LightYellow
+  BackgroundColor<<deg>> MistyRose
+  BackgroundColor<<train>> Honeydew
+  BackgroundColor<<eval>> AliceBlue
+}
+
+rectangle "PPM crop\n25x25 .. 266x266" as ppm
+rectangle "preprocessing\nto_gray / to_hsv\nresize 48x48\nCLAHE" as prep
+rectangle "cache .npy\n48x48 uint8, CLEAN\nthe only persisted artifact" as cache <<cache>>
+
+ppm --> prep
+prep --> cache
+
+rectangle "train + val\n31,379 / 7,830\ntrack-disjoint" as tr <<train>>
+rectangle "fit representation\nPCA | HOG | BoVW | CNN\n+ LinearSVC" as fit <<train>>
+cache --> tr : read train
+tr --> fit
+
+rectangle "test\n12,630" as te <<eval>>
+rectangle "degradations.apply\nnoise / blur / gamma\n<b>on the model input</b>" as deg <<deg>>
+rectangle "transform + classify" as clf <<eval>>
+rectangle "results.csv" as res <<eval>>
+
+cache --> te : read test
+te --> deg
+deg --> clf
+fit ..> clf : fitted model, no retraining
+clf --> res
+
+note right of deg
+  Injected <b>after</b> preprocessing, so it is by
+  construction the degradation preprocessing
+  did <b>not</b> remove -- the residual the
+  representation must cope with.
+  One level = one condition, independent of
+  sign size and of preprocessing config.
+end note
+
+note bottom of tr
+  Training is always clean.
+  No augmentation, no degradation.
+end note
+@enduml

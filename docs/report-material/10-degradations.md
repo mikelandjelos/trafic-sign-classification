@@ -11,33 +11,50 @@ Implemented as `gtsrb.degradations`; tested in `tests/test_degradations.py`.
 ## The decision that governs all three stressors
 
 **Degradations are applied to the preprocessed 48×48 model input, not to the source
-image.** This trades physical realism for experimental control, and the report should say
-so explicitly rather than let a reader assume a camera simulation.
+image.** This is not a compromise between realism and control — it follows from what the
+study is asking.
 
-Real sensor noise enters at capture, before any resizing. A faithful simulation would
-therefore perturb the source crop and then downsample. The problem is that GTSRB crops
-span **25–266 px** against a 48×48 target, so the same operation means different things
-across the dataset: downsampling a 200 px crop averages noise away, while a 25 px crop is
-*upsampled* and retains all of it. "σ = 20" would then denote a different effective noise
-level depending on sign size.
+### What the injected degradation represents
 
-Applying to the model input instead buys four properties the study needs:
+Applying the perturbation *after* preprocessing means it is, by construction, **the
+degradation the preprocessing did not remove**. It is the residual that actually reaches
+the representation.
 
-| Property | Why it matters |
+That is the relevant quantity. Preprocessing is never perfect: some noise survives
+denoising, some exposure error survives contrast normalisation, some blur survives
+sharpening. Whatever gets through is what the representation must cope with. So the
+question this design answers is:
+
+> Given a degradation your preprocessing pipeline failed to remove, which representation
+> copes with it best?
+
+Well-posed, directly aligned with the project's contribution, and it requires **no claim
+about cameras at all**.
+
+### The properties that follow
+
+Under this framing these are requirements rather than trade-offs:
+
+| Property | Why the framing requires it |
 |---|---|
-| One meaning per level, dataset-wide | σ = 20 is a single well-defined condition, not an average over sign sizes |
-| Independent of sign size | keeps the robustness curves (9.5) and the size analysis (9.4) separable rather than confounded |
-| Independent of preprocessing config | the ablation (8.2) does not interact with the degradation axis |
+| One meaning per level, dataset-wide | a residual of a stated magnitude is one condition, not an average over sign sizes |
+| Independent of sign size | GTSRB crops span 25–266 px; degrading at source would make σ = 20 mean a 2.4× range of effective strengths at the input (measured), entangling fig. 9.5 with fig. 9.4 |
+| Independent of preprocessing config | the residual is specified directly, so it does not vary with which pipeline produced it |
 | Identical pixels for all five methods | the point of the entire controlled design |
 
-There is a practical benefit too: degrading cached 48×48 arrays keeps the whole grid fast,
-whereas degrading at source resolution would defeat the cache and re-decode every PPM for
-every condition.
+### What is out of scope, stated rather than disclaimed
 
-**The honest framing for the report:** these are *controlled perturbations of the
-classifier's input*, not simulations of a camera. That is the right instrument for the
-question being asked — which representation degrades fastest — but it is not evidence
-about any specific sensor.
+This design does **not** simulate capture-time degradation, and therefore cannot measure
+how preprocessing *interacts* with a degradation — for instance that CLAHE amplifies
+structure ×1.84 (note 08) and would amplify sensor noise with it, or that CLAHE would
+partially undo a gamma shift applied before it. Those are real effects and they are simply
+not what this study measures. Capture-time simulation is named as an extension (§12), not
+offered as an apology.
+
+An earlier revision of this note framed the choice as "control over physical realism" and
+recommended stating that as a limitation. That framing was weaker and is superseded: the
+residual interpretation makes the same code the *right* instrument rather than a
+compromised one.
 
 ## Determinism: keyed by image path, not row position
 

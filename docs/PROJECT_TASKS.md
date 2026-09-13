@@ -13,6 +13,11 @@ traffic sign image, evaluated on GTSRB.
 **Input:** one RGB crop containing exactly one traffic sign (15×15 to 250×250 px).
 **Output:** one of 43 class labels.
 
+**Where degradations enter.** After preprocessing, on the model input — so what is injected
+is the degradation preprocessing *failed to remove*, the residual the representation must
+cope with. Capture-time simulation is a separate question, scoped to §12. Pipeline diagram:
+`docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`.
+
 **Research question:** the four representations differ along several structural axes at
 once. Which one wins is expected to *depend on the stressor* — the contribution is the
 interaction between representation and degradation type, not a leaderboard.
@@ -258,9 +263,12 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       See `docs/report-material/08-preprocessing.md`.
 - [x] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
       — `gtsrb.degradations.apply(images, "noise", level, keys)`. **Governing decision:
-      degradations apply to the preprocessed 48×48 model input, not the source image** —
-      crops span 25–266 px, so degrading at source would make one σ mean different things
-      by sign size and confound fig. 9.5 with fig. 9.4. Seeded per image by
+      degradations apply to the preprocessed 48×48 model input.** Injected *after*
+      preprocessing, the perturbation is by construction **the degradation preprocessing did
+      not remove** — the residual that reaches the representation. That is the quantity the
+      study compares methods on, and it needs no claim about cameras. It also keeps one
+      level meaning one condition: degrading at source would make σ=20 span a measured 2.4×
+      range of effective strengths by sign size, entangling fig. 9.5 with fig. 9.4. Seeded per image by
       `rng_for("noise", σ, path)` — **keyed on path, not row position**, so a subset matches
       the full batch exactly. Level 0 returns the input unchanged. Found and fixed:
       `astype(uint8)` truncates, darkening every pixel by −0.49 levels at every σ; now
@@ -322,7 +330,12 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
       seeing PCA, HOG, BoVW and CNN results. See §2 and `predictions.md`.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
-- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs
+- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **Its job is a
+      ranking-stability check, not an accuracy sweep**: show the *ranking* of methods within
+      each stressor is unchanged across `raw_gray` / `clahe_gray` / `clahe_hsv`, so the
+      conclusion is not an artifact of one preprocessing choice. Claim ordinally — with one
+      seed and no repeats we cannot support "no significant difference". A ranking that does
+      flip is a finding and gets reported.
 - [ ] **8.3** Verify results CSV is complete, no NaNs
 
 ### Day 4 — Analysis and figures (~5.5 h)
@@ -336,7 +349,8 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       rate of degradation rather than starting point (and stays commensurable with the §11
       jitter panel, which lives on a different test set).
 - [ ] **9.6** **Table: predictions vs. outcomes** — which held, which didn't, and why. This is the core of the discussion section.
-- [ ] **9.7** Table: preprocessing ablation
+- [ ] **9.7** Table: preprocessing ablation — reported as **ranking stability per
+      stressor** across the three configs (see 8.2), not as a bare accuracy comparison.
 - [ ] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
 - [ ] Buffer
 
@@ -467,9 +481,21 @@ No jitter anywhere. Establishes the baseline results and Table 1.
 
 ---
 
-## 12. Optional — composite degradation scenarios
+## 12. Optional — capture-time degradation and composite scenarios
 
-**Not part of the MVP.** Only after the core grid (§7) is complete and working. First thing
+**Not part of the MVP.** The MVP injects degradation *after* preprocessing, which models the
+residual preprocessing did not remove (§6, task 3.1). The extensions below model degradation
+at *capture* instead, which is a different question and out of scope.
+
+- [ ] **12.0** **Capture-time ordering.** Degrade at source resolution, before preprocessing,
+      so CLAHE sees the damage. Would measure the preprocessing × degradation interaction the
+      MVP cannot see — e.g. CLAHE amplifying sensor noise (×1.84, note 08) or partially
+      undoing a gamma shift. Requires blur to be reparameterised as a *fraction* of sign size
+      (`k × max(h,w)/48`), since `k` is the only spatial parameter and a fixed 15 px kernel is
+      larger than a 25 px crop. Keep the existing input-space path alongside it; having both
+      makes the order-sensitivity comparison nearly free.
+
+**Composite scenarios — also not part of the MVP.** Only after the core grid (§7) is complete and working. First thing
 to cut if time is short; the one-factor-at-a-time grid stands alone without it.
 
 **Why the core grid is one-factor-at-a-time.** The research question is the interaction
