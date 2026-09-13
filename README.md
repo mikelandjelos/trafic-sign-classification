@@ -1,4 +1,4 @@
-# Traffic Sign Recognition: A Comparison of Image Representations
+# A Comparison of Image Representations for Traffic Sign Classification under Controlled Degradations
 
 A controlled comparison of four ways to represent a cropped traffic sign image,
 evaluated on GTSRB (43 classes, ~52k images).
@@ -59,9 +59,13 @@ exist in every direction — see `docs/report-material/09-jitter-and-datasets.md
 
 ## Scope
 
-This implements the **recognition** stage only, on crops whose boundaries come from
+This implements the **classification** stage only, on crops whose boundaries come from
 dataset annotation. Detection on full frames, temporal tracking via optical flow,
 and distance estimation are out of scope — see `PROJECT_TASKS.md` §1.
+
+("Classification" rather than "recognition" deliberately: in the traffic-sign literature
+*recognition* routinely covers the whole detection-plus-classification pipeline, which
+would overstate what this delivers.)
 
 ## Stack
 
