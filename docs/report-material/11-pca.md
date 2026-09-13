@@ -29,37 +29,38 @@ contrasts BoVW and HOG against.
 
 ## 2. Decisions, with reasons
 
-### 2.1 `whiten=False` — the load-bearing one
+### 2.1 `whiten=False`
 
 `sklearn`'s PCA can rescale every retained component to unit variance. It is **not** used
-here. Two reasons; the second is why it matters.
+here.
 
-**(a) Fidelity to the construction.** "PCA representation" in the Eigenfaces sense is an
-orthogonal projection onto the leading subspace. Whitening composes that projection with a
-diagonal rescaling, so the coordinates the classifier sees would no longer be the
-projections that the eigenimages of task 4.4 depict. The figure and the features would
-describe different things.
+**The reason is fidelity to the construction.** "PCA representation" in the Eigenfaces sense
+is an orthogonal projection onto the leading subspace. Whitening composes that projection
+with a diagonal rescaling, so the coordinates the classifier sees would no longer be the
+projections that the eigenimages of task 4.4 depict — the figure and the features would
+describe different things. This reason stands on its own and does not depend on any expected
+result.
 
-**(b) It would suppress the effect under test.** The recorded prediction
-(`predictions.md`, locked 2026-09-13) is that **PCA is the most robust representation under
-additive noise**, on this argument:
+**A fact about the operator, recorded separately from the choice.** Whitening divides each
+component by its own standard deviation, which amplifies the low-variance retained
+directions — the ones where an isotropic perturbation has the largest share relative to
+signal. Whitened PCA is therefore plausibly a *differently robust representation*, not
+merely a rescaled one.
 
-> isotropic noise distributes its energy evenly over all 2304 dimensions, but only *k* are
-> retained, so most of it falls outside the subspace and is discarded.
+> **This was initially written down backwards, and the correction matters more than the
+> conclusion.** The first draft of this note gave "it would suppress the mechanism the noise
+> prediction rests on" as a *reason* for `whiten=False`. That is choosing a configuration to
+> protect a prediction, which is exactly the reasoning this project must not use. The
+> conclusion is unchanged — `whiten=False` is still right, on the fidelity argument alone —
+> but the second consideration is a **reason to measure whitening as a separate condition**,
+> never a reason to avoid it. If whitened PCA is run and proves more robust, that is a
+> finding to report.
 
-That argument requires the retained components to stay weighted by their variance. Whitening
-divides each component by its own standard deviation, which **amplifies precisely the
-low-variance retained directions** — the ones carrying the least signal and the largest
-share of noise. Choosing `whiten=True` would therefore weaken the predicted mechanism as a
-side effect of a setting that looks like routine preprocessing.
-
-Whitening is a *hypothesis about the mechanism*, not a free knob. Baking it in would
-prejudge the result the study is trying to measure. It remains available as `whiten=True`
-and is a legitimate ablation if the noise curve turns out interesting — it is tested
-(`test_whitening_equalises_the_variances`), just not used.
+`whiten=True` is supported and tested (`test_whitening_equalises_the_variances`), simply not
+what the headline results use.
 
 **Reportable as a limitation:** results are for unwhitened PCA. A whitened variant might
-score differently, particularly under noise, and that is not measured here.
+behave differently, particularly under noise, and that is not measured here.
 
 ### 2.2 Fitted on the training split only
 
@@ -192,7 +193,120 @@ expression of the experimental design — the classifier is constant, only φ va
 
 ---
 
-## 5. Open for task 4.2
+## 5. Demo figures
+
+`scripts/demo/pca_mechanics.py` → `figures/demo/pca/`. These explain the *machinery*; the
+eigensigns figure of task 4.4 is the polished report artifact.
+
+| Figure | Shows |
+|---|---|
+| `pca_reconstruction.png` | four signs rebuilt from *k* = 2 … 256, annotated with the split-wide error |
+| `pca_spectrum.png` | scree + cumulative variance for all three preproc configs; the 8 → 25 → 106 finding |
+| `pca_pc1_brightness.png` | PC1 vs mean intensity (r = +0.9975) + the training set sorted by PC1 |
+| `pca_degraded.png` | degraded input through the clean basis: reconstruction, residual, feature shift |
+
+### 5.1 What the reconstruction ladder shows that the numbers do not
+
+At *k* = 2 and *k* = 8 **every sign reconstructs toward a round speed-limit disc with
+digit-like blobs** — a Yield triangle included. The leading components encode the dataset's
+modal shape, and with 10.7× class imbalance (note 02) that shape is a speed-limit sign.
+Useful for the report: it makes "holistic and alignment-critical" visible, and it is the
+clearest illustration of why PCA has no notion of a *part*.
+
+Also visible, and worth a sentence in the limitations: **PCA reconstructs the background
+too** — brickwork, foliage, the pole. GTSRB crops carry a ~17 % margin (note 09), so a
+meaningful share of the retained variance is spent modelling scenery that carries no class
+information. HOG and BoVW see the same pixels, but PCA is the method that spends *variance
+budget* on them.
+
+### 5.2 `pca_degraded.png` — read the two numbers correctly
+
+`|res|` is what the subspace cannot express; `shift` is how far the 128-d feature vector
+moved, in units of the median distance between two random clean training images.
+
+| condition | \|res\| (gray levels) | shift |
+|---|---|---|
+| noise σ=40 | 34.7 / 36.4 | **0.10 / 0.11** |
+| blur k=15 | 6.6 / 6.7 | 0.36 / 0.37 |
+| gamma γ=2.5 | 18.2 / 15.5 | **0.65 / 0.72** |
+
+**A small residual is not good news.** Blur has the *smallest* residual of the three — the
+blurred image sits almost entirely inside the subspace, so the projection reproduces the
+damage faithfully and passes it on. Noise has the largest residual and the smallest shift:
+the subspace rejects it.
+
+**Two cautions, recorded before task 9.5 runs:**
+
+1. `shift` is not accuracy. What costs accuracy is displacement *relative to the decision
+   boundaries*, and a displacement that is **common-mode** — the same direction for every
+   class — can be largely absorbed by a linear classifier. Gamma's shift is exactly the kind
+   most likely to be common-mode (everything darkens together), so the largest shift here
+   need not produce the largest accuracy drop.
+2. This diagnostic orders the three stressors the same way `predictions.md` does for PCA.
+   That is **not** confirmation — it is one mechanism measurement on two images through an
+   operator whose behaviour under isotropic perturbation is analytically predictable. It
+   would be circular to treat it as evidence for the prediction it was designed to
+   visualise. The decomposition that *would* be evidence — splitting the shift into
+   common-mode and class-confusing parts — is not built; noted as an option if the 9.5
+   curves need explaining.
+
+---
+
+## 6. Risks ahead — checked, not assumed
+
+### 6.1 Resolved: unscaled PCA features into `LinearSVC`
+
+The anticipated problem: unwhitened PCA features have wildly unequal scales, while
+`LinearSVC` applies one L2 penalty to every weight. Measured feature spread at *k* = 128,
+`clahe_gray`: PC1 σ = 8.03, PC128 σ = 0.27 — a **29× spread in σ, 865× in variance**. The
+concern was distorted regularisation, slow convergence, and a distorted `C` sweep at 4.2.
+
+Measured instead of argued (`C = 1.0`, train 31,379 / val 7,830):
+
+| features | val accuracy | fit time | max n_iter | convergence |
+|---|---|---|---|---|
+| unscaled | **0.8013** | 11.6 s | 28 | converged |
+| standardised | 0.8004 | 5.8 s | 57 | converged |
+
+**A 0.09 pp difference — the risk is not real at this scale.** Both converge well inside
+`max_iter`. Unscaled is ~2× slower to fit but needs fewer iterations. No feature-scaling
+step is warranted, which also avoids the awkwardness of standardising PCA scores (which is
+whitening under another name) after deciding not to whiten.
+
+*(Provisional numbers from a diagnostic probe, not a recorded result — task 4.3 produces the
+reportable figures through the timing harness.)*
+
+### 6.2 Open: cross-method feature-scale comparability
+
+PCA is the only representation whose features are **not** internally normalised — HOG
+block-normalises, SIFT/BoVW normalise descriptors and histogram, the CNN has batch norm. A
+single `LinearSVC` with one `C` therefore meets PCA on a different footing than the others.
+§6.1 shows scaling barely matters *for PCA in isolation*; it does not show that one `C`
+suits all five. **Mitigation:** the `C` used for each method must be recorded in
+`results.csv`, and if `C` is tuned per method that must be stated as part of the protocol,
+since "fixed classifier" is the study's central claim. → raised as **Q4**.
+
+### 6.3 Open: preproc/representation pairing is unenforced
+
+`PCARepresentation.preproc` is metadata. `transform` cannot detect being handed `raw_gray`
+images when fitted on `clahe_gray` — same 2304 dims, so sklearn's feature-count check passes
+and the result is silently wrong. The gray↔`clahe_hsv` mismatch *is* caught (2304 vs 6912).
+This is a driver-level hazard for the 8.2 ablation, which loops over all three configs.
+**Mitigation:** the 8.x runner must construct one representation per preproc and pass the
+matching cache; a test on that runner is cheaper than plumbing the name through `transform`.
+→ raised as **Q5**.
+
+### 6.4 Not a risk
+
+- **Degraded input through a clean basis** — works unchanged; `degradations.apply` returns
+  uint8 of the same shape, which `as_matrix` consumes directly.
+- **Cost** — fit ≈ 2.7 s, SVM ≈ 12 s. PCA will be the cheapest row in Table 1.
+- **`dual`** — n_samples (31,379) ≫ n_features (≤ 256), so liblinear's primal solver is the
+  right one; sklearn 1.9's `dual="auto"` already selects it.
+
+---
+
+## 7. Open for task 4.2
 
 - Choose *k* from {32, 64, 128, 256} on validation accuracy, not on explained variance —
   the table above says 95 % of variance needs 155 components under `clahe_gray`, but
