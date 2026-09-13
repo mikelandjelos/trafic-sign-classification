@@ -5,8 +5,8 @@ reader of the report see what "sigma = 40" or "k = 15" actually does to a sign, 
 inferring it from an accuracy drop.
 
 Run:
-    poetry run python docs/demo/degradation_contact_sheet.py
-    poetry run python docs/demo/degradation_contact_sheet.py --preproc raw_gray
+    poetry run python scripts/demo/degradation_contact_sheet.py
+    poetry run python scripts/demo/degradation_contact_sheet.py --preproc raw_gray
 
 What is shown is the **48x48 preprocessed model input**, degraded exactly as
 `gtsrb.degradations` degrades it during evaluation -- same function, same path-keyed seed.
@@ -114,7 +114,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--preproc", default=pp.DEFAULT_PREPROC,
                         choices=sorted(pp.PREPROC_CONFIGS))
-    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo")
+    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo" / "degradation")
     parser.add_argument("--class-id", type=int, default=None)
     args = parser.parse_args()
 

@@ -31,8 +31,11 @@ BGR must give hue 0.
 
 ## Figures
 
-`docs/demo/preprocessing_pipeline.py` regenerates two report-ready figures into
-`figures/demo/` (gitignored — regenerate rather than commit):
+Two scripts, writing into `figures/demo/preprocessing/` (gitignored — regenerate rather
+than commit). `preprocessing_pipeline.py` shows what the pipeline *produces*;
+`preprocessing_mechanics.py` interrogates *why* its parameters were chosen.
+
+`scripts/demo/preprocessing_pipeline.py`:
 
 - **`preprocessing_pipeline.png`** — one sign through every stage (source PPM → `to_gray`
   → `resize(48,48)` → `clahe`), with the intensity histogram before and after. On the
@@ -43,6 +46,15 @@ BGR must give hue 0.
 
 The script calls `gtsrb.preprocessing` rather than reimplementing it, so the figures show
 exactly what the models are fed; if a figure looks wrong, the pipeline is wrong.
+
+`scripts/demo/preprocessing_mechanics.py`:
+
+- **`preprocessing_interpolation.png`** — INTER_AREA vs INTER_LINEAR on a downsampled and an
+  upsampled crop, with the difference map. See Decision 1.
+- **`preprocessing_clahe_tiles.png`** — 4×4 vs 8×8 tile grids on a real sign and on a
+  flat-grey control. See Decision 2.
+- **`preprocessing_resize_direction.png`** — the source-size distribution against the 48 px
+  target, showing the 39.2 / 60.8 split as a picture.
 
 **Sample selection is deliberate and worth knowing when reading the figure.** Choosing the
 *darkest* image (minimum std) — the obvious heuristic — lands on a near-black frame where
@@ -102,6 +114,45 @@ Applied at 48×48 the operation is identical for every sample: 4×4 tiles of 12�
 **Tile grid is (4, 4), not OpenCV's default (8, 8).** At 48×48 the default gives 6×6 px
 tiles — small enough that CLAHE amplifies sensor noise into apparent structure. 12×12 px
 tiles retain enough context to normalise illumination rather than texture.
+
+### That claim was verified, not just asserted
+
+It was originally argued from first principles and nothing more. `preprocessing_clahe_tiles.png`
+tests it with a **control**: flat grey plus σ = 4 noise contains no real structure, so any
+structure CLAHE produces there was manufactured.
+
+| tile grid | structure before → after (control) | amplification | over 300 real images |
+|---|---|---|---|
+| **4×4** (12 px tiles) | 4.43 → 11.66 | **×2.63** | ×1.84 |
+| 8×8 (6 px tiles) | 4.43 → **30.41** | **×6.87** | ×2.99 |
+
+The 8×8 grid manufactures **2.6× more structure from pure noise**, and the tile lattice is
+plainly visible imprinted on the output. The choice is confirmed.
+
+**The honest caveat: (4, 4) amplifies noise too — ×2.63 on the control.** That is inherent
+to CLAHE rather than to the grid size; amplifying noise in flat regions is the operator's
+known weakness, and is exactly why the *contrast-limited* variant exists. `clipLimit = 2.0`
+is what bounds it. So this is a directional improvement, not a clean win, and the report
+should say so rather than presenting (4, 4) as free of the problem.
+
+### The interpolation decision, also verified
+
+`preprocessing_interpolation.png` shows both branches side by side with the difference map.
+It confirms the rule and, more usefully, shows *why* — and the naive "more structure is
+better" reading would get it backwards in **both** directions:
+
+- **Downsampling 5.1×:** `INTER_LINEAR` scores *higher* structure (19.1 vs 16.4) — but that
+  extra structure is **aliasing**. At 5.1× reduction a 2×2 neighbourhood skips most source
+  pixels, and the jagged diagonals are plainly visible. `INTER_AREA` averages over the full
+  source footprint and is correct here.
+- **Upsampling:** `INTER_AREA` scores higher (6.4 vs 5.7) for the opposite reason — when
+  enlarging it degenerates toward nearest-neighbour, producing blocky edges. `INTER_LINEAR`
+  gives the faithful result.
+
+The adaptive rule picks the lower-artifact option in each direction. Worth noting the spread
+too: the **maximum** per-pixel difference on the downsampled case is **98 gray levels**, far
+above the 4.00 *mean* quoted above — so on individual edge pixels the choice is decisive,
+not marginal.
 
 **CLAHE on colour input equalises V only.** Three-channel input is treated as HSV and only
 the value channel is equalised. Equalising H would rotate hues and destroy exactly the

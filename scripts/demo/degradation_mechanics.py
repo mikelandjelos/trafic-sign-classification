@@ -11,7 +11,7 @@ Generates three figures into figures/demo/:
   degradation_noise_stats.png   -- perturbation histograms per sigma, with clipping visible
 
 Run:
-    poetry run python docs/demo/degradation_mechanics.py
+    poetry run python scripts/demo/degradation_mechanics.py
 
 Everything is computed with `gtsrb.degradations` itself, so the figures describe the code
 that runs during evaluation rather than a re-derivation of it.
@@ -171,7 +171,7 @@ def figure_noise_stats(out_dir: Path, sample: np.ndarray, keys: list[str]) -> Pa
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo")
+    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo" / "degradation")
     parser.add_argument("--samples", type=int, default=300)
     parser.add_argument("--preproc", default=pp.DEFAULT_PREPROC,
                         choices=sorted(pp.PREPROC_CONFIGS))

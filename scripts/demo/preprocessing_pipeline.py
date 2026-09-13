@@ -7,8 +7,8 @@ Generates two figures, intended both as a sanity check and as report material:
   preprocessing_configs.png   -- the three ablation configs across several signs
 
 Run:
-    poetry run python docs/demo/preprocessing_pipeline.py
-    poetry run python docs/demo/preprocessing_pipeline.py --class-id 14 --out /tmp/figs
+    poetry run python scripts/demo/preprocessing_pipeline.py
+    poetry run python scripts/demo/preprocessing_pipeline.py --class-id 14 --out /tmp/figs
 
 Nothing here reimplements the pipeline -- it calls `gtsrb.preprocessing` directly, so the
 figures show exactly what the models are fed. If a figure looks wrong, the pipeline is
@@ -155,7 +155,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--class-id", type=int, default=None,
                         help="class for the pipeline figure (default: auto-pick)")
-    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo")
+    parser.add_argument("--out", type=Path, default=config.FIGURES_DIR / "demo" / "preprocessing")
     parser.add_argument("--signs", type=int, default=5, help="columns in the configs figure")
     args = parser.parse_args()
 

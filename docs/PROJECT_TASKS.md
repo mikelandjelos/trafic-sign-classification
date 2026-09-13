@@ -287,7 +287,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       pre-cropped; +40% expansion is impossible for 72% of images. Not an MVP deliverable.
 - [x] **3.5** Contact-sheet figure: every degradation × every level on one sample → straight
       into the report. Three rows (noise, blur, gamma) × 5 levels; jitter is not on GTSRB.
-      — `docs/demo/degradation_contact_sheet.py` → `figures/demo/`. Shows the real 48×48
+      — `scripts/demo/degradation_contact_sheet.py` → `figures/demo/degradation/`. Shows the real 48×48
       model input degraded by `gtsrb.degradations` itself; identity level boxed (gamma's
       sits mid-row). See `docs/report-material/10-degradations.md`.
 
