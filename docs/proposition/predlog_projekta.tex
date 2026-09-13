@@ -117,7 +117,7 @@ M5 & \textbf{Semantičko tumačenje} -- prevođenje prepoznatih znakova u ograni
 
 \textbf{Ovaj projekat realizuje isključivo modul M3, i to nad isečcima čije su granice date anotacijom skupa podataka, a ne izlazom detektora.} Moduli M1, M2, M4 i M5 se u ovom dokumentu opisuju samo radi kontekstualizacije -- oni nisu deo predmeta rada, ne implementiraju se, i ne evaluiraju se. Ovo ograničenje opsega je namerno i proizilazi iz opsega samog predmeta i vremenskih resursa; obrazloženje i pravac daljeg razvoja dati su u Dodatku A.
 
-Jedan element projekta je ipak svesno oblikovan tako da služi budućem povezivanju sa modulom M1: \mvp{merenje osetljivosti klasifikatora na pomeraj i promenu razmere graničnog okvira} (opisano u odeljku 6). Realan detektor nikada ne daje isečke tako precizno centrirane i uokvirene kao ručna anotacija, pa ovo merenje kvantifikuje koliko bi tačnosti bilo izgubljeno kada bi se modul M3 spojio sa modulom M1.
+Jedan element projekta je ipak svesno oblikovan tako da služi budućem povezivanju sa modulom M1: \str{merenje osetljivosti klasifikatora na pomeraj i promenu razmere graničnog okvira, nad GTSDB skupom, koji sadrži kadrove punih scena}~\cite{gtsdb} (opisano detaljnije u odeljku 6.2). Realan detektor nikada ne daje isečke tako precizno centrirane i uokvirene kao ručna anotacija, pa ovo merenje kvantifikuje koliko bi tačnosti bilo izgubljeno kada bi se modul M3 spojio sa modulom M1.
 
 \subsection*{4.2 Formulacija problema}
 
@@ -191,16 +191,19 @@ Klase u GTSRB skupu su izrazito nebalansirane (odnos najzastupljenije i najređe
 
 \subsection*{6.2 Kontrolisane degradacije}
 
-Test skup se evaluira u čistom obliku i pod četiri tipa kontrolisane degradacije, svaki na pet nivoa jačine:
+Test skup se evaluira pod \textbf{tri} tipa kontrolisane degradacije, svaki na pet nivoa jačine:
 
 \begin{enumerate}
   \item \mvp{\textbf{Aditivni Gausov šum}} -- $\sigma \in \{0, 5, 10, 20, 40\}$; simulira šum senzora pri slabom osvetljenju.
   \item \mvp{\textbf{Zamućenje usled kretanja}} -- dužina jezgra $\in \{0, 3, 5, 9, 15\}$ piksela, nasumičan ugao; simulira kretanje vozila.
   \item \mvp{\textbf{Promena osvetljenosti}} -- gama korekcija, $\gamma \in \{0.4, 0.7, 1.0, 1.5, 2.5\}$; simulira ekstremne uslove ekspozicije.
-  \item \mvp{\textbf{Pomeraj graničnog okvira}} -- perturbacija okvira za $\{0, 10, 20, 30, 40\}\%$ po razmeri i položaju.
 \end{enumerate}
 
-Četvrta degradacija zaslužuje posebno objašnjenje. Ona se \textbf{ne} realizuje veštačkim dopunjavanjem ivica, već ponovnim isecanjem iz izvorne slike sa pomerenim koordinatama okvira -- što je moguće upravo zato što GTSRB anotacija sadrži koordinate okvira unutar isečka. Posledica je da pri većim pomerajima u isečak ulazi stvarna pozadina, tačno kao što bi se desilo sa izlazom realnog detektora. Ovo merenje je, kao što je objašnjeno u odeljku 4.1, direktna priprema za buduće povezivanje sa modulom M1.
+Prvobitno je planirana i četvrta degradacija, perturbacija graničnog okvira, ali je analiza samog skupa podataka pokazala da ona nad GTSRB skupom \textbf{nije izvodljiva na pošten način}. GTSRB slike su već isečene oko znaka, sa medijanom margine od svega $16{,}7\%$ veličine okvira; sve izvan te margine odbačeno je pri formiranju skupa i ne postoji ni u jednoj datoteci. Jedini način da se takav pomeraj ipak proizvede jeste veštačko dopunjavanje ivica, čime bi se merio i postupak dopunjavanja, pored izabrane reprezentacije.
+
+Ovakva vrsta degradacije se stoga izmešta na skupove podataka koji sadrže \textbf{kadrove punih scena}, a u ovom radu će se vršiti \str{evaluacija robusnosti opisanih modela nad GTSDB skupom pri nivoima pomeraja $\{0, 10, 20, 30, 40\}\%$ po razmeri i položaju}. GTSDB sadrži 1\,213 anotiranih znakova u 741 kadru dimenzija $1360\times800$, sa istom šemom od 43 klase, pa se pomeraj realizuje isecanjem iz stvarne scene, bez ijednog veštački generisanog piksela. Nulti nivo pomeraja reprodukuje kadriranje GTSRB skupa (okvir uvećan za oko $17\%$), kako bi razlika u odnosu na njega merila isključivo grešku okvira, a ne promenu kadriranja; razlika između čistog GTSRB rezultata i GTSDB rezultata pri nultom pomeraju zasebno se izveštava kao mera \emph{generalizacije između skupova podataka}. Zbog male i neravnomerne zastupljenosti klasa u GTSDB skupu (14 od 43 klase ima manje od 10 primeraka) na tom skupu se izveštava isključivo tačnost, ne i makro-F1.
+
+Pomeraj okvira \textbf{ne ulazi u trening}, već se modeli treniraju isključivo nad GTSRB skupom, sa kadriranjem kakvo skup pruža. Time se meri \emph{inherentna} otpornost reprezentacije na grešku okvira, što je informativnije upravo zato što model takvu perturbaciju nikada nije video, a eksperimentalna kontrola ostaje neizmenjena. Ovo merenje je, kao što je objašnjeno u odeljku 4.1, direktna priprema za potencijalno buduće povezivanje sa modulom M1.% \footnote{Namerno se govori o sprezi M1$\to$M3, bez pominjanja modula M2, iako i on utiče na granični okvir koji stiže do klasifikatora. Razlog je u tome što merenje karakteriše osetljivost na \emph{grešku graničnog okvira} bez obzira na njen izvor, a M1 je primarni i neizbežni izvor te greške -- svaki sistem mora negde da locira znak, dok je M2 opciona optimizacija, budući da se detekcija može vršiti u svakom kadru. Uz to, M2 ne uvodi novu \emph{vrstu} greške, već doprinosi istoj: propagacijom okvira kroz kadrove akumulira se pomeraj (eng. \textit{drift}), koji se sabira sa greškom detektora. Veličina te akumulacije zavisi od izbora algoritma praćenja, učestanosti kadrova i intervala ponovne detekcije -- parametara koji u ovom projektu ne postoje i koji se ne mogu smisleno fiksirati. Kontekst se zato vezuje za M1, pri čemu dobijena vrednost predstavlja \emph{donju granicu} greške koju bi modul M3 video u kompletnom sistemu. \end{comment} }.
 
 \subsection*{6.3 Metrike}
 
@@ -208,7 +211,7 @@ Test skup se evaluira u čistom obliku i pod četiri tipa kontrolisane degradaci
   \item \textbf{Tačnost} i \textbf{makro-F1 mera} na test skupu;
   \item \textbf{F1 mera po klasi} i \textbf{matrica konfuzije};
   \item \textbf{tačnost po opsezima veličine znaka} -- opsezi $[0,32)$, $[32,48)$, $[48,72)$, $[72,\infty)$ piksela visine okvira; manji znak odgovara većoj udaljenosti u realnom scenariju;
-  \item \textbf{krive robusnosti} -- tačnost u funkciji nivoa svake od četiri degradacije;
+  \item \textbf{krive robusnosti} -- tačnost u funkciji nivoa svake od tri degradacije, prikazana relativno u odnosu na tačnost datog metoda na čistom skupu, kako bi se poredila \emph{brzina opadanja} a ne polazna vrednost;
   \item \textbf{cena (\textit{computational price})} -- vreme treniranja, vreme inferencije po slici (medijana iz najmanje tri merenja, uz odbacivanje prvog poziva), veličina modela u megabajtima i dimenzija vektora obeležja.
 \end{itemize}
 
@@ -235,7 +238,7 @@ Tema je izabrana iz tri razloga.
 
 	\item Opseg projekta je namerno i eksplicitno ograničen na jedan modul šireg sistema. Autor smatra da je pošteno i korisnije realizovati jedan modul do kraja, sa urednom metodologijom i proverljivim rezultatima, nego površno dodirnuti ceo lanac obrade. Moduli koji su ostavljeni van opsega -- detekcija u punom kadru, praćenje kroz optički tok, vremenska agregacija odluka -- opisani su u odeljku 4.1 upravo zato da bi granica bila nedvosmislena.
 
-	\item Projekat je zamišljen kao osnova za dalji rad. Klasifikator razvijen ovde postaje komponenta kompletnog sistema za prepoznavanje saobraćajne signalizacije iz video snimka, čiji bi naredni koraci bili: detekcija kandidatnih regiona nad GTSDB skupom~\cite{gtsdb}, propagacija detekcija kroz kadrove pomoću optičkog toka~\cite{lucas-kanade} radi postizanja rada u realnom vremenu, i procena udaljenosti znaka na osnovu modela kamere i poznatih fizičkih dimenzija znaka. Merenje osetljivosti na pomeraj graničnog okvira, uvedeno u ovom projektu, direktno je motivisano tim nastavkom -- ono unapred kvantifikuje gubitak tačnosti pri prelasku sa anotiranih na detektovane isečke. Šire posmatrano, isti metodološki problem -- prepoznavanje objekata iz neprekidnog
+	\item Projekat je zamišljen kao osnova za dalji rad. Klasifikator razvijen ovde postaje komponenta kompletnog sistema za prepoznavanje saobraćajne signalizacije iz video snimka, čiji bi naredni koraci bili: detekcija kandidatnih regiona nad GTSDB skupom, propagacija detekcija kroz kadrove pomoću optičkog toka~\cite{lucas-kanade} radi postizanja rada u realnom vremenu, i procena udaljenosti znaka na osnovu modela kamere i poznatih fizičkih dimenzija znaka. Merenje osetljivosti na pomeraj graničnog okvira, uvedeno u ovom projektu, direktno je motivisano tim nastavkom -- ono unapred kvantifikuje gubitak tačnosti pri prelasku sa anotiranih na detektovane isečke. Šire posmatrano, isti metodološki problem -- prepoznavanje objekata iz neprekidnog
 toka kadrova snimljenih pokretnom kamerom iz prvog lica, uz stroga ograničenja
 kašnjenja i računskih resursa -- predstavlja jedno od otvorenih pitanja egocentričnog
 računarskog vida, oblasti koja poslednjih godina beleži izražen rast razvojem nosivih

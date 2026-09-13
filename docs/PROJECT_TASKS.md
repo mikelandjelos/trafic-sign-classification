@@ -52,7 +52,7 @@ about all of them, and a prediction made after seeing results is worthless.
 
 | Stressor | Predicted most robust | Predicted least robust | Reasoning |
 |---|---|---|---|
-| Bbox jitter | BoVW | PCA | orderless encoding is translation-invariant; PCA subspace assumes alignment |
+| Bbox jitter *(extension, §11 — evaluated on GTSDB, not GTSRB)* | BoVW | PCA | orderless encoding is translation-invariant; PCA subspace assumes alignment |
 | Motion blur | PCA | HOG / BoVW | gradient-based methods lose their signal; PCA works on raw intensity |
 | Gaussian noise | PCA | HOG | low-dim projection averages noise away; gradients amplify it |
 | Small signs (<32 px) | HOG / CNN | BoVW | too little support for meaningful local descriptors |
@@ -131,9 +131,18 @@ same sign on both sides and inflates validation accuracy.
 > raw prefix collapses 1,307 tracks into 75 groups, wrecks per-class stratification, and
 > fails silently. See `docs/report-material/02-dataset-structure.md`.
 
-Annotation CSVs give per-image `Width`, `Height`, `Roi.X1/Y1/X2/Y2`, `ClassId`. The ROI
-coordinates are what make honest bbox jitter possible — you re-crop from the source
-image with perturbed coordinates rather than faking it with padding.
+Annotation CSVs give per-image `Width`, `Height`, `Roi.X1/Y1/X2/Y2`, `ClassId`.
+
+> **Measured at task 2.2 — GTSRB cannot support bbox jitter.** Its images are *already
+> cropped* to the sign plus a median ~16.7 % margin; everything beyond that was discarded
+> when the dataset was built. Max outward scaling before running off the file is 1.30×
+> (median), so **+40 % is impossible for 72 % of images** (28,166 would clip). Producing it
+> anyway requires padding with invented pixels — which measures the padding strategy, not
+> the representation. Jitter is therefore **not in the MVP**; it moves to full-frame
+> datasets in §11. See `docs/report-material/09-jitter-and-datasets.md`.
+
+The ROI columns are still used: `roi_h` is the size measure for the accuracy-vs-size
+buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ---
 
@@ -198,14 +207,28 @@ image with perturbed coordinates rather than faking it with padding.
       the commit. `pivot()` refuses to silently average levels/runs; `append_rows()` refuses
       NaN; `check_complete()` reports missing grid cells for 8.3. 19 tests.
       See `docs/report-material/07-results-table.md`.
-- [ ] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
-- [ ] **2.2** Three named configs for the ablation: `raw_gray`, `clahe_gray`, `clahe_hsv`
+- [x] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
+      — `gtsrb.preprocessing`, all uint8-in/uint8-out for the 2.3 cache, plus `load_image`
+      and `crop_roi`. **`resize` picks interpolation per image** (39.2% of crops shrink,
+      60.8% enlarge; a fixed choice injects a ~4 gray-level, size-correlated artifact —
+      as large as σ=5 noise — straight into fig. 9.4). **CLAHE runs after resize**, tile
+      grid (4,4), V-channel only on colour. 23 tests.
+      See `docs/report-material/08-preprocessing.md`.
+- [x] **2.2** Three named configs for the ablation: `raw_gray`, `clahe_gray`, `clahe_hsv`
+      — `preprocessing.PREPROC_CONFIGS`, each declaring `shape`/`flat_dim` (2304, 2304,
+      6912). They form a ladder: each adds exactly one factor to the previous. Plus
+      `load_and_preprocess(row, preproc)`. **GTSRB images keep the framing the dataset
+      provides** (`roi=False`) — only pixels are processed, the box is untouched. (An earlier
+      revision cropped to the tight ROI to align with jitter level 0; reverted when jitter
+      moved to §11.) 11 tests. See `docs/report-material/08-preprocessing.md`.
 - [ ] **2.3** Cached loader — preprocess once, store uint8 `.npy`, reload fast
 - [ ] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
 - [ ] **3.2** Degradation: motion blur, kernel ∈ {0, 3, 5, 9, 15} px, random angle
 - [ ] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
-- [ ] **3.4** Degradation: **bbox jitter** — perturb ROI ±{0,10,20,30,40}% in scale and position, re-crop from source (no padding; let real background in)
-- [ ] **3.5** Contact-sheet figure: every degradation × every level on one sample → straight into the report
+- [x] **3.4** ~~Degradation: bbox jitter~~ — **moved to §11 (extension)**. GTSRB is
+      pre-cropped; +40% expansion is impossible for 72% of images. Not an MVP deliverable.
+- [ ] **3.5** Contact-sheet figure: every degradation × every level on one sample → straight
+      into the report. Three rows (noise, blur, gamma) × 5 levels; jitter is not on GTSRB.
 
 ### Day 2 — PCA, HOG, CNN kickoff (~5.5 h)
 
@@ -245,7 +268,10 @@ image with perturbed coordinates rather than faking it with padding.
 - [ ] **9.2** Figure: confusion matrix, best and worst method
 - [ ] **9.3** Table: top-10 most-confused class pairs + commentary (speed limits confuse predictably)
 - [ ] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
-- [ ] **9.5** Figure: robustness curves — 4 panels (noise, blur, gamma, jitter), one line per method
+- [ ] **9.5** Figure: robustness curves — 3 panels (noise, blur, gamma), one line per method.
+      Plot accuracy **relative to each method's own clean baseline**, so the figure compares
+      rate of degradation rather than starting point (and stays commensurable with the §11
+      jitter panel, which lives on a different test set).
 - [ ] **9.6** **Table: predictions vs. outcomes** — which held, which didn't, and why. This is the core of the discussion section.
 - [ ] **9.7** Table: preprocessing ablation
 - [ ] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
@@ -265,12 +291,17 @@ under an hour.
 
 ```
 methods       = [pca_svm, hog_svm, bovw_svm, cnn_feat_svm, cnn_e2e]   # 5
-degradations  = [clean] + [noise, blur, gamma, jitter] x 5 levels     # 21
+degradations  = [clean] + [noise, blur, gamma] x 5 levels             # 16
 preproc       = [raw_gray, clahe_gray, clahe_hsv]                     # ablation, best 2 methods only
 ```
 
-Core grid: 5 × 21 = 105 evaluation runs.
+Core grid: 5 × 16 = **80** evaluation runs. (Was 105; bbox jitter moved to §11 — no cell in
+the remaining grid is compromised.)
 Size-stratified results are free — group the existing clean-test predictions by ROI height.
+
+**No jitter enters training or the core grid.** Models are trained on GTSRB with the
+framing the dataset provides; jitter is a test-time stressor applied only in §11, on
+datasets whose pixels actually exist outside the box.
 
 ---
 
@@ -283,7 +314,7 @@ Size-stratified results are free — group the existing clean-test predictions b
 - [ ] Figure — degradation contact sheet
 - [ ] Figure — confusion matrices (best + worst)
 - [ ] Figure — accuracy vs. sign size
-- [ ] Figure — robustness curves (4 panels incl. bbox jitter)
+- [ ] Figure — robustness curves (3 panels: noise, blur, gamma; relative to clean)
 - [ ] Table — preprocessing ablation
 - [ ] Table — top confused pairs
 - [ ] `results.csv` — reproducible from a single script
@@ -298,7 +329,9 @@ Cut in this order if you fall behind. The comparison survives all three.
 2. **Preprocessing ablation** (8.2) — report one config, note as a limitation.
 3. **Hyperparameter sweeps** (4.2, 5.2, 6.3) — use sensible defaults, note as a limitation.
 
-Never cut: track-disjoint splitting, bbox jitter, the cost table, the predictions table.
+Never cut: track-disjoint splitting, the cost table, the predictions table, and the
+**measurement** of why jitter cannot be done on GTSRB (§11 — the number is the finding, even
+if the extension itself is never run).
 Those are what make this a study rather than a tutorial.
 
 ---
@@ -326,3 +359,45 @@ Those are what make this a study rather than a tutorial.
   and the timings are relative, not deployment latency.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
 - **CNN feature extraction** — put the model in `eval()` and wrap in `torch.no_grad()`, or the penultimate features will carry dropout noise.
+
+---
+
+## 11. Extension — bbox jitter on full-frame datasets
+
+Not part of the MVP. Scheduled after Day 4, once baseline results exist.
+
+**Why it is here and not in §6:** GTSRB is pre-cropped, so outward jitter cannot be
+simulated without inventing pixels (§5, measured: +40% impossible for 72% of images). The
+correct instrument is a dataset of full road scenes. Full rationale, verification and
+statistical caveats: `docs/report-material/09-jitter-and-datasets.md`.
+
+### Stage 1 — MVP (§6)
+No jitter anywhere. Establishes the baseline results and Table 1.
+
+### Stage 2 — evaluate the *unmodified* models on GTSDB
+- [ ] **11.1** Download `FullIJCNN2013.zip` (1,585 MB); parse `gt.txt`
+      (`file;x1;y1;x2;y2;ClassId`) into the standard annotations schema.
+      *Verified over HTTP range requests (237 KB): 1,213 signs / 741 frames, 1360×800,
+      ClassId 0–42 identical to GTSRB, all 43 classes present.*
+- [ ] **11.2** Jitter: perturb the box ±{0,10,20,30,40}% in scale and position, crop from
+      the **full frame** — real background, no padding, no clipping.
+      **Level 0 must replicate GTSRB's framing** (box + ~17% margin), or a framing mismatch
+      gets measured and reported as domain shift.
+- [ ] **11.3** Run all 5 methods across the jitter levels. No retraining — inference only;
+      the task-1 harness handles it unchanged.
+- [ ] **11.4** Report **accuracy only, not macro-F1** — 14 of 43 GTSDB classes have <10
+      instances (min 2). n=1,213 gives ±1.7 pp CI: fine for curve shape, not for per-class
+      claims.
+- [ ] **11.5** Report GTSRB-clean vs GTSDB-jitter-0 separately: that gap is a **cross-dataset
+      generalisation** measurement, a bonus the original plan would not have produced.
+
+### Stage 3 — *conditional* on stage 2 showing a robustness gap
+- [ ] **11.6** Only if stage 2 shows the representations are *not* robust: propose GTSDB as a
+      training supplement and build a jitter-aware model. Note the asymmetry — GTSRB can only
+      supply *inward* jitter for training, while stage 2 tests both directions.
+      "Already robust, so no augmentation was warranted" is a legitimate, cheaper outcome.
+
+### Stage 4 — future work
+- [ ] **11.7** A further uncropped dataset for cross-country generalisation. BelgiumTS is the
+      only realistic candidate (62 classes vs 43 — needs an explicit mapping, covers a
+      subset). Scoped as future work; it is the one item that could expand without bound.

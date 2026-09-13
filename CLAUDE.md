@@ -25,8 +25,12 @@ The report is as important as the implementation. Nothing gets reconstructed on 
 - Unresolved decisions go in the open-questions table in `00-INDEX.md`, not in chat.
 - Surprises and mistakes get written down even when inconvenient — a failed prediction is
   worth more to the discussion section than one that held.
-- `docs/proposition/` = the submitted proposal; `docs/report/` = the final Serbian writeup;
+- `docs/proposition/` = the project proposal; `docs/report/` = the final Serbian writeup;
   `docs/report-material/` = the working notes that feed it.
+- **NEVER modify `docs/proposition/` unless explicitly asked to.** It is the author's
+  document. If implementation diverges from it, record the divergence in
+  `docs/report-material/` and raise it — do not edit the proposal to match the code.
+  This applies to `predlog_projekta.tex`, `references.bib`, and the build artifacts.
 
 ### Environment
 
