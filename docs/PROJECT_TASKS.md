@@ -308,7 +308,22 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ### Day 2 — PCA, HOG, CNN kickoff (~5.5 h)
 
-- [ ] **4.1** PCA on flattened 48×48 grayscale, `svd_solver='randomized'` *(task 4 = 1.5 h)*
+- [x] **4.1** PCA on flattened 48×48 grayscale, `svd_solver='randomized'` *(task 4 = 1.5 h)*
+      — `gtsrb.representations.pca.PCARepresentation`, behind the shared `Representation`
+      interface tasks 5–7 also implement. Fitted on the **training split only** and on
+      **clean images only** (`fit_on_train()` enforces both). **`whiten=False`, deliberately:**
+      whitening rescales each retained component to unit variance, which amplifies exactly
+      the low-variance directions where noise concentrates — it would suppress the very
+      mechanism the locked noise prediction rests on. Kept available as an ablation, and
+      reported as a limitation. Measured: 80 % of variance needs **8** components on
+      `raw_gray`, **25** on `clahe_gray`, **106** on `clahe_hsv` — *CLAHE makes the data
+      harder to compress*, because the direction it normalises away (PC1 = brightness,
+      **52.3 %** of variance, r = **+0.9975** with mean intensity) was absorbing half of it.
+      Train/val reconstruction error agree to 0.1 gray levels, so the basis generalises
+      across held-out tracks. Found and fixed: `fit` leaves `components_` F-contiguous and
+      joblib reloads it C-contiguous — identical values, different BLAS kernel, projections
+      differing by 1e-6, i.e. *the model changed when reloaded*. 31 tests.
+      See `docs/report-material/11-pca.md`.
 - [ ] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
 - [ ] **4.3** `LinearSVC` on PCA features; record cost metrics
 - [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
@@ -443,6 +458,12 @@ Those are what make this a study rather than a tutorial.
   and the timings are relative, not deployment latency.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
 - **CNN feature extraction** — put the model in `eval()` and wrap in `torch.no_grad()`, or the penultimate features will carry dropout noise.
+- **Memory layout changes float32 results** — `PCA.fit` leaves `components_` F-contiguous,
+  a joblib round-trip restores it C-contiguous, and BLAS picks a different GEMM kernel for
+  each. Values bit-identical, projections differing by ~1e-6: *a reloaded model behaves
+  differently from the one just fitted*. Normalise with `np.ascontiguousarray` at fit time.
+  Confirmed at task 4.1. The residual case — a subset batch blocking differently from the
+  full batch — is unfixable and documented instead (same 1e-6, far below any SVM margin).
 
 ---
 

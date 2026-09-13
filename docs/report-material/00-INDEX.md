@@ -35,6 +35,7 @@ Distinct from:
 | [08-preprocessing.md](08-preprocessing.md) | Methodology → preprocessing; ablation table 9.7 | complete (tasks 2.1–2.3) |
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
+| [11-pca.md](11-pca.md) | Methodology → representations; Table 1; figs 4.4, 9.5, 9.7 | complete (task 4.1) |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png` (source tracked, render ignored).
 
