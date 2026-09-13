@@ -24,6 +24,31 @@ Only the second is a like-for-like comparison. Without it, a CNN win would be am
 between "the representation is better" and "the classifier is better", and the study's whole
 design is built to keep those apart. Both paths live on one model: `forward()` and `embed()`.
 
+### 1.1 There is exactly one training run
+
+**`cnn_feat_svm` is not trained.** The network is trained end to end through its softmax head
+(tasks 7.2–7.4), and `cnn_feat_svm` then reuses *that* network: penultimate layer out,
+`LinearSVC` on top, no retraining (task 7.5, ~20 min).
+
+That is deliberate. Training a second network specifically for feature extraction would make
+the two CNN rows differ in more than their classifier, which is exactly the confound this
+design exists to avoid — and it would also double the project's largest compute item.
+
+**But it carries a caveat that must be stated when the two rows are compared.** The features
+were optimised for a softmax head; the network never "knows" it will be read by a linear SVM.
+The penultimate layer is shaped by cross-entropy against 43 output units, not by whatever
+would make a maximum-margin linear classifier happiest. So:
+
+> If `cnn_feat_svm` underperforms `cnn_e2e`, **part of that gap is the objective mismatch,
+> not a property of the representation.** The honest reading of a gap is "these features,
+> trained for a softmax, transfer this well to an SVM" — not "the CNN's representation is
+> worth less than its classifier".
+
+This is the standard transfer-learning setup and the right choice here, but it is an
+asymmetry the other three methods do not have: PCA, HOG and BoVW were never optimised for
+*any* classifier, so their features are objective-neutral in a way the CNN's are not.
+Recorded as a limitation, and it belongs in the discussion next to whatever gap appears.
+
 ---
 
 ## 2. Architecture

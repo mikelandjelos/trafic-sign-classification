@@ -477,6 +477,12 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       assertion and is obvious on sight.
 - [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
 - [ ] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three. ~20 min, you already have both pieces.
+      **No retraining — it reuses 7.3's network.** There is exactly one training run in the
+      whole project. Caveat to report alongside the result: those features were optimised for
+      a *softmax head*, so if `cnn_feat_svm` trails `cnn_e2e`, part of the gap is objective
+      mismatch rather than the representation. PCA, HOG and BoVW were never optimised for any
+      classifier, so this asymmetry is the CNN's alone.
+      See `docs/report-material/13-cnn.md` §1.1.
 - [ ] **7.6** **Demo** (`scripts/demo/cnn_mechanics.py`) — training curves, first-layer
       filters, and feature-map activations for one sign per super-category. Include the
       `eval()`/`no_grad()` check as a *visual*: penultimate features extracted twice must be
