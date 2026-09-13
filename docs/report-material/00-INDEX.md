@@ -33,7 +33,7 @@ Distinct from:
 | [07-results-table.md](07-results-table.md) | Methodology → reproducibility; source of all Results | complete (task 1.6) |
 | [08-preprocessing.md](08-preprocessing.md) | Methodology → preprocessing; ablation table 9.7 | complete (tasks 2.1–2.3) |
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
-| [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | in progress (task 3.1 done) |
+| [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
 
 <!-- Add a row per note as it is created. Keep status honest: in progress / complete / stale. -->
 

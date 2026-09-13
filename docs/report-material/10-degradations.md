@@ -2,8 +2,7 @@
 
 **Feeds:** Methodology → controlled degradations; the robustness curves (fig. 9.5); the
 contact sheet (3.5).
-**Status:** in progress — all three degradations done (3.1, 3.2, 3.3); contact sheet (3.5)
-pending.
+**Status:** complete (tasks 3.1, 3.2, 3.3, 3.5).
 
 Implemented as `gtsrb.degradations`; tested in `tests/test_degradations.py`.
 
@@ -208,3 +207,38 @@ The registry now makes each degradation declare its own `identity`, exposed as
 `identity_for(name)`, and a test pins that `identity_for("gamma") != levels_for("gamma")[0]`.
 This matters beyond gamma: task 9.5 normalises each curve to its own baseline, and that
 code must ask which level is the baseline rather than assume position.
+
+---
+
+## 3.5 Contact sheet
+
+`docs/demo/degradation_contact_sheet.py` → `figures/demo/degradation_contact_sheet.png`.
+Three rows (noise, blur, gamma) × five levels on one sign, with the identity level boxed in
+green.
+
+It shows the **48×48 preprocessed model input**, degraded by `gtsrb.degradations` itself —
+same function, same path-keyed seed as evaluation — so it is the actual classifier input,
+not an illustration of it.
+
+**Sample selection, and a mistake worth recording.** The first version ranked candidates by
+*edge energy*, reasoning that a sharp image shows degradation best. It selected a sign in
+front of a fence: the background clutter dominated every panel and made the degradation
+harder to read, not easier. Ranking by global contrast and *penalising* high-frequency
+clutter picks a clean sign against a plain background, which is what the figure needs.
+
+### What the figure makes visible that a table cannot
+
+- **Gamma preserves spatial structure; blur destroys it.** Gamma is a monotone point
+  transform, so edges stay exactly where they are and only their contrast changes. Motion
+  blur moves image energy across pixels. This predicts a genuine split in the results:
+  gradient-orientation methods with block normalisation (HOG) should be far more robust to
+  gamma than to blur, while a holistic intensity method (PCA) should be hurt by gamma's
+  global intensity shift.
+- **At γ = 2.5 the sign is close to black**, which is the 3.71 % zero-clipping from §3.3
+  made visible.
+- **At k = 15 the blur direction is plainly diagonal**, confirming the random-angle draw is
+  doing what it should, and the sign is barely legible — the strongest level is genuinely
+  strong.
+- **At σ = 40 the sign remains recognisable to a human** while being heavily corrupted,
+  which is the useful regime for separating methods: a level that destroyed the sign
+  entirely would push every method to chance and discriminate nothing.
