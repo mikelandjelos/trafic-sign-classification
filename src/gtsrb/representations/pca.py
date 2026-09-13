@@ -1,7 +1,7 @@
 """Task 4.1: PCA on the flattened 48x48 image -- the "eigensigns" representation.
 
-    phi = pca.PCARepresentation(n_components=128).fit(train_images)
-    Z   = phi.transform(val_images)          # (n, 128) float32
+    phi = pca.PCARepresentation().fit(train_images)   # k = 256, selected at 4.2
+    Z   = phi.transform(val_images)                  # (n, 256) float32
 
 The classical Eigenfaces construction applied to traffic signs: treat each image as a
 point in R^2304, find the orthonormal directions of greatest variance across the training

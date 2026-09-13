@@ -517,7 +517,10 @@ Those are what make this a study rather than a tutorial.
 - **Detector SIFT returns zero keypoints** on small crops, silently breaking BoVW. Use dense SIFT.
 - **`SVC(kernel='rbf')`** on 39k samples will run for hours. `LinearSVC`.
 - **Class imbalance** — measured at task 1.1: **10.7×** train (210 for class 0 vs 2,250 for
-  class 2), 12.5× test. Report macro-F1, not just accuracy. Consider `class_weight='balanced'`.
+  class 2), 12.5× test. Report macro-F1, not just accuracy. **`class_weight` is swept,
+  not assumed** — it is on the `gtsrb.tuning` grid alongside `C` for every method
+  (decided at 4.2). For PCA `balanced` won, but by only 0.55 pp and it *loses* at
+  k=128, so no class-weighting effect should be claimed from it.
 - **Two test GT files** — `data/GT-final_test.csv` has `ClassId`;
   `Final_Test/Images/GT-final_test.test.csv` does not. Same row count, so the wrong one
   passes every count check. `config.TEST_GT_CSV` names the right one.

@@ -1,9 +1,11 @@
-# 11 — PCA: the holistic representation (task 4.1)
+# 11 — PCA: the holistic representation (tasks 4.1, 4.2)
 
-*Feeds: Methodology → representations; Table 1 (9.1); eigensigns figure (4.4); discussion
-of the gamma panel (9.5).*
+*Feeds: Methodology → representations; Methodology → **classifier selection protocol**
+(§7.4, which governs 5.2 / 6.3 / 7.5 too); Table 1 (9.1); component-sweep figure (4.2);
+eigensigns figure (4.4); discussion of the gamma panel (9.5).*
 
-Implementation: `src/gtsrb/representations/pca.py`. Tests: `tests/test_pca.py` (31).
+Implementation: `src/gtsrb/representations/pca.py`, `src/gtsrb/tuning.py`,
+`scripts/sweep_pca.py`. Tests: `tests/test_pca.py` (31), `tests/test_tuning.py` (12).
 Interface: `src/gtsrb/representations/__init__.py`.
 
 ---
@@ -173,8 +175,8 @@ PCA retains less *variance* under CLAHE than without it.
 > caution for reading the 4.2 figure, and the reason 4.2 selects *k* on validation accuracy
 > rather than on a variance threshold.
 >
-> *(Provisional: diagnostic probe, not harness-recorded. Tasks 4.2 / 8.2 produce the
-> reportable numbers.)*
+> *(Provisional: diagnostic probe at C = 1, not harness-recorded. Task 4.2 swept only
+> `clahe_gray`, so the cross-preproc comparison is settled at task 8.2.)*
 
 ### 3.3 Gotcha — memory layout changed the projections
 
@@ -289,8 +291,21 @@ Measured instead of argued (`C = 1.0`, train 31,379 / val 7,830):
 step is warranted, which also avoids the awkwardness of standardising PCA scores (which is
 whitening under another name) after deciding not to whiten.
 
-*(Provisional numbers from a diagnostic probe, not a recorded result — task 4.3 produces the
-reportable figures through the timing harness.)*
+**Re-checked at the configuration actually selected** (k = 256, C = 0.01, balanced), since
+the probe above ran at k = 128, C = 1 and a conclusion drawn at one config does not
+automatically transfer:
+
+| features | macro-F1 | accuracy | fit time |
+|---|---|---|---|
+| unscaled | **0.7977** | **0.8442** | 26.2 s |
+| standardised | 0.7915 | 0.8409 | 11.0 s |
+
+Unscaled now *wins* outright, so the conclusion strengthens rather than merely surviving:
+**no feature-scaling step is warranted.** Standardising is ~2.4× faster to fit, which is the
+only argument for it and not one this project needs.
+
+*(Diagnostic probes, not harness-recorded results — task 4.3 produces the reportable figures
+through the timing harness.)*
 
 ### 6.2 Decided (Q4): `C` is tuned per method
 

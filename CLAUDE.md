@@ -90,6 +90,11 @@ The report is as important as the implementation. Nothing gets reconstructed on 
 - **The track key is `(class_id, track_id)`.** The raw `TTTTT` filename prefix restarts
   inside every class directory — 75 raw prefixes vs 1307 real tracks.
 - LinearSVC only. Never SVC(kernel='rbf') -- O(n^2) on 39k samples.
+- **Classifier hyperparameters are tuned per method, via `gtsrb.tuning`** (Q4, decided at
+  4.1). "Fixed classifier" = same estimator + same selection protocol, NOT the same `C`.
+  Selection is on **validation macro-F1** (10.7x imbalance makes accuracy the wrong
+  criterion), ties break toward smaller `C`, and the selected values are recorded per method
+  in `results.csv`. Never hand-pick a `C`, and never tune on test.
 - Dense SIFT for BoVW. Detector-based SIFT returns zero keypoints on small crops.
 - CPU-only. No CUDA available.
 - Always `from gtsrb import config; config.set_seeds()` at the top of a script. Paths come

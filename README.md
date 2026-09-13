@@ -28,9 +28,17 @@ before any experiment was run.
 
 ## Method
 
-Each representation φ maps an image to a fixed-length vector, and a **fixed linear
-SVM** classifies it. Holding the classifier constant means any difference in results
-is attributable to the representation, not the classifier. The CNN therefore appears
+Each representation φ maps an image to a fixed-length vector, and the **same linear
+SVM** classifies it, so any difference in results is attributable to the representation
+rather than to the classifier.
+
+"Same" means the same estimator and the same selection protocol — not the same
+hyperparameters. `C` and `class_weight` are tuned per method on validation, because PCA is
+the only representation here whose features are not internally normalised (HOG
+block-normalises, BoVW L2-normalises, the CNN has batch norm). Freezing `C` would hand each
+representation a dial calibrated for another's feature scale, and the difference that
+produced would be an artifact of the dial rather than a property of φ. The selected values
+are reported alongside the results. The CNN therefore appears
 twice — once as a feature extractor feeding the same SVM, and once end-to-end with
 its own softmax head. Five configurations total.
 
