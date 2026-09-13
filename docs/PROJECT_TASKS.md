@@ -221,7 +221,16 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       provides** (`roi=False`) — only pixels are processed, the box is untouched. (An earlier
       revision cropped to the tight ROI to align with jitter level 0; reverted when jitter
       moved to §11.) 11 tests. See `docs/report-material/08-preprocessing.md`.
-- [ ] **2.3** Cached loader — preprocess once, store uint8 `.npy`, reload fast
+- [x] **2.3** Cached loader — preprocess once, store uint8 `.npy`, reload fast
+      — `gtsrb.cache.load_images(frame, preproc)`. Cached by default; **`use_cache=False`
+      recomputes from the PPMs and is the reference implementation** the cache is checked
+      against bit-for-bit (`--verify`, `np.array_equal`, no tolerance). 6 caches built
+      (86/86/258 MB train, 28/28/83 MB test); train/val subsets share one array per split.
+      Manifest fingerprints the pipeline + path order, so a stale cache rebuilds instead of
+      serving wrong pixels. **83× faster** (1.4345 s → 0.0172 s on 12,630 images).
+      Found and fixed: `clahe()` bound its params as default args, so the fingerprint could
+      change while pixels did not. 18 tests.
+      See `docs/report-material/08-preprocessing.md`.
 - [ ] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
 - [ ] **3.2** Degradation: motion blur, kernel ∈ {0, 3, 5, 9, 15} px, random angle
 - [ ] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}

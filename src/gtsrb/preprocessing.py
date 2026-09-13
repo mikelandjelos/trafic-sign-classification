@@ -75,10 +75,16 @@ def to_hsv(image: np.ndarray) -> np.ndarray:
 
 def clahe(
     image: np.ndarray,
-    clip_limit: float = CLAHE_CLIP_LIMIT,
-    tile_grid: tuple[int, int] = CLAHE_TILE_GRID,
+    clip_limit: float | None = None,
+    tile_grid: tuple[int, int] | None = None,
 ) -> np.ndarray:
     """Contrast Limited Adaptive Histogram Equalisation.
+
+    The defaults are resolved from the module constants **at call time**, not bound as
+    default arguments. Binding them at import would make `CLAHE_CLIP_LIMIT` a lie from the
+    perspective of anything that inspects it later -- notably the cache fingerprint
+    (task 2.3), which records those constants to decide whether a cache is stale. A frozen
+    default would let the fingerprint change while the pixels did not.
 
     Grayscale input is equalised directly. **Three-channel input is treated as HSV** and
     equalised on V only -- equalising H would rotate hues and destroy exactly the colour
@@ -88,7 +94,9 @@ def clahe(
     driving, through changing light), so local contrast normalisation is the one
     preprocessing step with an obvious physical motivation here.
     """
-    operator = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid)
+    clip_limit = CLAHE_CLIP_LIMIT if clip_limit is None else clip_limit
+    tile_grid = CLAHE_TILE_GRID if tile_grid is None else tile_grid
+    operator = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tuple(tile_grid))
     if image.ndim == 2:
         return operator.apply(image)
     if image.ndim == 3 and image.shape[2] == 3:

@@ -1,7 +1,7 @@
 # 08 — Preprocessing
 
 **Feeds:** Methodology → preprocessing; the ablation table (task 9.7); supports fig. 9.4.
-**Status:** in progress — primitives (2.1) and named configs (2.2) done; cache (2.3) pending.
+**Status:** complete (tasks 2.1, 2.2, 2.3)
 
 Implemented as `gtsrb.preprocessing`; tested in `tests/test_preprocessing.py`.
 
@@ -134,6 +134,70 @@ baseline rather than a framing mismatch masquerading as domain shift.
 
 The ROI columns remain in use for one thing regardless: **`roi_h` is the size measure for
 the accuracy-vs-size buckets (task 9.4)**. That is metadata, not cropping.
+
+## The cache (task 2.3), and proving it changes nothing
+
+`gtsrb.cache` preprocesses each split once and stores it as uint8 `.npy`:
+
+| | raw_gray | clahe_gray | clahe_hsv |
+|---|---|---|---|
+| train (39 209) | 86.2 MB | 86.2 MB | 258.5 MB |
+| test (12 630) | 27.8 MB | 27.8 MB | 83.3 MB |
+
+A train/val subset costs no extra storage — both index into the one cached array for the
+split, selected by path.
+
+### The transparency requirement
+
+A cache that silently altered pixels would corrupt every result in the grid while
+presenting as a speedup. So the uncached path is not a fallback — it is the **reference
+implementation**, and the cache is checked against it bit-for-bit:
+
+```
+  OK   train/raw_gray     300 images compared, 0 mismatched
+  OK   train/clahe_gray   300 images compared, 0 mismatched
+  OK   train/clahe_hsv    300 images compared, 0 mismatched
+  OK   test/raw_gray      300 images compared, 0 mismatched
+  OK   test/clahe_gray    300 images compared, 0 mismatched
+  OK   test/clahe_hsv     300 images compared, 0 mismatched
+```
+
+`verify()` uses `np.array_equal` with **no tolerance parameter**: both paths run the same
+function over the same rows in the same order, so any difference at all is a bug rather
+than rounding. `poetry run python -m gtsrb.cache --verify` re-runs it, and the equality is
+also pinned by tests for all three configs.
+
+Staleness is handled by a manifest per cache file recording a fingerprint of the pipeline
+(preproc name, image size, CLAHE clip limit and tile grid, plus a `CACHE_VERSION`) and a
+hash of the ordered path list. Any mismatch rebuilds rather than serving stale pixels.
+
+### A bug the staleness test caught
+
+Writing the invalidation test exposed a real flaw: `clahe()` bound `CLAHE_CLIP_LIMIT` as a
+**default argument**, frozen at import. The cache fingerprint records that constant to
+decide staleness — so the fingerprint could change while the pixels did not, and anything
+inspecting the constant would be reading a value the pipeline no longer honoured. The
+defaults are now resolved at call time, which makes the fingerprint an honest description
+of the pipeline rather than a coincidence.
+
+### What the speedup is actually worth
+
+Loading the full test split (12 630 images), `clahe_gray`:
+
+| | median |
+|---|---|
+| uncached (decode PPM + convert + CLAHE + resize) | 1.4345 s |
+| cached (`.npy` read + row selection) | 0.0172 s |
+| **speedup** | **83×** |
+
+**Stated honestly: across the 80-run grid this saves about 2 minutes** (1.9 min → 1.4 s),
+which is real but not decisive on its own. The value is mostly elsewhere:
+
+- **Development iteration.** The hyperparameter sweeps (4.2 PCA components, 5.2 HOG cell
+  sizes, 6.3 vocabulary sizes) reload the *training* set — three times larger — repeatedly.
+  That is where the minutes accumulate.
+- **Determinism by construction.** Every run in the grid reads the same bytes, so no
+  variation in the input pixels is even possible between methods.
 
 ## Note on the two blurs
 
