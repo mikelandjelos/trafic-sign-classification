@@ -231,9 +231,14 @@ data/
 results/*.pt
 results/*.joblib
 
-# Generated figures -- regenerable from scripts/, kept out of git to avoid
-# binary churn. Final report figures are copied into docs/report/ explicitly.
-figures/
+# Generated figures -- regenerable from scripts/, kept out of git to avoid binary churn.
+# EXCEPTION: figures/report/ IS committed. Those figures go into the final report, which is
+# written on Day 5 possibly elsewhere, and "just re-run the scripts" is not a plan when the
+# scripts need a 1 GB gitignored dataset. Populate it with:
+#     poetry run python scripts/collect_report_figures.py
+# The manifest in that script is the single explicit list of what belongs in the report.
+figures/*
+!figures/report/
 
 # results.csv is a DELIVERABLE and IS committed -- do not add it here.
 
