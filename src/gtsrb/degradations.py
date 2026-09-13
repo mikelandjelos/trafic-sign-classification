@@ -41,15 +41,19 @@ of methods therefore cannot change the pixels any given image receives. See
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from functools import lru_cache
 
 import cv2
 import numpy as np
 
 from gtsrb import config
 
-#: Levels for each degradation. Index 0 is always the identity (the clean condition).
+#: Grid levels per degradation. Note gamma's identity (1.0) sits in the *middle* of its
+#: range, not at the start -- it is the one stressor with two directions.
 NOISE_LEVELS: tuple[float, ...] = (0, 5, 10, 20, 40)
 BLUR_LEVELS: tuple[float, ...] = (0, 3, 5, 9, 15)
+GAMMA_LEVELS: tuple[float, ...] = (0.4, 0.7, 1.0, 1.5, 2.5)
 
 
 def gaussian_noise(image: np.ndarray, sigma: float, rng: np.random.Generator) -> np.ndarray:
@@ -115,19 +119,99 @@ def motion_blur(image: np.ndarray, ksize: int, rng: np.random.Generator) -> np.n
     return cv2.filter2D(image, -1, kernel, borderType=cv2.BORDER_REFLECT_101)
 
 
-#: Registry of degradation name -> (per-image function, levels).
-_DEGRADATIONS: dict[str, tuple[Callable[..., np.ndarray], tuple[float, ...]]] = {
-    "noise": (gaussian_noise, NOISE_LEVELS),
-    "blur": (motion_blur, BLUR_LEVELS),
+@lru_cache(maxsize=16)
+def _gamma_lut(gamma: float) -> np.ndarray:
+    """256-entry lookup table for a gamma curve.
+
+    Memoised because the table depends only on gamma, not on the image -- rebuilding it
+    for each of 12 630 images would dominate the cost of an otherwise trivial operation.
+    """
+    scaled = (np.arange(256, dtype=np.float64) / 255.0) ** gamma
+    return np.rint(np.clip(scaled * 255.0, 0, 255)).astype(np.uint8)
+
+
+def gamma_correction(
+    image: np.ndarray, gamma: float, rng: np.random.Generator | None = None
+) -> np.ndarray:
+    """Apply `out = 255 * (in/255) ** gamma`.
+
+    gamma < 1 brightens and lifts shadows; gamma > 1 darkens. gamma = 1 is the identity.
+
+    **This is the one degradation with no randomness at all** -- the mapping is a fixed
+    function of the pixel value, so `rng` is accepted for interface uniformity and ignored.
+    Nothing about it depends on the seed, which also means it is the one stressor where
+    the "all methods see identical pixels" guarantee is trivially satisfied.
+
+    Implemented as a lookup table rather than per-pixel arithmetic: the transform has only
+    256 possible inputs, so the table is exact and the operation is a memory lookup.
+    """
+    if gamma <= 0:
+        raise ValueError(f"gamma must be > 0, got {gamma}")
+    if gamma == 1.0:
+        return image
+    return cv2.LUT(image, _gamma_lut(float(gamma)))
+
+
+@dataclass(frozen=True)
+class Degradation:
+    """One stressor: how to apply it, its grid levels, and which level is the identity."""
+
+    name: str
+    function: Callable[..., np.ndarray]
+    levels: tuple[float, ...]
+    identity: float
+    stochastic: bool
+    description: str
+
+
+#: Registry of the controlled degradations (task 3.x).
+_DEGRADATIONS: dict[str, Degradation] = {
+    "noise": Degradation(
+        name="noise",
+        function=gaussian_noise,
+        levels=NOISE_LEVELS,
+        identity=0,
+        stochastic=True,
+        description="additive zero-mean Gaussian noise, sigma in 0-255 units",
+    ),
+    "blur": Degradation(
+        name="blur",
+        function=motion_blur,
+        levels=BLUR_LEVELS,
+        identity=0,
+        stochastic=True,
+        description="linear motion blur, kernel length in px at a random angle",
+    ),
+    "gamma": Degradation(
+        name="gamma",
+        function=gamma_correction,
+        levels=GAMMA_LEVELS,
+        identity=1.0,
+        stochastic=False,
+        description="gamma correction; <1 brightens, >1 darkens, 1.0 is the identity",
+    ),
 }
 
 
-def levels_for(degradation: str) -> tuple[float, ...]:
+def get_degradation(degradation: str) -> Degradation:
     if degradation not in _DEGRADATIONS:
         raise KeyError(
             f"unknown degradation {degradation!r}; available: {sorted(_DEGRADATIONS)}"
         )
-    return _DEGRADATIONS[degradation][1]
+    return _DEGRADATIONS[degradation]
+
+
+def levels_for(degradation: str) -> tuple[float, ...]:
+    return get_degradation(degradation).levels
+
+
+def identity_for(degradation: str) -> float:
+    """The level at which the degradation is a no-op.
+
+    Not simply `levels[0]`: gamma's identity is 1.0, in the middle of its range, because
+    it perturbs in two directions. Anything iterating the grid must ask rather than assume.
+    """
+    return get_degradation(degradation).identity
 
 
 def apply(
@@ -144,25 +228,23 @@ def apply(
     """
     if degradation == "clean":
         return images
-    if degradation not in _DEGRADATIONS:
-        raise KeyError(
-            f"unknown degradation {degradation!r}; available: "
-            f"{['clean', *sorted(_DEGRADATIONS)]}"
-        )
+    spec = get_degradation(degradation)
     if len(keys) != len(images):
         raise ValueError(f"keys has {len(keys)} entries for {len(images)} images")
 
-    function, valid_levels = _DEGRADATIONS[degradation]
-    if level not in valid_levels:
+    if level not in spec.levels:
         raise ValueError(
-            f"{degradation} level {level} is not one of {valid_levels}; the grid is "
+            f"{degradation} level {level} is not one of {spec.levels}; the grid is "
             f"defined over these levels and off-grid values would not be comparable"
         )
-    if level == valid_levels[0]:
-        return images  # identity level -- returned unchanged, not merely recomputed
+    if level == spec.identity:
+        # Returned unchanged rather than recomputed, so the identity level and the clean
+        # condition are the same array. Note this is `spec.identity`, not `levels[0]` --
+        # gamma's identity is 1.0, in the middle of its range.
+        return images
 
     out = np.empty_like(images)
     for i, key in enumerate(keys):
-        rng = config.rng_for(degradation, level, key)
-        out[i] = function(images[i], level, rng)
+        rng = config.rng_for(degradation, level, key) if spec.stochastic else None
+        out[i] = spec.function(images[i], level, rng)
     return out

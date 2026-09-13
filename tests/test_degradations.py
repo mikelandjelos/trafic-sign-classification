@@ -165,10 +165,95 @@ def test_levels_for_exposes_the_grid():
         degradations.levels_for("nope")
 
 
-def test_levels_start_at_the_identity():
-    """Index 0 of every degradation's levels must be the clean condition."""
-    for name in ("noise", "blur"):
-        assert degradations.levels_for(name)[0] == 0
+def test_identity_level_is_declared_not_positional():
+    """gamma's identity is 1.0, in the MIDDLE of its range -- levels[0] is not the no-op.
+
+    Anything iterating the grid must ask `identity_for()` rather than assume `levels[0]`.
+    """
+    assert degradations.identity_for("noise") == 0
+    assert degradations.identity_for("blur") == 0
+    assert degradations.identity_for("gamma") == 1.0
+    assert degradations.levels_for("gamma")[0] == 0.4  # NOT the identity
+    assert degradations.identity_for("gamma") != degradations.levels_for("gamma")[0]
+
+
+def test_every_identity_is_one_of_its_levels():
+    for name in ("noise", "blur", "gamma"):
+        assert degradations.identity_for(name) in degradations.levels_for(name)
+
+
+# --- gamma (task 3.3) ---------------------------------------------------------------------
+
+
+def test_gamma_identity_returns_input_unchanged(images, keys):
+    assert np.array_equal(degradations.apply(images, "gamma", 1.0, keys), images)
+
+
+def test_gamma_below_one_brightens_and_above_one_darkens(images, keys):
+    baseline = images.astype(float).mean()
+    assert degradations.apply(images, "gamma", 0.4, keys).astype(float).mean() > baseline
+    assert degradations.apply(images, "gamma", 0.7, keys).astype(float).mean() > baseline
+    assert degradations.apply(images, "gamma", 1.5, keys).astype(float).mean() < baseline
+    assert degradations.apply(images, "gamma", 2.5, keys).astype(float).mean() < baseline
+
+
+def test_gamma_is_monotone_in_level(images, keys):
+    """Brightness must move monotonically across the grid, or the curve is unreadable."""
+    means = [
+        degradations.apply(images, "gamma", g, keys).astype(float).mean()
+        for g in degradations.levels_for("gamma")
+    ]
+    assert means == sorted(means, reverse=True)
+
+
+def test_gamma_lut_is_monotone_and_fixes_the_endpoints():
+    """Black stays black and white stays white; ordering of intensities is preserved."""
+    for gamma in (0.4, 0.7, 1.5, 2.5):
+        lut = degradations._gamma_lut(gamma)
+        assert lut.shape == (256,) and lut.dtype == np.uint8
+        assert (np.diff(lut.astype(int)) >= 0).all()
+        assert lut[0] == 0 and lut[255] == 255
+
+
+def test_gamma_is_deterministic_and_seed_independent(images, keys):
+    """It is the one stressor with no randomness -- the rng is ignored entirely."""
+    np.random.seed(1)
+    first = degradations.apply(images, "gamma", 2.5, keys)
+    np.random.seed(999)
+    second = degradations.apply(images, "gamma", 2.5, keys)
+    assert np.array_equal(first, second)
+    assert degradations.get_degradation("gamma").stochastic is False
+
+
+def test_gamma_ignores_the_key(images):
+    """Unlike noise and blur, every image gets the same mapping."""
+    flat = np.full((2, 8, 8), 100, dtype=np.uint8)
+    out = degradations.apply(flat, "gamma", 2.5, ["a.ppm", "b.ppm"])
+    assert np.array_equal(out[0], out[1])
+
+
+def test_gamma_rejects_non_positive_values():
+    for bad in (0, -1.0):
+        with pytest.raises(ValueError, match="gamma must be"):
+            degradations.gamma_correction(np.zeros((4, 4), np.uint8), bad)
+
+
+def test_gamma_works_on_three_channel_input(keys):
+    rng = np.random.default_rng(0)
+    colour = rng.integers(40, 200, size=(12, 48, 48, 3), dtype=np.uint8)
+    out = degradations.apply(colour, "gamma", 0.4, keys)
+    assert out.shape == colour.shape and out.dtype == np.uint8
+
+
+def test_gamma_output_stays_in_range(images, keys):
+    for gamma in degradations.levels_for("gamma"):
+        out = degradations.apply(images, "gamma", gamma, keys)
+        assert out.dtype == np.uint8 and out.min() >= 0 and out.max() <= 255
+
+
+def test_gamma_rejects_off_grid_level(images, keys):
+    with pytest.raises(ValueError, match="not one of"):
+        degradations.apply(images, "gamma", 3.0, keys)
 
 
 # --- motion blur (task 3.2) ---------------------------------------------------------------

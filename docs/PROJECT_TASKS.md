@@ -246,7 +246,15 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       kernel size; angle ~U[0,180) per image from `rng_for("blur", k, path)` — [0,360) would
       sample each orientation twice. Edge energy 100→81→68→53→**43%**, mean preserved to
       ±0.01. 19 tests. See `docs/report-material/10-degradations.md`.
-- [ ] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
+- [x] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
+      — 256-entry LUT (exact, memoised), monotone, endpoints fixed. Mean 99.4 → 165.2 /
+      125.6 / 99.4 / 72.5 / 47.2, monotone across the grid. **The only non-stochastic
+      stressor** (`stochastic=False`; rng ignored). **Its identity is γ=1.0, in the *middle*
+      of its range** — the registry now declares `identity` per degradation
+      (`identity_for()`), replacing the `levels[0]` assumption that was silently wrong here
+      and would have baselined every gamma curve against γ=0.4. At γ=2.5, 3.71% of pixels
+      crush to zero (irreversible: round-trip error 1.42 levels). 11 tests.
+      See `docs/report-material/10-degradations.md`.
 - [x] **3.4** ~~Degradation: bbox jitter~~ — **moved to §11 (extension)**. GTSRB is
       pre-cropped; +40% expansion is impossible for 72% of images. Not an MVP deliverable.
 - [ ] **3.5** Contact-sheet figure: every degradation × every level on one sample → straight

@@ -2,8 +2,8 @@
 
 **Feeds:** Methodology → controlled degradations; the robustness curves (fig. 9.5); the
 contact sheet (3.5).
-**Status:** in progress — Gaussian noise (3.1) and motion blur (3.2) done; gamma (3.3) and
-contact sheet (3.5) pending.
+**Status:** in progress — all three degradations done (3.1, 3.2, 3.3); contact sheet (3.5)
+pending.
 
 Implemented as `gtsrb.degradations`; tested in `tests/test_degradations.py`.
 
@@ -50,8 +50,9 @@ change the pixels any given image receives. Pinned by a test that reproduces a b
 an arbitrary subset and requires it to match the full batch exactly, and by one that
 perturbs the global numpy seed between calls and requires no change.
 
-Level 0 is returned **unchanged** rather than recomputed, so the clean condition and level
-0 are the same array, not merely similar ones.
+The identity level is returned **unchanged** rather than recomputed, so the clean condition
+and the identity level are the same array, not merely similar ones. Which level that is
+varies: 0 for noise and blur, **1.0 for gamma** — see the structural point in §3.3.
 
 ---
 
@@ -145,10 +146,65 @@ because diagonal steps cover more distance. The blur therefore averages over the
 displacement at every angle, but over slightly fewer samples on the diagonals. Worth knowing
 rather than worth fixing.
 
-### The severity of the strongest level, in context
+### Severity of the strongest level, in context
 
 k = 15 on a 48×48 image is a blur across **31 % of the image width** — severe, and
 deliberately so; the top level should be strong enough to separate the representations. It
 is also a direct consequence of the "degrade the model input" decision: at source
 resolution, 15 px would be mild on a 200 px crop and destructive on a 25 px one. Applying
 it after the resize is what makes "k = 15" one condition rather than a family of them.
+
+---
+
+## 3.3 Gamma — γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
+
+`out = 255 · (in/255)^γ`. γ < 1 brightens and lifts shadows, γ > 1 darkens, γ = 1 is the
+identity. Measured over 1 000 test images (`clahe_gray`, mean 99.4):
+
+| γ | direction | mean after | pixels at 0 | pixels at 255 |
+|---|---|---|---|---|
+| 0.4 | brightens | 165.2 | 0.00 % | 3.24 % |
+| 0.7 | brightens | 125.6 | 0.00 % | 3.16 % |
+| 1.0 | identity | 99.4 | 0.00 % | 3.16 % |
+| 1.5 | darkens | 72.5 | 0.00 % | 3.16 % |
+| 2.5 | darkens | 47.2 | **3.71 %** | 3.16 % |
+
+Mean intensity moves monotonically across the grid, which is what makes the robustness
+curve readable. The 3.16 % at 255 is the pre-existing CLAHE saturation (note 08), not an
+effect of gamma — only γ = 0.4 raises it, and only slightly.
+
+**At γ = 2.5, 3.71 % of pixels are crushed to zero.** That is genuine information loss, not
+a reversible transform: darkening then re-brightening does not recover the original. A
+round-trip (γ = 2.5 followed by γ = 0.4) leaves a mean absolute error of **1.42 levels**.
+
+### It is the one degradation with no randomness
+
+Gamma is a fixed function of the pixel value, so it takes no random draw at all. `rng` is
+accepted for interface uniformity and ignored, and the registry records
+`stochastic=False`. Two consequences worth noting:
+
+- The "all five methods see identical pixels" guarantee is *trivially* satisfied here,
+  rather than relying on the path-keyed seeding that noise and blur need.
+- A test asserts two different images receive the same mapping, which is the correct
+  behaviour for gamma and would be a bug for either of the others.
+
+Implemented as a **256-entry lookup table**: the transform has only 256 possible inputs, so
+the table is exact, and it is memoised because it depends on γ alone — rebuilding it per
+image would dominate the cost of an otherwise trivial operation. The LUT is monotone and
+fixes the endpoints (0 → 0, 255 → 255), so intensity ordering is preserved and pure black
+and pure white are unmoved.
+
+### A structural point: the identity level is not `levels[0]`
+
+Gamma perturbs in **two directions**, so its identity sits in the *middle* of its range at
+γ = 1.0, while noise and blur have theirs at 0, first in the list.
+
+The original implementation assumed `levels[0]` was the no-op — correct for the first two
+degradations and silently wrong for gamma, where it would have treated γ = 0.4 as "clean"
+and γ = 1.0 as a perturbation. Every robustness curve for gamma would then have been
+plotted against the wrong baseline.
+
+The registry now makes each degradation declare its own `identity`, exposed as
+`identity_for(name)`, and a test pins that `identity_for("gamma") != levels_for("gamma")[0]`.
+This matters beyond gamma: task 9.5 normalises each curve to its own baseline, and that
+code must ask which level is the baseline rather than assume position.
