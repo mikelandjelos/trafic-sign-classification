@@ -1,0 +1,169 @@
+"""Validation-set hyperparameter selection for the fixed classifier (tasks 4.2, 5.2, 6.3).
+
+    best, records = tuning.tune_linear_svc(Z_train, y_train, Z_val, y_val)
+
+Why this is shared code
+-----------------------
+Every representation ends in the same place: features into `LinearSVC`. Q4 (closed at task
+4.1) decided that **`C` is tuned per method**, because PCA is the only representation whose
+features are not internally normalised and a frozen `C` would hand each method a dial
+calibrated for another's feature scale. "Fixed classifier" means the same estimator and the
+same selection protocol -- which only holds if every method is tuned *the same way*, so the
+protocol lives here rather than being re-typed in four scripts.
+
+What it selects on
+------------------
+**Macro-F1, not accuracy.** GTSRB is imbalanced 10.7x (2250 images for class 2, 210 for
+class 0), so accuracy is dominated by the large classes and a model can improve it by
+neglecting small ones. Macro-F1 weights all 43 classes equally, which is also the metric
+the report leads with -- selecting on one metric and reporting another would be indefensible.
+Both are recorded for every grid point regardless.
+
+Selection is on the **validation** split only. The test set is touched once, at task 8.1.
+"""
+
+from __future__ import annotations
+
+import time
+import warnings
+from dataclasses import dataclass, field
+
+import numpy as np
+from sklearn.exceptions import ConvergenceWarning
+from sklearn.svm import LinearSVC
+
+from gtsrb import config, evaluation
+
+#: Regularisation grid. Spans four orders of magnitude, which is enough to find the plateau
+#: for any of the five representations without a finer search that validation noise on
+#: 7830 images could not resolve anyway.
+C_GRID: tuple[float, ...] = (0.01, 0.1, 1.0, 10.0)
+
+#: Whether to reweight classes by inverse frequency. Swept rather than assumed: the
+#: PROJECT_TASKS gotcha list flags it as "consider", and it interacts with macro-F1 exactly
+#: where the imbalance bites. Whatever wins here must then be applied to ALL five methods --
+#: it is a policy about the imbalance, not a per-representation nuisance parameter.
+CLASS_WEIGHTS: tuple[str | None, ...] = (None, "balanced")
+
+
+@dataclass(frozen=True)
+class TuningRecord:
+    """One grid point: what was tried, what it scored, what it cost."""
+
+    params: dict
+    accuracy: float
+    macro_f1: float
+    fit_seconds: float
+    n_iter: int
+    converged: bool
+
+    def row(self) -> dict:
+        return {**self.params, "accuracy": self.accuracy, "macro_f1": self.macro_f1,
+                "fit_seconds": self.fit_seconds, "n_iter": self.n_iter,
+                "converged": self.converged}
+
+
+@dataclass
+class TuningResult:
+    """The selected configuration plus every grid point that was considered."""
+
+    best: TuningRecord
+    records: list[TuningRecord] = field(default_factory=list)
+
+    def table(self) -> list[dict]:
+        return [record.row() for record in self.records]
+
+    def summary(self) -> str:
+        lines = [
+            (
+                f"selected: {self.best.params}  macro_f1={self.best.macro_f1:.4f}  "
+                f"accuracy={self.best.accuracy:.4f}"
+            )
+        ]
+        unconverged = [r for r in self.records if not r.converged]
+        if unconverged:
+            lines.append(f"WARNING: {len(unconverged)} of {len(self.records)} grid points "
+                         f"did not converge: {[r.params for r in unconverged]}")
+        return "\n".join(lines)
+
+
+def fit_and_score(
+    features_train: np.ndarray,
+    y_train: np.ndarray,
+    features_val: np.ndarray,
+    y_val: np.ndarray,
+    C: float,
+    class_weight: str | None = None,
+    extra_params: dict | None = None,
+    max_iter: int = 5000,
+) -> TuningRecord:
+    """Train one `LinearSVC` and score it on validation.
+
+    `max_iter` is raised well above sklearn's default of 1000. Convergence is *recorded*
+    rather than silenced: a grid point that hit the cap has not found the optimum for that
+    `C`, and comparing it against converged points would compare the solver's patience
+    instead of the regularisation.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ConvergenceWarning)
+        started = time.perf_counter()
+        model = LinearSVC(
+            C=C, class_weight=class_weight, max_iter=max_iter, random_state=config.SEED
+        ).fit(features_train, y_train)
+        elapsed = time.perf_counter() - started
+        converged = not any(
+            issubclass(w.category, ConvergenceWarning) for w in caught
+        )
+
+    result = evaluation.evaluate(y_val, model.predict(features_val))
+    return TuningRecord(
+        params={"C": C, "class_weight": class_weight, **(extra_params or {})},
+        accuracy=result.accuracy,
+        macro_f1=result.macro_f1,
+        fit_seconds=elapsed,
+        n_iter=int(np.max(model.n_iter_)),
+        converged=converged,
+    )
+
+
+def select_best(records: list[TuningRecord]) -> TuningRecord:
+    """The selection rule, in one place: highest macro-F1, ties to the smaller `C`.
+
+    Ties break toward **more** regularisation (smaller `C`), which is the conventional
+    choice and, more importantly, makes the selection a deterministic function of the
+    records rather than of the order they happen to arrive in.
+    """
+    if not records:
+        raise ValueError("no grid points to select from")
+    return max(records, key=lambda r: (r.macro_f1, -r.params["C"]))
+
+
+def tune_linear_svc(
+    features_train: np.ndarray,
+    y_train: np.ndarray,
+    features_val: np.ndarray,
+    y_val: np.ndarray,
+    c_grid: tuple[float, ...] = C_GRID,
+    class_weights: tuple[str | None, ...] = CLASS_WEIGHTS,
+    extra_params: dict | None = None,
+    verbose: bool = False,
+) -> TuningResult:
+    """Sweep `C` x `class_weight` on validation and return the best by macro-F1.
+
+    Selection is delegated to `select_best`, so the rule lives in exactly one place.
+    """
+    records: list[TuningRecord] = []
+    for class_weight in class_weights:
+        for C in c_grid:
+            record = fit_and_score(
+                features_train, y_train, features_val, y_val,
+                C=C, class_weight=class_weight, extra_params=extra_params,
+            )
+            records.append(record)
+            if verbose:
+                flag = "" if record.converged else "  [did not converge]"
+                print(f"    C={C:<7} class_weight={class_weight!s:<9} "
+                      f"macro_f1={record.macro_f1:.4f} acc={record.accuracy:.4f} "
+                      f"{record.fit_seconds:5.1f}s{flag}")
+
+    return TuningResult(best=select_best(records), records=records)
