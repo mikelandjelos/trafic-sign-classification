@@ -215,6 +215,17 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       determinism. **Measured the hazard: a naive random per-image split puts 1,305 of
       1,307 tracks on both sides, and 100% of val images (7,808/7,808) have a sibling
       frame in train.** See `docs/report-material/04-splitting-protocol.md`.
+- [x] **1.7** **Demo** for the splitting protocol — `scripts/demo/split_mechanics.py` →
+      `figures/demo/split/`. The 1,305-of-1,307 leakage count is conclusive but abstract;
+      these make it visible. **New measurement: "near-duplicate" quantified** — median pixel
+      correlation is **0.61** between two frames of the same track vs **0.17** between two
+      images from *different tracks of the same class* (the hard comparison). ~3.5×, with
+      barely overlapping distributions, and independent of any model — this is the number to
+      quote in the report. The frame strip is ordered by `frame_id`, so it reads as a car
+      approaching: the frames are *near*-duplicates, not identical, which is why any
+      deduplication check would miss the leak. The naive per-image split is reimplemented in
+      the demo rather than imported, since `gtsrb.data` deliberately cannot do it.
+      See `docs/report-material/04-splitting-protocol.md`.
 - [x] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
       — `gtsrb.evaluation.evaluate()` returns one `ClassificationResult` with all of them,
       plus `most_confused_pairs()` (9.3), `accuracy_by_group()`/`size_buckets()` (9.4) and

@@ -134,3 +134,47 @@ with a random per-image split, and compare validation accuracy. The gap is a dir
 measurement of the leakage this protocol prevents.
 
 **Estimated cost: ~15 minutes after task 4.3.** Logged as an opportunity in `00-INDEX.md`.
+
+---
+
+## Demo figures (task 1.7)
+
+`scripts/demo/split_mechanics.py` → `figures/demo/split/`. The numbers above are conclusive
+but abstract; a reader has to accept the protocol on trust unless the hazard is made
+visible. These are the figures that do it.
+
+| Figure | Shows |
+|---|---|
+| `split_leakage.png` | one track's 30 frames, with a coloured band under each showing where a random per-image split sends it vs where the track split sends it |
+| `split_similarity.png` | pixel-correlation distributions: same track vs different tracks of the same class |
+| `split_balance.png` | class imbalance (2250 vs 210, 10.7×), per-class val share, tracks per class |
+
+### New measurement — "near-duplicate" quantified
+
+The claim that track frames are near-duplicates had been stated, never measured. Pixel
+correlation over 150 sampled tracks:
+
+| pair | median correlation |
+|---|---|
+| two frames of the **same track** | **0.61** |
+| two images from **different tracks of the same class** | **0.17** |
+
+The comparison is deliberately against *the same class*, which is the hard case — if
+same-track pairs were no more alike than two different 30 km/h signs, there would be nothing
+to leak. They are ~3.5× more correlated, and the distributions barely overlap. **This is the
+number to quote in the report**, because it converts "frames are similar" into a magnitude,
+and it is independent of any model.
+
+### What `split_leakage.png` shows that the count does not
+
+The frames are ordered by `frame_id`, so the strip reads as what it physically is: a car
+approaching a sign, the sign growing across the sequence. That makes the right point on
+sight — the frames are *near*-duplicates, not identical, which is exactly why the leakage is
+insidious. Identical duplicates would be caught by any deduplication check; these would not.
+
+### Note on the demo's own construction
+
+The naive per-image split is **reimplemented inside the demo script** rather than imported,
+because `gtsrb.data` deliberately offers no way to do it. That is the one justified
+exception to the "demos must use the real module" rule in `CLAUDE.md`: the wrong behaviour
+is not in the library, and adding it so a figure could import it would be backwards.
