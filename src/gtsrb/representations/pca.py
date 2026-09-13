@@ -60,9 +60,12 @@ from sklearn.decomposition import PCA
 
 from gtsrb import cache, config, preprocessing
 
-#: Default retained dimensionality. The midpoint of the task 4.2 sweep {32, 64, 128, 256};
-#: the sweep replaces this with a measured choice.
-DEFAULT_N_COMPONENTS = 128
+#: Retained dimensionality, **selected at task 4.2** by joint (k, C, class_weight) sweep on
+#: validation macro-F1: k=256 scored 0.7977 against 0.7610 at k=128.
+#: Caveat recorded in docs/report-material/11-pca.md: 256 is the top of the grid the task
+#: specified, and the curve is still rising there -- this is the best of the four offered,
+#: not a located optimum.
+DEFAULT_N_COMPONENTS = 256
 
 
 def as_matrix(images: np.ndarray) -> np.ndarray:
