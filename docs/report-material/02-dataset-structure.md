@@ -31,8 +31,11 @@ Annotation header, identical for train and test:
 Filename;Width;Height;Roi.X1;Roi.Y1;Roi.X2;Roi.Y2;ClassId
 ```
 
-The ROI columns are present as required — bounding-box jitter (task 3.4) is therefore
-feasible on real coordinates rather than simulated by padding.
+The ROI columns are present as required. They serve two purposes: `roi_h` is the size
+measure for the accuracy-vs-size buckets (task 9.4), and they are what allowed the
+**margin headroom to be measured** — establishing that GTSRB cannot support bounding-box
+jitter without inventing pixels, which moved that experiment to full-frame datasets
+(see [09-jitter-and-datasets.md](09-jitter-and-datasets.md)).
 
 ---
 

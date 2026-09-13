@@ -164,8 +164,9 @@ live but historically flaky).
 Chosen over `torchvision.datasets.GTSRB` and the Kaggle mirror because the original
 archives are the only source guaranteed to preserve **both** things this study depends on:
 
-1. **ROI coordinates** (`Roi.X1/Y1/X2/Y2` per image) — without them, bounding-box jitter
-   (task 3.4) cannot be done honestly; it would have to be faked with padding.
+1. **ROI coordinates** (`Roi.X1/Y1/X2/Y2` per image) — the size measure for the
+   accuracy-vs-size analysis (task 9.4), and what made it possible to *measure* that GTSRB
+   cannot support bounding-box jitter (note 09) rather than discovering it late.
 2. **Track IDs**, encoded in the filename `TTTTT_FFFFF.ppm` — without them, the
    track-disjoint split (task 1.2) is impossible and validation accuracy is inflated by
    near-duplicate frames of the same physical sign appearing on both sides of the split.

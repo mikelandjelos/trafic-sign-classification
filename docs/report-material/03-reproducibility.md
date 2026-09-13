@@ -25,7 +25,7 @@ Randomness enters this project in more places than is obvious:
 | BoVW (6.3) | subsampling ~200 k of ~600 k descriptors; `MiniBatchKMeans` centroid init |
 | `LinearSVC` | the dual coordinate-descent solver shuffles internally |
 | CNN (7.x) | weight init, batch shuffling, dropout masks |
-| Degradations (3.x) | noise draws, motion-blur angle, bbox-jitter offsets |
+| Degradations (3.x) | noise draws, motion-blur angle |
 
 **scikit-learn has no global seed.** Unlike numpy, it cannot be seeded once — every
 estimator takes its own `random_state=`. A single `SEED` constant in `config.py` is
@@ -38,7 +38,7 @@ there is exactly one number to change when checking whether a result is a lucky 
 
 **This is the subtle part, and the part most worth a paragraph in the report.**
 
-At task 8.1, five methods are evaluated against the same 21 conditions. When σ = 20
+At task 8.1, five methods are evaluated against the same 16 conditions. When σ = 20
 Gaussian noise is applied, PCA, HOG, BoVW and both CNN variants must see the *same noisy
 pixels*. Otherwise the robustness curves compare methods on different data, and the
 representation × stressor interaction — the entire contribution of the project — is
@@ -107,6 +107,6 @@ project are therefore all asserted or demonstrated, not merely configured.
   effect size the study discusses, but it means "bitwise identical" is not claimed —
   **reproducible to reported precision** is.
 - **Single seed, not multiple runs.** With more compute, every configuration would be run
-  over several seeds and reported as mean ± std. The evaluation grid is 5 × 21 = 105 runs
+  over several seeds and reported as mean ± std. The evaluation grid is 5 × 16 = 80 runs
   at one seed; repeating it across seeds is the obvious extension and should be named as
   such rather than glossed over.

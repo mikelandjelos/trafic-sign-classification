@@ -34,8 +34,8 @@ is attributable to the representation, not the classifier. The CNN therefore app
 twice — once as a feature extractor feeding the same SVM, and once end-to-end with
 its own softmax head. Five configurations total.
 
-Models are evaluated on clean data and under four controlled degradations at five
-levels each: Gaussian noise, motion blur, gamma shift, and **bounding-box jitter**.
+Models are evaluated on clean data and under three controlled degradations at five
+levels each: Gaussian noise, motion blur, and gamma shift.
 
 ## Two methodological notes
 
@@ -44,11 +44,18 @@ same physical sign. A random split leaks near-duplicate frames across train and
 validation and inflates accuracy. Splits here are by track ID, with an assertion
 enforcing it.
 
-**Bounding-box jitter** perturbs the annotated ROI by up to 40% in scale and
-position, re-cropping from the source image rather than padding — so real background
-enters the crop, as it would with output from an actual detector. This measures how
-much accuracy would be lost when feeding this classifier detected rather than
-annotated regions.
+**Bounding-box jitter is deliberately absent — and the reason is a result.** Feeding a
+classifier *detected* rather than *annotated* boxes is the question that matters for a
+real system, so the original plan perturbed the annotated ROI by up to 40% and re-cropped.
+GTSRB cannot support that: its images are already cropped to the sign plus a median ~17%
+margin, and everything beyond was discarded when the dataset was built. Measured across
+all 39,209 training images, **+40% expansion is impossible for 72% of them** (28,166 would
+run off the edge); median headroom is 1.30×. Producing the curve anyway requires padding
+with invented pixels, which measures the padding strategy rather than the representation.
+
+Jitter therefore appears nowhere in training or in the core grid. It moves to an extension
+that evaluates the *unmodified* models on GTSDB full road scenes, where the pixels actually
+exist in every direction — see `docs/report-material/09-jitter-and-datasets.md`.
 
 ## Scope
 

@@ -14,7 +14,7 @@ on. Building it first is deliberate: if the evaluation code grew alongside the f
 written, it would end up — without anyone intending it — shaped to suit that method. Built
 blind to the methods, it cannot flatter any of them.
 
-Practically, it is also what makes the 5 × 21 = 105-run grid tractable. Evaluation is one
+Practically, it is also what makes the 5 × 16 = 80-run grid tractable. Evaluation is one
 function call returning one object, so no run can record its metrics slightly differently
 from another.
 

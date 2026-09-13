@@ -14,7 +14,7 @@ run_id, method, preproc, degradation, level, metric, value
 ```
 
 One row per (run, method, condition, metric). **Long/tidy rather than wide**, because the
-grid is 5 methods × 21 conditions × several metrics and new metrics keep being added as
+grid is 5 methods × 16 conditions × several metrics and new metrics keep being added as
 the project proceeds. A wide table needs a schema change every time a metric is added; a
 tidy one never does, and pandas pivots it into whatever shape a table or figure needs.
 
