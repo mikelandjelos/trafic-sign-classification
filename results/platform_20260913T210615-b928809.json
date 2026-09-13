@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-09-13T21:06:15+0200",
+  "git_commit": "b928809",
+  "cpu": "AMD Ryzen 7 5800H with Radeon Graphics",
+  "cpu_count_logical": 16,
+  "ram_gb": 13.5,
+  "gpu": "none (AMD Vega iGPU, no CUDA/ROCm support) -- all timings are CPU",
+  "os": "Linux-7.0.0-30-generic-x86_64-with-glibc2.39",
+  "threads_configured": 8,
+  "threads_torch": 8,
+  "blas": [
+    {
+      "library": "openblas",
+      "threads": 8
+    },
+    {
+      "library": "openblas",
+      "threads": 8
+    },
+    {
+      "library": "openmp",
+      "threads": 8
+    },
+    {
+      "library": "openblas",
+      "threads": 8
+    },
+    {
+      "library": "openmp",
+      "threads": 8
+    }
+  ],
+  "load_average": [
+    3.28076171875,
+    2.96875,
+    2.08203125
+  ],
+  "versions": {
+    "python": "3.11.11",
+    "numpy": "2.4.6",
+    "pandas": "2.3.3",
+    "sklearn": "1.9.0",
+    "cv2": "4.14.0",
+    "skimage": "0.26.0",
+    "torch": "2.14.0+cpu"
+  }
+}

@@ -57,3 +57,13 @@ run_id,method,preproc,degradation,level,metric,value
 20260913T203406-7374a4f,pca_svm,clahe_gray,clean,0.0,feature_dim,256.0
 20260913T203406-7374a4f,pca_svm,clahe_gray,clean,0.0,model_size_mb,2.347893714904785
 20260913T203406-7374a4f,pca_svm,clahe_gray,clean,0.0,n_train_images,31379.0
+20260913T210054-b928809,pca_svm,clahe_gray,clean,0.0,leakage_val_accuracy_random_split,0.8949729165120167
+20260913T210054-b928809,pca_svm,clahe_gray,clean,0.0,leakage_val_macro_f1_random_split,0.8935578738468681
+20260913T210054-b928809,pca_svm,clahe_gray,clean,0.0,leakage_gap_accuracy_pp,5.078389990920695
+20260913T210054-b928809,pca_svm,clahe_gray,clean,0.0,leakage_gap_macro_f1_pp,9.583215279343316
+20260913T210054-b928809,pca_svm,clahe_gray,clean,0.0,leakage_random_split_seeds,3.0
+20260913T210615-b928809,pca_svm,clahe_gray,clean,0.0,leakage_val_accuracy_random_split,0.8949729165120167
+20260913T210615-b928809,pca_svm,clahe_gray,clean,0.0,leakage_val_macro_f1_random_split,0.8935578738468681
+20260913T210615-b928809,pca_svm,clahe_gray,clean,0.0,leakage_gap_accuracy_pp,5.078389990920695
+20260913T210615-b928809,pca_svm,clahe_gray,clean,0.0,leakage_gap_macro_f1_pp,9.583215279343316
+20260913T210615-b928809,pca_svm,clahe_gray,clean,0.0,leakage_random_split_seeds,3.0
