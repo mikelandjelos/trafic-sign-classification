@@ -381,7 +381,21 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 > σ spans 29×), so a frozen `C` would hand each representation a dial calibrated for another's
 > feature scale. Applies to **4.3, 5.3, 6.5, 7.5** and the grid at **8.1**.
 
-- [ ] **4.3** `LinearSVC` on PCA features, `C` tuned on val; record cost metrics and `C`
+- [x] **4.3** `LinearSVC` on PCA features, `C` tuned on val; record cost metrics and `C`
+      — `scripts/train_pca.py` → **the first rows in `results/results.csv`** (58 rows, run
+      `20260913T203406-7374a4f`) + `results/models/pca_svm_clahe_gray.joblib` (2.35 MB).
+      Val accuracy **0.8442**, macro-F1 **0.7977** — reproduces the 4.2 selected cell exactly,
+      a free end-to-end check since the script reads hyperparameters from the sweep CSV rather
+      than from literals. Train 28.7 s (PCA fit **included** — timing only the SVM would
+      flatter PCA against HOG, which has no fitted stage). **Trained on the train split only,
+      not train+val**, because the CNN needs val for early stopping and giving the other
+      methods 25 % more data would confound the comparison — applies to all five methods.
+      **Test set untouched**: rows are `val_*`; 8.1 writes the plain test metrics.
+      **Found: batched throughput is 49× the single-image latency** (0.0066 vs 0.3254 ms/img),
+      so both are recorded — the batched figure is right for grid cost and wrong for any
+      real-time claim. Early 9.3 signal: the two worst confusions are *not* speed limits but
+      the near-identical **end-of-restriction** signs (60.0 % and 58.3 %).
+      See `docs/report-material/11-pca.md` §8.
 - [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
 - [ ] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
       track-disjoint split and once on a random per-image split, and report the gap in val

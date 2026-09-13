@@ -486,3 +486,89 @@ slicing one large fit would be cheaper but not equivalent, so each *k* is fitted
 
 `scripts/sweep_pca.py --from-csv` redraws the figure from the saved grid without re-fitting,
 because a figure tweak should not cost ten minutes of SVM.
+
+
+---
+
+## 8. Task 4.3 — the trained model and its cost
+
+`scripts/train_pca.py` → `results/results.csv` (58 rows, run `20260913T203406-7374a4f`),
+model at `results/models/pca_svm_clahe_gray.joblib`.
+
+**The first results in the project.** Everything before this was apparatus.
+
+| quantity | value |
+|---|---|
+| val accuracy | **0.8442** |
+| val macro-F1 | **0.7977** |
+| val weighted-F1 | 0.8433 |
+| train time (PCA fit + `LinearSVC`) | 28.7 s |
+| inference, **batched** | 0.0066 ms/img |
+| inference, **single image** | **0.3254 ms/img** |
+| model size | 2.35 MB |
+| feature dim | 256 |
+
+The val numbers reproduce the sweep's selected cell exactly (0.7977 / 0.8442), which is a
+free end-to-end consistency check: the training script reads its hyperparameters from
+`results/sweeps/pca_components.csv` rather than from literals, so agreement confirms the two
+paths built the same model.
+
+### 8.1 Protocol decisions recorded here
+
+**Trained on the train split only (31,379 images), not train+val.** Refitting on train+val
+after selection is standard and would give a slightly better model — but the CNN cannot do
+it, because it needs val for early stopping. Handing PCA, HOG and BoVW 25 % more training
+data than the CNN can use would confound the comparison the project rests on. A small,
+deliberate sacrifice of absolute accuracy for comparability; applies to all five methods.
+
+**The test set is not touched here.** Rows are written as `val_*` metrics; task 8.1 writes the
+plain `accuracy` / `macro_f1` rows from test, for all five methods at once. This keeps the
+schema unchanged (there is no `split` column) while making the two unambiguous.
+
+**Training time covers the whole method, basis included.** Timing only the SVM would
+understate PCA's cost and flatter it against HOG, which has no fitted stage at all.
+
+**The selected hyperparameters are written into `results.csv`** as `selected_C`,
+`selected_n_components`, `selected_class_weight_balanced` — Q4 requires a reader to see which
+dial each method was given without opening a sweep file.
+
+### 8.2 Finding — batched throughput is 49× the single-image latency
+
+| | ms/img | implied rate |
+|---|---|---|
+| batched (7,830 images at once) | 0.0066 | 151,000 img/s |
+| **single image** | **0.3254** | 3,070 img/s |
+
+Both are recorded, deliberately. The batched figure is the right one for "what does the
+80-cell grid cost"; it is the **wrong** one for any latency claim, because a camera presents
+one frame at a time and there is no batch to amortise the matrix multiply over. Quoting
+0.0066 ms as per-frame latency would overstate the system by **49×**.
+
+This sharpens the existing caveat in note 06 (timings are relative costs in one environment,
+not deployment latency) with a measured magnitude, and it matters specifically because the
+report frames the wider system as a potential real-time one. The honest headline is that PCA
+inference is ~0.33 ms/frame on this CPU — still comfortably real-time, but not by the margin
+the batched number would suggest.
+
+### 8.3 Early signal for tasks 9.2 / 9.3
+
+Worst classes by F1 and the top confusions are already visible, and they are not random:
+
+| confusion | count | rate |
+|---|---|---|
+| End of no passing → End of all speed and passing limits | 36 | 60.0 % |
+| Roundabout mandatory → Priority road | 35 | 58.3 % |
+| Speed limit (100) → Speed limit (120) | 35 | 11.7 % |
+| Speed limit (120) → Speed limit (70) | 33 | 12.2 % |
+| Children crossing → Dangerous curve to the right | 31 | 25.8 % |
+
+Worst classes: 29 *Bicycles crossing* (F1 = 0.358), 32 *End of all speed and passing limits*
+(0.403), 41 *End of no passing* (0.429), 40 *Roundabout mandatory* (0.467), 0 *Speed limit
+(20)* (0.514).
+
+Two patterns worth carrying to 9.3. The **speed-limit confusions are exactly the predicted
+ones** — the digits are the low-variance detail PCA truncates (§5.1). But the two worst
+confusions are **not** speed limits: they are the *end-of-restriction* signs, which are
+near-identical grey circles with diagonal strikethroughs and differ only in fine internal
+detail. For a holistic, intensity-based representation those are close to the same point in
+R²³⁰⁴. Whether HOG and BoVW break this tie is a direct test of the locality axis.

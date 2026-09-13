@@ -157,3 +157,26 @@ justification can be quoted from the actual runs rather than asserted.
 **The IQR is reported as a trust signal.** A wide spread means the machine was busy during
 measurement and the number should be treated with suspicion — better than presenting a
 median that silently averages a contaminated run.
+
+
+---
+
+## Addendum (task 4.3) — batched throughput vs single-image latency, measured
+
+This note warns that timings are relative costs in one environment, not deployment latency.
+Task 4.3 supplies the magnitude, and it is larger than the warning implies:
+
+| PCA + LinearSVC inference | ms/img | implied rate |
+|---|---|---|
+| batched (7,830 images at once) | 0.0066 | 151,000 img/s |
+| **single image** | **0.3254** | 3,070 img/s |
+
+**49×.** Both are now recorded for every method (`inference_ms_per_image` and
+`inference_single_ms_per_image`), because they answer different questions: batched is what
+the 80-cell grid costs, single-image is what a camera would experience. Quoting the batched
+figure as per-frame latency would overstate the system by a factor of 49, and it is the
+figure that falls out of a naive `time(predict(X_all)) / len(X_all)`.
+
+Expect the gap to differ by method — BLAS amortises a large matrix multiply well, so PCA
+benefits most; the CNN's per-image overhead is dominated by different costs. **The ratio
+itself is therefore a per-method property and must not be assumed constant across Table 1.**
