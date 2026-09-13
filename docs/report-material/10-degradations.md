@@ -252,7 +252,7 @@ code must ask which level is the baseline rather than assume position.
 
 ## 3.5 Contact sheet
 
-`scripts/demo/degradation_contact_sheet.py` → `figures/demo/degradation_contact_sheet.png`.
+`scripts/demo/degradation_contact_sheet.py` → `figures/demo/degradation/degradation_contact_sheet.png`.
 Three rows (noise, blur, gamma) × five levels on one sign, with the identity level boxed in
 green.
 
@@ -287,7 +287,7 @@ clutter picks a clean sign against a plain background, which is what the figure 
 
 ## Mechanics figures
 
-`scripts/demo/degradation_mechanics.py` → three figures in `figures/demo/`. Where the contact
+`scripts/demo/degradation_mechanics.py` → three figures in `figures/demo/degradation/`. Where the contact
 sheet shows *what* the degradations do, these show *how*, and they exist because two of the
 three exposed something the numbers did not.
 
