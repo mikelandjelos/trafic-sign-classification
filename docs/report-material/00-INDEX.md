@@ -7,7 +7,8 @@ number, and figure gets its rationale recorded at the time it is made.
 Distinct from:
 
 - `docs/PROJECT_TASKS.md` — the task tracker (what to do, what is done)
-- `docs/proposition/` — the already-submitted proposal (`predlog_projekta.tex`)
+- `docs/proposition/` — the project proposal (`predlog_projekta.tex`). **Never edited
+  without an explicit request** — see CLAUDE.md.
 - `docs/report/` — the final Serbian writeup (does not exist yet)
 
 ## Conventions
@@ -43,5 +44,6 @@ Running list; each gets closed with a decision and a rationale, not dropped.
 
 | # | Question | Raised at | Status |
 |---|---|---|---|
+| Q3 | ~~Gap in the predictions table~~ → **rewritten**, not extended: the framing changed twice (jitter left the MVP; gamma was never predicted), so only 2 of 4 original rows still described MVP conditions. Draft table now in `PROJECT_TASKS.md` §2, awaiting sign-off; P.1 moved to **before task 4.3**. | task 3.5 | **draft — awaiting approval** |
 | Q2 | **Opportunity, not a problem.** The claim that a random split inflates validation accuracy is currently argued rather than measured. Training one method twice — track-disjoint split vs. random per-image split — turns it into a number. ~15 min once task 4.3 exists. | task 1.2 | **approved** — scheduled as task **4.5**; see [04](04-splitting-protocol.md) |
 | Q1 | GTSRB crops carry only a ~17 % margin around the sign, so the planned "±40 % jitter, re-crop, no padding" is not achievable. | setup, before task 0.1 | **CLOSED** — measured: +40 % impossible for 72 % of images (28,166 clip); median headroom 1.30×. Jitter removed from the MVP entirely (training *and* core grid) and moved to full-frame datasets as extension §11. The measurement is itself a reported finding. See [09](09-jitter-and-datasets.md) |

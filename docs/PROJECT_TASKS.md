@@ -50,14 +50,39 @@ which single module this project delivers.
 Write these down first. Being wrong about one is more interesting than being right
 about all of them, and a prediction made after seeing results is worthless.
 
-| Stressor | Predicted most robust | Predicted least robust | Reasoning |
-|---|---|---|---|
-| Bbox jitter *(extension, §11 — evaluated on GTSDB, not GTSRB)* | BoVW | PCA | orderless encoding is translation-invariant; PCA subspace assumes alignment |
-| Motion blur | PCA | HOG / BoVW | gradient-based methods lose their signal; PCA works on raw intensity |
-| Gaussian noise | PCA | HOG | low-dim projection averages noise away; gradients amplify it |
-| Small signs (<32 px) | HOG / CNN | BoVW | too little support for meaningful local descriptors |
+> Rewritten after the scope change: the original table predated the jitter rescope and had
+> no row for gamma, leaving only 2 of 4 rows describing MVP conditions. Entries revised from
+> that original are marked ⚠ with the reason. Recorded in `predictions.md` on 2026-09-13,
+> before any model was trained.
 
-- [ ] **P.1** Record predictions in `predictions.md` with a timestamp, before task 8
+### MVP stressors
+
+| Stressor | Most robust | Least robust | Reasoning |
+|---|---|---|---|
+| **Gaussian noise** σ 0→40 | PCA | HOG | Noise is high-frequency and isotropic; PCA keeps only k ≈ 128 of 2304 dimensions, so most noise energy falls outside the retained subspace and is averaged away. HOG differentiates — a high-pass operation that amplifies noise directly and randomises orientation bins. BoVW is also gradient-based but SIFT's 4×4 spatial pooling averages somewhat, so it should land between. |
+| **Motion blur** k 0→15 px | PCA | ⚠ BoVW | Blur is low-pass and preserves exactly the low-frequency structure the leading eigenvectors encode. BoVW suffers twice: local 12 px patches become near-uniform, so descriptors collapse onto a few codewords, *and* the orderless histogram has no spatial layout left to fall back on. ⚠ Revised from "HOG / BoVW": HOG keeps the rigid grid, so even weakened gradients in the right cells still carry signal — it should beat BoVW here. |
+| **Gamma** γ 0.4 ↔ 2.5 | HOG | PCA | *New row.* Gamma is a monotone point transform: edge locations are untouched, only contrast changes. HOG's block-wise L2 normalisation cancels contrast scaling almost entirely, and SIFT's descriptor normalisation gives BoVW similar (slightly weaker) protection. PCA operates on raw intensities, so a global remap shifts every projection coefficient and moves the test point away from the training distribution. At γ = 2.5, 3.71 % of pixels crush to zero — irreversible loss that hurts the intensity-based method most. |
+| **Small signs** <32 px ROI height | CNN | BoVW | Upsampled small signs carry no genuine high-frequency detail, so dense SIFT has too little local support to form meaningful descriptors. The CNN is trained on the same size distribution (47.6 % of training images are <32 px — this is the modal case, not a tail), so it can learn whatever coarse cues exist. Note this measures scale-dependence, *not* distribution shift: train and test size distributions agree to within 0.1 pp (note 02). |
+
+### Extension stressors (§11 — GTSDB, not part of the MVP)
+
+| Stressor | Most robust | Least robust | Reasoning |
+|---|---|---|---|
+| **Bbox jitter** ±40 % | BoVW | PCA | Orderless encoding discards layout, so a shifted or rescaled box perturbs the histogram far less than it perturbs an alignment-critical subspace. HOG's rigid grid should also suffer, as content crosses cell boundaries; CNN pooling gives partial tolerance. |
+| **Cross-dataset** GTSRB → GTSDB @ jitter 0 | HOG | CNN (e2e) | *New row.* This measures domain shift alone. The CNN has the most capacity to exploit GTSRB-specific statistics — camera, compression, track structure — so it has the most to lose. Contrast-normalised hand-designed features encode structure that transfers; only the linear classifier on top is fitted to GTSRB. |
+
+### Headline prediction
+
+**No single representation wins everywhere, and the ranking inverts between stressors.** The
+sharpest falsifiable case: **PCA is predicted best under noise and worst under gamma, while
+HOG is predicted worst under noise and best under gamma.** If that crossing appears, the
+project's central claim is demonstrated in one figure. If the ranking is stable across all
+stressors, the premise is wrong — which is a more interesting result than confirming it.
+
+- [x] **P.1** Record the approved table in `predictions.md` with a timestamp.
+      — Recorded **2026-09-13**, before task 4.1, i.e. before any model existed. (Moved
+      earlier than the original "before task 8", which would have meant predicting after
+      seeing PCA, HOG, BoVW and CNN results.)
 
 ---
 
