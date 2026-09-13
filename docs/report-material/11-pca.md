@@ -334,13 +334,84 @@ codebase makes.
 
 ---
 
-## 7. Open for task 4.2
+## 7. Task 4.2 — selecting *k*
 
-- Choose *k* from {32, 64, 128, 256} on validation accuracy, not on explained variance —
-  the table above says 95 % of variance needs 155 components under `clahe_gray`, but
-  variance is not the objective; class separability is.
-- **Note for the implementation:** the top-*k* components of a 256-component randomized fit
-  are *not* bit-identical to a fresh *k*-component fit, because the random projection
-  depends on the requested rank. Sweeping by slicing one large fit is therefore cheaper but
-  not equivalent; fit each *k* separately (≈3 s each — the saving is not worth the caveat).
-- The scree / cumulative-variance figure belongs with that decision, not here.
+`scripts/sweep_pca.py` → `results/sweeps/pca_components.csv`,
+`figures/report/pca_component_sweep.png`. 32 grid points, ~10 min.
+
+**Selected: k = 256, C = 0.01, `class_weight="balanced"` — validation macro-F1 0.7977,
+accuracy 0.8442.**
+
+### 7.1 Why the sweep is joint, with the number that justifies it
+
+`k` and `C` interact: more components means a higher-dimensional, easier-to-separate space,
+which shifts the regularisation that suits it. The measured best `C` falls monotonically as
+`k` grows — **10 → 0.1 → 0.1 → 0.01** — so the two cannot be chosen independently.
+
+The cost of getting this wrong is concrete. At the arbitrary default `C = 1`, k = 256 scores
+**0.7715**; tuned, the same k scores **0.7977**. Fixing `C` first would have understated the
+best configuration by **2.6 pp** — comparable to the gap between whole methods this study
+sets out to measure.
+
+| *k* | best C | class_weight | macro-F1 | accuracy | cum. variance |
+|---|---|---|---|---|---|
+| 32 | 10 | balanced | 0.4919 | 0.5627 | 0.824 |
+| 64 | 0.1 | balanced | 0.6765 | 0.7257 | 0.889 |
+| 128 | 0.1 | — | 0.7610 | 0.8037 | 0.940 |
+| **256** | **0.01** | **balanced** | **0.7977** | **0.8442** | 0.972 |
+
+### 7.2 Caveat: k = 256 is the edge of the grid, and the curve is still rising
+
+The task specified {32, 64, 128, 256}, and 256 wins — but macro-F1 has not plateaued there
+(+3.7 pp from 128 to 256, against +8.5 pp from 64 to 128). **This is the best of the four
+offered, not a located optimum.** k = 512 might well be better.
+
+Reported as a limitation rather than quietly extending the grid: the grid was specified
+before any result was seen, and widening it *because* the edge won is the kind of
+after-the-fact adjustment that makes a selection protocol meaningless. If the report wants
+the stronger claim, the honest route is to re-run the whole sweep with a wider grid for
+every method, not to extend it for PCA alone.
+
+### 7.3 Variance and accuracy disagree — the reason selection is on macro-F1
+
+Across the grid, cumulative variance climbs 0.824 → 0.972 (a span of 0.15) while macro-F1
+climbs 0.49 → 0.80 (a span of 0.31). **Variance has nearly saturated exactly where accuracy
+is still improving fastest.** Choosing *k* by a variance threshold — the common heuristic,
+"keep 95 %" — would have selected around 155 components and left measurable accuracy on the
+table.
+
+The reason is §3.1: the leading components encode illumination, which is high-variance and
+class-irrelevant, so the variance curve saturates on information the classifier cannot use.
+This is the second time the two disagree (the first was CLAHE, §3.2), and together they are
+a clean, reportable point: **explained variance describes reconstruction, not
+discriminability.**
+
+### 7.4 Selection protocol
+
+- **Criterion: validation macro-F1**, not accuracy. With 10.7× imbalance, accuracy is
+  dominated by the large classes; macro-F1 weights all 43 equally and is the metric the
+  report leads with. Selecting on one metric and reporting another would be indefensible.
+- **Ties break toward smaller `C`** (more regularisation), so selection is a deterministic
+  function of the records rather than of their order — `tuning.select_best`.
+- **`class_weight` is swept, not assumed.** PROJECT_TASKS §10 flagged it as "consider".
+  Every method gets the same treatment via `gtsrb.tuning`, so the *protocol* is fixed even
+  though the selected values differ — which is what Q4 decided "fixed classifier" means.
+- **Convergence is recorded, never silenced.** `max_iter=5000`; a point that hit the cap
+  would be compared on the solver's patience rather than on its regularisation. All 32
+  points converged.
+
+> **`balanced` won, but only just, and not consistently.** It wins at k=256 by 0.55 pp
+> (0.7977 vs 0.7922) and at k=32/64, but *loses* at k=128. That is within the noise of a
+> 7,830-image validation set with one seed. It is selected because it won at the selected
+> k, and the inconsistency is recorded here so the report does not claim a class-weighting
+> effect the evidence does not support.
+
+### 7.5 Implementation note
+
+The top-*k* components of a 256-component randomized fit are **not** bit-identical to a
+fresh *k*-component fit — the random projection depends on the requested rank. Sweeping by
+slicing one large fit would be cheaper but not equivalent, so each *k* is fitted separately
+(≈3 s each; the saving is not worth the caveat).
+
+`scripts/sweep_pca.py --from-csv` redraws the figure from the saved grid without re-fitting,
+because a figure tweak should not cost ten minutes of SVM.

@@ -348,7 +348,21 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       five methods a confound? PCA is the only representation not internally normalised) and
       Q5 (preproc/representation pairing is unenforced and a `raw_gray`/`clahe_gray` mix-up
       is silent). See `docs/report-material/11-pca.md` §5–6.
-- [ ] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
+- [x] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
+      — `scripts/sweep_pca.py` + `gtsrb.tuning` (shared by 5.2/6.3). **Selected k = 256,
+      C = 0.01, `class_weight="balanced"`** — val macro-F1 **0.7977**, accuracy 0.8442.
+      **Swept k × C × class_weight jointly, because they interact:** best C falls
+      monotonically as k grows (10 → 0.1 → 0.1 → 0.01), and at a fixed C = 1 the same k=256
+      scores 0.7715 — fixing C first would have understated the best config by **2.6 pp**,
+      comparable to the between-method gaps this study measures. **Selected on macro-F1**,
+      not accuracy (10.7× imbalance). **Caveat: 256 is the top of the specified grid and the
+      curve is still rising** — best of the four offered, not a located optimum; widening the
+      grid *because* the edge won would void the protocol, so it is reported as a limitation.
+      **Variance and accuracy disagree**: variance spans 0.824→0.972 while macro-F1 spans
+      0.49→0.80, so the "keep 95 % of variance" heuristic would have picked ~155 components
+      and lost accuracy. `balanced` won by only 0.55 pp and loses at k=128 — recorded as
+      within noise. All 32 grid points converged. 12 tests.
+      See `docs/report-material/11-pca.md` §7.
 > **Classifier protocol (Q4, decided at 4.1).** `C` is **tuned per method** on validation,
 > and the chosen value is recorded per method in `results.csv` and reported alongside Table 1.
 > "Fixed classifier" means the same estimator and the same training protocol — *not* the same
@@ -469,6 +483,14 @@ datasets whose pixels actually exist outside the box.
 - [ ] Table — preprocessing ablation
 - [ ] Table — top confused pairs
 - [ ] `results.csv` — reproducible from a single script
+
+> **Report figures are committed.** `figures/` is gitignored except `figures/report/`, which
+> **is** in the repository — the report is written on Day 5, possibly elsewhere, and "re-run
+> the scripts" is not a plan when they need a 1 GB gitignored dataset. Populate it with
+> `poetry run python scripts/collect_report_figures.py`; the MANIFEST in that script is the
+> single explicit list of what belongs in the report, and `--check` prints what is still
+> pending. Figures named "Figure:" above are `deliverable=True`; ones judged important enough
+> to argue for are `deliverable=False` with the argument recorded inline.
 
 ---
 

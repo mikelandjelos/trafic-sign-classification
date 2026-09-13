@@ -19,10 +19,14 @@ a classifier stage, the evaluation grid.
 
 - Lives in `scripts/demo/<topic>_mechanics.py`, writes to `figures/demo/<topic>/`, and is
   listed in that task's `docs/report-material/` note.
+- **Figures bound for the report get committed.** `figures/` is gitignored except
+  `figures/report/`. Any figure named "Figure:" in `docs/PROJECT_TASKS.md` belongs there, and
+  so does any other figure important enough to argue for — add it to the MANIFEST in
+  `scripts/collect_report_figures.py` with a one-line reason, then run that script.
 - It must be **built from the real module**, never a re-derivation. A demo that reimplements
   the thing it is checking verifies nothing.
-- Deterministic and re-runnable from a clean checkout. Figures are gitignored; the script is
-  the artifact.
+- Deterministic and re-runnable from a clean checkout. For demo-only figures the script is
+  the artifact and the PNG is gitignored; report figures are the exception above.
 
 **Why this is a hard rule: tests pass on things that are visibly wrong.**
 
