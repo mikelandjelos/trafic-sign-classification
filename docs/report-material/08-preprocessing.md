@@ -29,6 +29,38 @@ BGR must give hue 0.
 
 ---
 
+## Figures
+
+`docs/demo/preprocessing_pipeline.py` regenerates two report-ready figures into
+`figures/demo/` (gitignored — regenerate rather than commit):
+
+- **`preprocessing_pipeline.png`** — one sign through every stage (source PPM → `to_gray`
+  → `resize(48,48)` → `clahe`), with the intensity histogram before and after. On the
+  auto-selected sample (class 25, *Road work*, 73×69) CLAHE lifts the std from **28 to 53**
+  and turns a narrow unimodal histogram into a broad bimodal one.
+- **`preprocessing_configs.png`** — the three configs across five classes, showing the
+  ladder structure directly.
+
+The script calls `gtsrb.preprocessing` rather than reimplementing it, so the figures show
+exactly what the models are fed; if a figure looks wrong, the pipeline is wrong.
+
+**Sample selection is deliberate and worth knowing when reading the figure.** Choosing the
+*darkest* image (minimum std) — the obvious heuristic — lands on a near-black frame where
+the sign is invisible both before and after, demonstrating nothing. The script instead
+picks the largest contrast *gain* among images whose mean intensity is not pinned to either
+end of the range, which is a genuinely under-exposed but still legible sign.
+
+### An observation from the configs figure
+
+In the `clahe_hsv` row, coloured speckle appears along sign edges. It is **not** introduced
+by CLAHE: `clahe` leaves H and S untouched (asserted by test), so the hue noise was always
+present — hue is numerically unstable where V is small, and boosting V merely makes existing
+noise visible. The model's H channel is identical with or without CLAHE.
+
+It is still worth remembering when reading the ablation: in dark images the hue channel
+carries real noise, which is one reason colour may buy less than its 3× dimensionality cost
+would suggest.
+
 ## Decision 1: interpolation is chosen per image
 
 GTSRB crops span 25–266 px against a 48×48 target, so the *same* call both enlarges and
