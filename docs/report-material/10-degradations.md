@@ -113,10 +113,10 @@ camera/vehicle motion during exposure. Measured over 1 000 test images (`clahe_g
 | kernel | mean shift | std ratio | edge energy retained |
 |---|---|---|---|
 | 0 | +0.000 | 1.000 | 100.0 % |
-| 3 | −0.006 | 0.965 | 81.2 % |
-| 5 | −0.008 | 0.936 | 68.0 % |
-| 9 | −0.001 | 0.886 | 52.9 % |
-| 15 | −0.006 | 0.834 | 42.7 % |
+| 3 | −0.005 | 0.965 | 80.0 % |
+| 5 | −0.008 | 0.935 | 66.4 % |
+| 9 | +0.002 | 0.886 | 51.0 % |
+| 15 | −0.005 | 0.834 | 40.9 % |
 
 Edge energy (mean absolute horizontal gradient) falls monotonically and more than halves by
 the strongest level, while mean intensity is preserved to within 0.01 levels.
@@ -137,13 +137,53 @@ same kernel, so the wider range would merely sample each orientation twice. Draw
 from `rng_for("blur", k, path)`, so it is reproducible and varies between images — a single
 shared angle would make the stressor systematic rather than random.
 
-### Known property: pixel count varies with angle, extent does not
+### A bug the mechanics figure caught: extent depended on the angle
 
-A 15 px kernel rasterises to 15 nonzero pixels at 0° but 11 at 45°. That is correct rather
-than a defect: the diagonal line spans the same *geometric* extent (≈14 px in both cases)
-because diagonal steps cover more distance. The blur therefore averages over the same
-displacement at every angle, but over slightly fewer samples on the diagonals. Worth knowing
-rather than worth fixing.
+The first implementation rasterised the kernel with `cv2.line` between two integer
+endpoints. Plotting the kernels themselves (`degradation_mechanics.py`) showed that the
+pixel count dropped on diagonals, which I initially recorded here as a harmless property —
+reasoning that a diagonal step covers √2 px, so the *geometric* extent was unchanged.
+
+**That reasoning was wrong.** It happens to hold at k = 15 and fails badly at small k,
+because rounding the endpoints costs a fixed fraction of a pixel against a shrinking total:
+
+| size | 0° extent | 45° extent | |
+|---|---|---|---|
+| 3 | 2.00 px | 2.83 px | diagonal **41 % longer** |
+| 5 | 4.00 px | 2.83 px | diagonal **29 % shorter** |
+| 15 | 14.00 px | 14.14 px | near-equal, by luck |
+
+Note the error even changes *direction* with size. Since the angle is drawn at random per
+image, images at the same nominal level were receiving materially different blur strengths
+— which violates the "one level means one condition" property that the whole degradation
+design rests on, and is exactly the confound the model-input decision was meant to prevent.
+
+**Fix:** sample `size` points evenly along a line of length `size − 1` at the requested
+angle and splat each bilinearly, instead of rasterising. The extent is then `size − 1` at
+every angle by construction, and the kernel is anti-aliased, which is closer to real motion
+blur than a hard-rounded line anyway. Effective radius (RMS distance of kernel mass from
+the centre) after the fix:
+
+| k | 0° | 30° | 45° | 90° | 135° |
+|---|---|---|---|---|---|
+| 3 | 0.816 | 0.954 | 0.971 | 0.816 | 0.971 |
+| 5 | 1.414 | 1.492 | 1.536 | 1.414 | 1.536 |
+| 9 | 2.582 | 2.637 | 2.641 | 2.582 | 2.641 |
+| 15 | 4.320 | 4.355 | 4.357 | 4.320 | 4.357 |
+
+The residual few percent is the unavoidable cost of bilinear splatting — a diagonal sample
+spreads over four pixels, slightly widening the mass — and it *shrinks* with kernel size.
+A test now requires the extent to vary by under 12 % across angles at every level.
+
+A smaller companion fix: `cos(90°)` is 6.1 × 10⁻¹⁷ rather than 0, which splatted a vanishing
+weight into a neighbouring column and left axis-aligned kernels looking two pixels wide.
+Weights below 10⁻⁶ are now zeroed before normalisation.
+
+**Worth carrying into the report's discussion.** I wrote this defect into the notes as a
+*known property* with a plausible-sounding justification, and only drawing the kernels
+exposed it. Verifying numerically (kernel sums, monotone edge energy, preserved mean) had
+all passed — none of those checks could see it. That is a concrete argument for producing
+diagnostic figures rather than trusting summary statistics.
 
 ### Severity of the strongest level, in context
 
@@ -242,3 +282,29 @@ clutter picks a clean sign against a plain background, which is what the figure 
 - **At σ = 40 the sign remains recognisable to a human** while being heavily corrupted,
   which is the useful regime for separating methods: a level that destroyed the sign
   entirely would push every method to chance and discriminate nothing.
+
+---
+
+## Mechanics figures
+
+`docs/demo/degradation_mechanics.py` → three figures in `figures/demo/`. Where the contact
+sheet shows *what* the degradations do, these show *how*, and they exist because two of the
+three exposed something the numbers did not.
+
+| Figure | Shows |
+|---|---|
+| `degradation_blur_kernels.png` | the line kernels at 0/30/45/90/135°, annotated with effective radius — this is what caught the angle-dependent extent bug above |
+| `degradation_gamma_curves.png` | the five transfer curves on one axis (identity as the dashed diagonal), and their effect on a real intensity histogram |
+| `degradation_noise_stats.png` | per-σ perturbation histograms, and realised vs requested σ with the clipping gap annotated |
+
+Two details these made visible:
+
+- **The noise histogram has a spike at Δ = 0**, not at the tails as I first captioned it.
+  Those are the pixels already at 0 or 255 — CLAHE's 3.16 % — receiving noise that pushes
+  them further out of range and being clipped straight back to where they started. The
+  clipping gap (realised σ below requested) then grows as −0.0, −0.1, −0.7, **−3.5** across
+  the four levels.
+- **γ = 2.5 piles histogram mass against 0** while γ = 0.4 spreads it toward the bright end
+  without an equivalent pile-up at 255. The asymmetry is visible at a glance and explains
+  why the darkening arm should hurt more than the brightening arm: mass driven to 0 is
+  unrecoverable, whereas the brightening arm mostly compresses.

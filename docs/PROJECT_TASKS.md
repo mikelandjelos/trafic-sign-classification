@@ -269,8 +269,11 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       — normalised line kernel (sum 1, so blur doesn't also shift brightness and confound
       3.3); `BORDER_REFLECT_101` **not** zero padding, which would vignette in proportion to
       kernel size; angle ~U[0,180) per image from `rng_for("blur", k, path)` — [0,360) would
-      sample each orientation twice. Edge energy 100→81→68→53→**43%**, mean preserved to
-      ±0.01. 19 tests. See `docs/report-material/10-degradations.md`.
+      sample each orientation twice. Edge energy 100→80→66→51→**41%**, mean preserved to
+      ±0.01. **Kernel built by sub-pixel sampling, not `cv2.line`** — rasterising made the
+      blur extent depend on the angle (k=5: 4.00 px at 0° vs 2.83 px at 45°), so a random
+      angle changed the strength at a fixed nominal level. Caught by *plotting* the kernels;
+      no numeric check saw it. 23 tests. See `docs/report-material/10-degradations.md`.
 - [x] **3.3** Degradation: gamma, γ ∈ {0.4, 0.7, 1.0, 1.5, 2.5}
       — 256-entry LUT (exact, memoised), monotone, endpoints fixed. Mean 99.4 → 165.2 /
       125.6 / 99.4 / 72.5 / 47.2, monotone across the grid. **The only non-stochastic

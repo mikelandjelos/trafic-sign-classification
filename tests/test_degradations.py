@@ -281,6 +281,35 @@ def test_blur_kernel_is_horizontal_at_zero_degrees():
     assert kernel[0].sum() == 0 and kernel[4].sum() == 0
 
 
+def _blur_radius(kernel: np.ndarray) -> float:
+    """RMS distance of kernel mass from the centre -- the effective blur extent."""
+    size = kernel.shape[0]
+    centre = (size - 1) / 2.0
+    ys, xs = np.mgrid[0:size, 0:size]
+    return float(np.sqrt((((xs - centre) ** 2 + (ys - centre) ** 2) * kernel).sum()))
+
+
+@pytest.mark.parametrize("size", [5, 9, 15])
+def test_blur_extent_is_consistent_across_angles(size):
+    """One level must mean one condition, whatever angle is drawn for a given image.
+
+    The original implementation rasterised a line with integer endpoints, which made the
+    physical extent depend on the angle -- at k=5, 4.00 px horizontally against 2.83 px
+    diagonally, a 29 % difference. Since the angle is random per image, images at the same
+    nominal level then received materially different blur strengths.
+    """
+    radii = [_blur_radius(degradations.motion_blur_kernel(size, a)) for a in range(0, 180, 15)]
+    assert min(radii) > 0
+    assert max(radii) / min(radii) < 1.12, (
+        f"blur extent varies by {(max(radii) / min(radii) - 1) * 100:.0f}% across angles"
+    )
+
+
+def test_blur_extent_grows_with_kernel_size():
+    radii = [_blur_radius(degradations.motion_blur_kernel(k, 30)) for k in (3, 5, 9, 15)]
+    assert radii == sorted(radii)
+
+
 def test_blur_level_zero_is_identity(images, keys):
     assert np.array_equal(degradations.apply(images, "blur", 0, keys), images)
 

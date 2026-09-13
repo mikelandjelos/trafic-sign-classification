@@ -85,16 +85,52 @@ def motion_blur_kernel(size: int, angle_deg: float) -> np.ndarray:
     The kernel sums to 1, so the operation preserves mean intensity: the blur must not
     also darken or brighten the image, or the degradation would be confounded with a
     brightness shift (which is what task 3.3 measures separately).
+
+    Built by **sub-pixel sampling**, not by rasterising a line with `cv2.line`. A rasterised
+    line rounds its endpoints to integer pixels, which makes the blur's physical extent
+    depend on the angle -- and not by a constant factor:
+
+        size  0 deg extent   45 deg extent
+          3       2.00           2.83   (diagonal 41 % LONGER)
+          5       4.00           2.83   (diagonal 29 % SHORTER)
+         15      14.00          14.14   (near-equal by luck)
+
+    Since the angle is drawn at random per image, that would give images at the same
+    nominal level materially different blur strengths, breaking the "one level means one
+    condition" property the whole degradation design rests on.
+
+    Sampling `size` points evenly along a line of length `size - 1` at the requested angle,
+    and splatting each bilinearly, keeps the extent exactly `size - 1` at every angle. It
+    also anti-aliases the kernel, which is closer to real motion blur than a hard-rounded
+    line anyway.
     """
     if size < 1 or size % 2 == 0:
         raise ValueError(f"kernel size must be odd and >= 1, got {size}")
     kernel = np.zeros((size, size), dtype=np.float32)
+    if size == 1:
+        kernel[0, 0] = 1.0
+        return kernel
+
     centre = (size - 1) / 2.0
     radians = np.deg2rad(angle_deg)
-    dx, dy = np.cos(radians) * centre, np.sin(radians) * centre
-    start = (round(float(centre - dx)), round(float(centre - dy)))
-    end = (round(float(centre + dx)), round(float(centre + dy)))
-    cv2.line(kernel, start, end, color=1.0, thickness=1)
+    offsets = np.linspace(-centre, centre, size)
+    xs = centre + offsets * np.cos(radians)
+    ys = centre + offsets * np.sin(radians)
+
+    for x, y in zip(xs, ys, strict=True):
+        x0, y0 = int(np.floor(x)), int(np.floor(y))
+        fx, fy = x - x0, y - y0
+        for dy in (0, 1):
+            for dx in (0, 1):
+                xi, yi = x0 + dx, y0 + dy
+                if 0 <= xi < size and 0 <= yi < size:
+                    weight = (fx if dx else 1.0 - fx) * (fy if dy else 1.0 - fy)
+                    kernel[yi, xi] += weight
+
+    # Drop numerical dust: cos(90 deg) is 6.1e-17 rather than 0, which otherwise splats a
+    # vanishing weight into a neighbouring column and leaves an axis-aligned kernel
+    # looking two pixels wide.
+    kernel[kernel < 1e-6] = 0.0
     return kernel / kernel.sum()
 
 
