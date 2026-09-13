@@ -85,6 +85,51 @@ Three of these fields earn their place for specific reasons:
 
 ---
 
+## Aside — real-time feasibility of the preprocessing stage
+
+**Secondary material.** This project delivers module M3 offline; nothing here is a claim
+about a deployed system. It is recorded because it bears on the extended framing (a
+real-time pipeline) and would be tedious to reconstruct later.
+
+Measured single-threaded (`cv2.setNumThreads(1)`) over 200 real crops, median 43 px:
+
+| Stage | µs/sign | | Full pipeline | µs/sign | signs/s |
+|---|---|---|---|---|---|
+| `cvtColor` BGR→GRAY (source res) | 2.7 | | `raw_gray` | **10.9** | 91 600 |
+| `cvtColor` BGR→HSV (source res) | 6.4 | | `clahe_gray` | **29.2** | 34 200 |
+| + `resize` → 48×48 | 10.6 | | `clahe_hsv` | **43.7** | 22 900 |
+| + CLAHE on 48×48 | 29.2 | | | | |
+
+**Why it is this cheap:** the pipeline runs on 2 304 pixels. A 720p frame is 921 600 — 400×
+more. All of this happens *after* the crop, so the cost is bounded by the sign, not the
+frame. The working set is 2.3 KB and fits in L1 on any embedded core.
+
+Scaling to a Cortex-A53 class core (≈10–20× slower than this Zen3 core for integer image
+work: lower clock and IPC, NEON rather than AVX2, smaller cache), at the pessimistic end:
+
+```
+clahe_gray:  29.2 µs × 20 ≈ 0.6 ms/sign
+GTSDB averages 1.64 signs/frame → ~1.0 ms/frame
+30 fps budget = 33.3 ms/frame  → ~3 % of the budget
+```
+
+All four operations are **fixed-point friendly**, which matters on parts without an FPU:
+`cvtColor` is an integer weighted sum, `INTER_AREA`/`INTER_LINEAR` use fixed-point weights,
+and CLAHE is integer histograms plus a LUT and bilinear interpolation. OpenCV already
+computes these in fixed point for 8-bit input, so there is no float dependency to remove.
+
+Three caveats, consistent with the claim boundary above:
+
+1. **This is an estimate, not a measurement.** Desktop OpenCV scaled by a rule of thumb.
+   The only way to know is to run it on the target.
+2. **The bottleneck would be detection (M1), which is out of scope** — a full-frame search
+   is 400× the pixel count. The classifier is a separate question; PCA/HOG + `LinearSVC`
+   are microseconds, but CNN inference on a weak CPU needs the task-7 numbers.
+3. **CLAHE is 62 % of the pipeline cost** (18 of 29 µs). That makes the preprocessing
+   ablation (task 8.2) a deployment question as well as an accuracy one: if `clahe_gray`
+   does not beat `raw_gray` by a meaningful margin, `raw_gray` is 2.7× cheaper. Worth
+   framing the ablation that way in the report rather than as a pure accuracy sweep.
+
 ## Measurement protocol
 
 **Inference:** median of 5 repeats, first call discarded. **Training:** a single run, no
