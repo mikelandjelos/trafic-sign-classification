@@ -315,7 +315,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 - [ ] **6.5** `LinearSVC` on BoVW histograms; record cost metrics
 - [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
 - [ ] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three. ~20 min, you already have both pieces.
-- [ ] **P.1** Write `predictions.md` — do this before task 8
+- [x] **P.1** ~~Write `predictions.md` — do this before task 8~~ — **done early**, on
+      2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
+      seeing PCA, HOG, BoVW and CNN results. See §2 and `predictions.md`.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
 - [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs
 - [ ] **8.3** Verify results CSV is complete, no NaNs
