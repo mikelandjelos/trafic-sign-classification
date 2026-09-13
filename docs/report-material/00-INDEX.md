@@ -30,12 +30,12 @@ Distinct from:
 | [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (task 0.3) |
 | [04-splitting-protocol.md](04-splitting-protocol.md) | Methodology → experimental protocol | complete (tasks 1.2, 1.3, 1.7) |
 | [05-evaluation-metrics.md](05-evaluation-metrics.md) | Methodology → evaluation; Table 1; figs 9.2–9.4 | complete (task 1.4) |
-| [06-cost-measurement.md](06-cost-measurement.md) | Methodology → cost; Table 1; **Limitations** | complete (task 1.5) |
+| [06-cost-measurement.md](06-cost-measurement.md) | Methodology → cost; Table 1; **Limitations** | complete (tasks 1.5, 4.3) |
 | [07-results-table.md](07-results-table.md) | Methodology → reproducibility; source of all Results | complete (task 1.6) |
 | [08-preprocessing.md](08-preprocessing.md) | Methodology → preprocessing; ablation table 9.7 | complete (tasks 2.1–2.3) |
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
-| [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1, 4.2) |
+| [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.3) |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png` (source tracked, render ignored).
 

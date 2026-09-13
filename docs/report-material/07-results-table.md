@@ -85,3 +85,46 @@ Every number in the report is traceable: a figure cites `results.csv`, a row cit
 `run_id`, and the `run_id` cites the machine, thread counts, library versions and commit it
 was produced on. The claim "reproducible from a single script" is therefore verifiable
 rather than aspirational.
+
+
+---
+
+## Addendum (task 4.3) — metric-naming conventions
+
+The schema has seven columns and **no `split` column**, so validation and test results would
+collide on the same `(run_id, method, preproc, degradation, level, metric)` key. Rather than
+widen the schema, two naming conventions were adopted when the first rows were written.
+
+### `val_` prefix for validation metrics
+
+Training scripts (`scripts/train_*.py`) write `val_accuracy`, `val_macro_f1`,
+`val_weighted_f1`, `val_n_samples` and `val_f1_class_<i>`. The evaluation grid at task 8.1
+writes the **unprefixed** `accuracy` / `macro_f1` / … from the **test** set.
+
+So an unprefixed metric always means test, and the two can never be confused or silently
+averaged together. `pivot()` would in fact have caught a collision (it refuses to aggregate),
+but relying on a downstream guard to catch an ambiguity in the data itself is the wrong way
+round.
+
+### Hyperparameters ride along as metrics
+
+Q4 requires a reader to see which dial each method was given without opening a sweep file, so
+the selection is written into `results.csv` itself:
+
+| metric | meaning |
+|---|---|
+| `selected_n_components` | the representation's chosen dimensionality (PCA: 256) |
+| `selected_C` | the chosen `LinearSVC` regularisation |
+| `selected_class_weight_balanced` | 1.0 if `class_weight="balanced"`, else 0.0 |
+| `feature_dim` | the representation's output width |
+| `model_size_mb` | serialised model size |
+| `n_train_images` | training rows used (31,379 for every method — see 11-pca.md §8.1) |
+
+`class_weight` is categorical and the `value` column is numeric, hence the 0/1 encoding
+rather than a string. Slightly blunt, but it keeps the column type honest; a string in a
+float column is worse.
+
+### Two inference-cost metrics, not one
+
+`inference_ms_per_image` (batched) and `inference_single_ms_per_image` (one image at a time)
+differ by **49×** for PCA. See `06-cost-measurement.md`; both are recorded for every method.

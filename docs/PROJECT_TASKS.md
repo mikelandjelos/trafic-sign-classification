@@ -456,6 +456,13 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 ### Day 4 — Analysis and figures (~5.5 h)
 
 - [ ] **9.1** Table 1: accuracy, macro-F1, train time, inference ms/img, model size MB, feature dim — one row per method (5 rows) *(task 9 = 2.0 h)*
+      **Two caveats measured at 4.3, both must appear with the table.** (a) Report the
+      **single-image** inference figure, or state which is which: batched throughput is 49×
+      the per-frame latency for PCA, and the ratio is method-specific. (b) `model_size_mb`
+      is not like-for-like — 96 % of PCA's 2.35 MB is the *basis*, while HOG has no fitted
+      stage at all (~0.1 MB of SVM coefficients). Say what dominates each row, or the table
+      reads as "PCA is 20× bigger than HOG" when the real difference is a learned dictionary
+      vs none. See `docs/report-material/06-cost-measurement.md`.
 - [ ] **9.2** Figure: confusion matrix, best and worst method
 - [ ] **9.3** Table: top-10 most-confused class pairs + commentary (speed limits confuse predictably)
 - [ ] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
@@ -561,6 +568,10 @@ Those are what make this a study rather than a tutorial.
   `platform.json` with the numbers — a duration without its environment is uninterpretable,
   and the timings are relative, not deployment latency.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
+- **`.gitignore` patterns are not recursive** — `results/*.joblib` matches nothing in
+  `results/models/`, so a 2.4 MB checkpoint sat untracked-but-unignored and would have been
+  committed by the next `git add -A`. Found at task 4.3; fixed with `results/**/*.joblib`.
+  Check with `git check-ignore -v <path>`, which prints the matching rule or exits non-zero.
 - **CNN feature extraction** — put the model in `eval()` and wrap in `torch.no_grad()`, or the penultimate features will carry dropout noise.
 - **Memory layout changes float32 results** — `PCA.fit` leaves `components_` F-contiguous,
   a joblib round-trip restores it C-contiguous, and BLAS picks a different GEMM kernel for

@@ -180,3 +180,32 @@ figure that falls out of a naive `time(predict(X_all)) / len(X_all)`.
 Expect the gap to differ by method — BLAS amortises a large matrix multiply well, so PCA
 benefits most; the CNN's per-image overhead is dominated by different costs. **The ratio
 itself is therefore a per-method property and must not be assumed constant across Table 1.**
+
+
+---
+
+## Addendum (task 4.3) — `model_size_mb` measures structurally different things per method
+
+Measured for PCA + `LinearSVC` (`results/models/pca_svm_clahe_gray.joblib`, 2.35 MB):
+
+| contents | shape | dtype | size |
+|---|---|---|---|
+| PCA `components_` | (256, 2304) | float32 | **2.25 MB** |
+| PCA `mean_` | (2304,) | float32 | 0.01 MB |
+| `LinearSVC.coef_` | (43, 256) | float64 | 0.08 MB |
+| `LinearSVC.intercept_` | (43,) | float64 | ~0 |
+
+**96 % of PCA's "model" is the basis, not the classifier.** That is a property of the
+representation, and it will not hold for the others: HOG has *no* fitted stage at all, so its
+model is only the SVM coefficients (expect ~0.1 MB); BoVW carries a k-means codebook; the CNN
+carries its weights. The column is worth reporting — a 2.35 MB dictionary is a real
+deployment cost — but the numbers are **not like-for-like**, and Table 1 (9.1) must say what
+dominates each, or a reader will conclude PCA is 20× "bigger" than HOG when what differs is
+that one has a learned dictionary and the other has none.
+
+Also note the format: `.joblib` is pickle with raw NumPy buffers. It is Python-only and
+version-fragile (it stores references to `gtsrb...PCARepresentation` and to sklearn's
+internal attribute layout), which is tolerable only because models are regenerable in ~30 s
+and therefore gitignored. Any claim about embedded deployment would need the weights exported
+as plain arrays or ONNX — the arithmetic is one matrix multiply plus 43 dot products, so that
+is trivial, but the `.joblib` is not the artifact one would ship.
