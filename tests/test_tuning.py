@@ -127,3 +127,53 @@ def test_balanced_weighting_helps_the_rare_class(problem) -> None:
     # the option is actually applied and produces a different model.
     assert plain.params["class_weight"] is None
     assert balanced.params["class_weight"] == "balanced"
+
+
+# --- reading a selection back out of a sweep -------------------------------------------
+
+
+@pytest.fixture
+def sweep_csv(tmp_path):
+    """A miniature sweep table shaped like results/sweeps/pca_components.csv."""
+    import pandas as pd
+
+    frame = pd.DataFrame([
+        {"preproc": "clahe_gray", "n_components": 128, "C": 1.0,
+         "class_weight": "balanced", "macro_f1": 0.70, "accuracy": 0.75},
+        {"preproc": "clahe_gray", "n_components": 256, "C": 0.01,
+         "class_weight": None, "macro_f1": 0.80, "accuracy": 0.84},
+        {"preproc": "raw_gray", "n_components": 256, "C": 0.1,
+         "class_weight": "balanced", "macro_f1": 0.77, "accuracy": 0.81},
+    ])
+    path = tmp_path / "sweep.csv"
+    frame.to_csv(path, index=False)
+    return path
+
+
+def test_best_from_sweep_picks_the_highest_macro_f1(sweep_csv) -> None:
+    best = tuning.best_from_sweep(sweep_csv)
+    assert best["macro_f1"] == 0.80
+    assert best["n_components"] == 256
+    assert best["preproc"] == "clahe_gray"
+
+
+def test_best_from_sweep_filters_first(sweep_csv) -> None:
+    """Filtering must narrow before selecting, or 8.2 gets the global winner every time."""
+    best = tuning.best_from_sweep(sweep_csv, preproc="raw_gray")
+    assert best["preproc"] == "raw_gray"
+    assert best["macro_f1"] == 0.77
+
+
+def test_best_from_sweep_converts_missing_class_weight_to_none(sweep_csv) -> None:
+    """pandas reads an absent class_weight as NaN; LinearSVC needs None.
+
+    Left as NaN it is silently truthy, so `LinearSVC(class_weight=nan)` raises deep in the
+    fit rather than where the mistake was made.
+    """
+    assert tuning.best_from_sweep(sweep_csv)["class_weight"] is None
+    assert tuning.best_from_sweep(sweep_csv, preproc="raw_gray")["class_weight"] == "balanced"
+
+
+def test_best_from_sweep_rejects_a_filter_matching_nothing(sweep_csv) -> None:
+    with pytest.raises(ValueError, match="no rows"):
+        tuning.best_from_sweep(sweep_csv, preproc="clahe_hsv")
