@@ -422,7 +422,19 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       generalise across, so its held-out frames become near-lookup), and macro-F1 weights
       those equally. So the metric chosen *because* of imbalance is the one leakage corrupts
       worst. See `docs/report-material/04-splitting-protocol.md`.
-- [ ] **5.1** HOG via `skimage.feature.hog` on 48×48 *(task 5 = 1.5 h)*
+- [x] **5.1** HOG via `skimage.feature.hog` on 48×48 *(task 5 = 1.5 h)*
+      — `gtsrb.representations.hog.HOGRepresentation`, behind the same `Representation`
+      interface. **`fit` is a no-op — HOG learns nothing**, pinned by a test (fitting on two
+      disjoint halves must give byte-identical descriptors): its training cost is only the
+      SVM fit and its "model" is only the SVM coefficients, both of which Table 1 must
+      distinguish from PCA's. `block_norm="L2-Hys"` is the gamma mechanism and is
+      test-pinned; `cells_per_block=(2,2)` not (3,3), since a 6×6 cell grid cannot support
+      3×3 blocks; `transform_sqrt=False` — named explicitly because it *is* a gamma transform
+      (γ=0.5) and would interact with task 3.3, so it is an ablation candidate rather than a
+      quiet default. Dims 900 / 1200 / 1764 / 2352 for the 5.2 grid, all test-pinned;
+      0.53–0.83 ms/img. **Verified: a linear contrast change is cancelled exactly (shift
+      0.000); gamma is only partly cancelled (0.358).** 28 tests.
+      See `docs/report-material/12-hog.md`.
 - [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
 - [ ] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
 - [ ] **5.4** Figure: HOG visualization, one sample per super-category

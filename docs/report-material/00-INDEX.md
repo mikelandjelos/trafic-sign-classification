@@ -37,6 +37,7 @@ Distinct from:
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
 | [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.4) |
+| [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (task 5.1) |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
 render is copied into `figures/report/` (committed) by
