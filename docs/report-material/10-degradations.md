@@ -2,7 +2,7 @@
 
 **Feeds:** Methodology → controlled degradations; the robustness curves (fig. 9.5); the
 contact sheet (3.5).
-**Status:** in progress — Gaussian noise (3.1) done; motion blur (3.2), gamma (3.3),
+**Status:** in progress — Gaussian noise (3.1) and motion blur (3.2) done; gamma (3.3) and
 contact sheet (3.5) pending.
 
 Implemented as `gtsrb.degradations`; tested in `tests/test_degradations.py`.
@@ -102,3 +102,53 @@ a second test now pins the absence of the shift directly.
 Worth noting in the discussion: the property under test was *the statistical behaviour the
 degradation claims to have*, not the code path. Asserting "noise is zero-mean" is what
 surfaced a defect that no shape or dtype check would have found.
+
+---
+
+## 3.2 Motion blur — kernel ∈ {0, 3, 5, 9, 15} px, random angle
+
+Convolution with a normalised line kernel at a uniformly random orientation, simulating
+camera/vehicle motion during exposure. Measured over 1 000 test images (`clahe_gray`):
+
+| kernel | mean shift | std ratio | edge energy retained |
+|---|---|---|---|
+| 0 | +0.000 | 1.000 | 100.0 % |
+| 3 | −0.006 | 0.965 | 81.2 % |
+| 5 | −0.008 | 0.936 | 68.0 % |
+| 9 | −0.001 | 0.886 | 52.9 % |
+| 15 | −0.006 | 0.834 | 42.7 % |
+
+Edge energy (mean absolute horizontal gradient) falls monotonically and more than halves by
+the strongest level, while mean intensity is preserved to within 0.01 levels.
+
+### Three choices that keep the stressor clean
+
+**The kernel is normalised to sum 1.** Blur must not also darken or brighten the image —
+brightness is what gamma (3.3) measures, and a blur that shifted intensity would confound
+two axes of the grid. Pinned by a test across every size × angle combination.
+
+**Borders use `BORDER_REFLECT_101`, not zero padding.** Zero padding would darken every
+edge in proportion to the kernel size: a vignette that *grows with the degradation level*
+and would be measured as part of the blur's effect. A test blurs a constant image at k = 15
+and requires it to come back unchanged, borders included.
+
+**The angle is sampled over [0, 180), not [0, 360).** A line kernel at θ and θ + 180 is the
+same kernel, so the wider range would merely sample each orientation twice. Drawn per image
+from `rng_for("blur", k, path)`, so it is reproducible and varies between images — a single
+shared angle would make the stressor systematic rather than random.
+
+### Known property: pixel count varies with angle, extent does not
+
+A 15 px kernel rasterises to 15 nonzero pixels at 0° but 11 at 45°. That is correct rather
+than a defect: the diagonal line spans the same *geometric* extent (≈14 px in both cases)
+because diagonal steps cover more distance. The blur therefore averages over the same
+displacement at every angle, but over slightly fewer samples on the diagonals. Worth knowing
+rather than worth fixing.
+
+### The severity of the strongest level, in context
+
+k = 15 on a 48×48 image is a blur across **31 % of the image width** — severe, and
+deliberately so; the top level should be strong enough to separate the representations. It
+is also a direct consequence of the "degrade the model input" decision: at source
+resolution, 15 px would be mild on a 200 px crop and destructive on a 25 px one. Applying
+it after the resize is what makes "k = 15" one condition rather than a family of them.

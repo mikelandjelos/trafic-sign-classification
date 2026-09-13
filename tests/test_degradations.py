@@ -160,14 +160,98 @@ def test_rejects_negative_sigma():
 
 def test_levels_for_exposes_the_grid():
     assert degradations.levels_for("noise") == (0, 5, 10, 20, 40)
+    assert degradations.levels_for("blur") == (0, 3, 5, 9, 15)
     with pytest.raises(KeyError):
         degradations.levels_for("nope")
 
 
 def test_levels_start_at_the_identity():
     """Index 0 of every degradation's levels must be the clean condition."""
-    for name in ("noise",):
+    for name in ("noise", "blur"):
         assert degradations.levels_for(name)[0] == 0
+
+
+# --- motion blur (task 3.2) ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("size", [3, 5, 9, 15])
+@pytest.mark.parametrize("angle", [0, 30, 45, 90, 135])
+def test_blur_kernel_is_normalised(size, angle):
+    """A kernel that does not sum to 1 would also change brightness, confounding 3.3."""
+    kernel = degradations.motion_blur_kernel(size, angle)
+    assert kernel.shape == (size, size)
+    assert kernel.sum() == pytest.approx(1.0)
+    assert (kernel >= 0).all()
+
+
+def test_blur_kernel_rejects_even_and_zero_sizes():
+    for bad in (0, 2, 4, -1):
+        with pytest.raises(ValueError, match="odd"):
+            degradations.motion_blur_kernel(bad, 0)
+
+
+def test_blur_kernel_is_horizontal_at_zero_degrees():
+    kernel = degradations.motion_blur_kernel(5, 0)
+    assert (kernel[2] > 0).all(), "the centre row should carry the line"
+    assert kernel[0].sum() == 0 and kernel[4].sum() == 0
+
+
+def test_blur_level_zero_is_identity(images, keys):
+    assert np.array_equal(degradations.apply(images, "blur", 0, keys), images)
+
+
+def test_blur_preserves_mean_intensity(images, keys):
+    """Blur must not darken or brighten -- that is a separate, separately measured effect."""
+    for ksize in (3, 5, 9, 15):
+        out = degradations.apply(images, "blur", ksize, keys)
+        assert out.astype(float).mean() == pytest.approx(
+            images.astype(float).mean(), abs=1.0
+        )
+
+
+def test_blur_reduces_high_frequency_energy_monotonically(images, keys):
+    """The degradation should get strictly stronger with kernel size."""
+    energies = []
+    for ksize in (0, 3, 5, 9, 15):
+        out = degradations.apply(images, "blur", ksize, keys)
+        energies.append(np.abs(np.diff(out.astype(float), axis=2)).mean())
+    assert energies == sorted(energies, reverse=True)
+    assert energies[-1] < 0.6 * energies[0]
+
+
+def test_blur_does_not_darken_the_borders(keys):
+    """BORDER_REFLECT_101, not zero padding -- which would vignette with kernel size."""
+    flat = np.full((12, 48, 48), 200, dtype=np.uint8)
+    out = degradations.apply(flat, "blur", 15, keys)
+    # A constant image must survive a normalised blur unchanged, edges included.
+    assert out.min() >= 199, f"border darkened to {out.min()} (zero padding?)"
+
+
+def test_blur_angle_varies_between_images():
+    """A single shared angle would make the stressor systematic rather than random."""
+    impulse = np.zeros((2, 48, 48), dtype=np.uint8)
+    impulse[:, 24, 24] = 255
+    out = degradations.apply(impulse, "blur", 15, ["a.ppm", "b.ppm"])
+    assert not np.array_equal(out[0], out[1])
+
+
+def test_blur_is_deterministic_and_position_independent(images, keys):
+    order = [7, 2, 0]
+    from_subset = degradations.apply(images[order], "blur", 9, [keys[i] for i in order])
+    from_full = degradations.apply(images, "blur", 9, keys)[order]
+    assert np.array_equal(from_subset, from_full)
+
+
+def test_blur_works_on_three_channel_input(keys):
+    rng = np.random.default_rng(0)
+    colour = rng.integers(40, 200, size=(12, 48, 48, 3), dtype=np.uint8)
+    out = degradations.apply(colour, "blur", 9, keys)
+    assert out.shape == colour.shape and out.dtype == np.uint8
+
+
+def test_blur_rejects_off_grid_level(images, keys):
+    with pytest.raises(ValueError, match="not one of"):
+        degradations.apply(images, "blur", 7, keys)
 
 
 def test_rng_for_is_the_seeding_mechanism():

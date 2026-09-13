@@ -42,12 +42,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
+import cv2
 import numpy as np
 
 from gtsrb import config
 
 #: Levels for each degradation. Index 0 is always the identity (the clean condition).
 NOISE_LEVELS: tuple[float, ...] = (0, 5, 10, 20, 40)
+BLUR_LEVELS: tuple[float, ...] = (0, 3, 5, 9, 15)
 
 
 def gaussian_noise(image: np.ndarray, sigma: float, rng: np.random.Generator) -> np.ndarray:
@@ -73,9 +75,50 @@ def gaussian_noise(image: np.ndarray, sigma: float, rng: np.random.Generator) ->
     return np.rint(np.clip(noisy, 0, 255)).astype(np.uint8)
 
 
+def motion_blur_kernel(size: int, angle_deg: float) -> np.ndarray:
+    """A normalised line kernel of `size` px at `angle_deg`, for linear motion blur.
+
+    The kernel sums to 1, so the operation preserves mean intensity: the blur must not
+    also darken or brighten the image, or the degradation would be confounded with a
+    brightness shift (which is what task 3.3 measures separately).
+    """
+    if size < 1 or size % 2 == 0:
+        raise ValueError(f"kernel size must be odd and >= 1, got {size}")
+    kernel = np.zeros((size, size), dtype=np.float32)
+    centre = (size - 1) / 2.0
+    radians = np.deg2rad(angle_deg)
+    dx, dy = np.cos(radians) * centre, np.sin(radians) * centre
+    start = (round(float(centre - dx)), round(float(centre - dy)))
+    end = (round(float(centre + dx)), round(float(centre + dy)))
+    cv2.line(kernel, start, end, color=1.0, thickness=1)
+    return kernel / kernel.sum()
+
+
+def motion_blur(image: np.ndarray, ksize: int, rng: np.random.Generator) -> np.ndarray:
+    """Linear motion blur with a `ksize`-px kernel at a uniformly random angle.
+
+    `ksize = 0` returns the input unchanged.
+
+    The angle is drawn per image from the supplied stream, so it is reproducible from
+    `(degradation, level, path)` like everything else. It is sampled over **[0, 180)**
+    rather than [0, 360): a line kernel at theta and at theta + 180 is the same kernel, so
+    the wider range would merely sample each orientation twice.
+
+    Borders use `BORDER_REFLECT_101`. The default alternative, zero padding, would darken
+    every edge in proportion to the kernel size -- a systematic vignette that grows with
+    the degradation level and would be measured as part of the blur's effect.
+    """
+    if ksize == 0:
+        return image
+    angle = float(rng.uniform(0.0, 180.0))
+    kernel = motion_blur_kernel(int(ksize), angle)
+    return cv2.filter2D(image, -1, kernel, borderType=cv2.BORDER_REFLECT_101)
+
+
 #: Registry of degradation name -> (per-image function, levels).
 _DEGRADATIONS: dict[str, tuple[Callable[..., np.ndarray], tuple[float, ...]]] = {
     "noise": (gaussian_noise, NOISE_LEVELS),
+    "blur": (motion_blur, BLUR_LEVELS),
 }
 
 
