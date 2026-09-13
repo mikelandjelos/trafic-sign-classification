@@ -153,12 +153,28 @@ illumination is exactly what the dominant direction encoded. Removing it does no
 data's complexity — it removes the one cheap direction that was absorbing half the variance,
 leaving the remainder spread more evenly.
 
-This has a direct consequence for the preprocessing ablation (8.2 / 9.7): **at a fixed *k*,
-PCA retains less of the signal under CLAHE than without it.** If `clahe_gray` underperforms
-`raw_gray` for PCA, that is a candidate explanation, and it is a *PCA-specific* effect — HOG
-and BoVW are contrast-normalised internally and should not show it. Worth checking whether
-the ablation bears this out, since it would be a clean example of a preprocessing choice
-interacting with one representation and not the others.
+This has a direct consequence for the preprocessing ablation (8.2 / 9.7): at a fixed *k*,
+PCA retains less *variance* under CLAHE than without it.
+
+> **Checked, and the obvious inference is wrong.** The first version of this note predicted
+> that `clahe_gray` would therefore *underperform* `raw_gray` for PCA. A diagnostic sweep
+> (`LinearSVC`, C = 1, val accuracy) says the opposite at every *k*:
+>
+> | *k* | `raw_gray` | `clahe_gray` |
+> |---|---|---|
+> | 32 | 0.4696 | **0.5594** |
+> | 128 | 0.7756 | **0.8013** |
+> | 256 | 0.8095 | **0.8259** |
+>
+> **Retained variance is not retained class information.** The variance CLAHE removes is
+> illumination, which carries no class signal, so discarding it *improves* the information
+> density of the remaining components even though the cumulative-variance curve looks worse.
+> The scree curve is a statement about reconstruction, not about discriminability — a useful
+> caution for reading the 4.2 figure, and the reason 4.2 selects *k* on validation accuracy
+> rather than on a variance threshold.
+>
+> *(Provisional: diagnostic probe, not harness-recorded. Tasks 4.2 / 8.2 produce the
+> reportable numbers.)*
 
 ### 3.3 Gotcha — memory layout changed the projections
 
@@ -276,25 +292,37 @@ whitening under another name) after deciding not to whiten.
 *(Provisional numbers from a diagnostic probe, not a recorded result — task 4.3 produces the
 reportable figures through the timing harness.)*
 
-### 6.2 Open: cross-method feature-scale comparability
+### 6.2 Decided (Q4): `C` is tuned per method
 
 PCA is the only representation whose features are **not** internally normalised — HOG
 block-normalises, SIFT/BoVW normalise descriptors and histogram, the CNN has batch norm. A
 single `LinearSVC` with one `C` therefore meets PCA on a different footing than the others.
 §6.1 shows scaling barely matters *for PCA in isolation*; it does not show that one `C`
-suits all five. **Mitigation:** the `C` used for each method must be recorded in
-`results.csv`, and if `C` is tuned per method that must be stated as part of the protocol,
-since "fixed classifier" is the study's central claim. → raised as **Q4**.
+suits all five.
 
-### 6.3 Open: preproc/representation pairing is unenforced
+**Decision: tune `C` per method on validation, and record the chosen value per method in
+`results.csv`.** "Fixed classifier" means the same estimator and the same training protocol
+— not the same nuisance hyperparameter. Freezing `C` would hand every representation a dial
+calibrated for another's feature scale, and a difference produced that way would be an
+artifact of the dial rather than a property of φ, which is the one thing this study must not
+confuse. The report's protocol section states this explicitly, and the per-method `C` values
+are reported alongside Table 1 so the choice is auditable.
+
+Applies to tasks **4.3, 5.3, 6.5, 7.5** and the grid at **8.1**.
+
+### 6.3 Decided (Q5): the pairing guard lives in the task 8 runner
 
 `PCARepresentation.preproc` is metadata. `transform` cannot detect being handed `raw_gray`
 images when fitted on `clahe_gray` — same 2304 dims, so sklearn's feature-count check passes
 and the result is silently wrong. The gray↔`clahe_hsv` mismatch *is* caught (2304 vs 6912).
 This is a driver-level hazard for the 8.2 ablation, which loops over all three configs.
-**Mitigation:** the 8.x runner must construct one representation per preproc and pass the
-matching cache; a test on that runner is cheaper than plumbing the name through `transform`.
-→ raised as **Q5**.
+
+**Decision: guard in the task 8 runner, not in the representations.** The runner constructs
+`(representation, images)` as one paired unit — a representation is never obtainable without
+the cache it was fitted from — and a test asserts the pairing. This catches the mistake at
+the single place it can realistically occur, instead of threading a preproc name through
+five separate `transform` implementations to defend against a call that nothing in the
+codebase makes.
 
 ### 6.4 Not a risk
 

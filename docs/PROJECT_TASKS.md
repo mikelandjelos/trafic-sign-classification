@@ -338,7 +338,15 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       Q5 (preproc/representation pairing is unenforced and a `raw_gray`/`clahe_gray` mix-up
       is silent). See `docs/report-material/11-pca.md` §5–6.
 - [ ] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
-- [ ] **4.3** `LinearSVC` on PCA features; record cost metrics
+> **Classifier protocol (Q4, decided at 4.1).** `C` is **tuned per method** on validation,
+> and the chosen value is recorded per method in `results.csv` and reported alongside Table 1.
+> "Fixed classifier" means the same estimator and the same training protocol — *not* the same
+> nuisance hyperparameter. PCA is the only representation whose features are not internally
+> normalised (HOG block-normalises, BoVW L2-normalises, the CNN has batch norm; PCA's feature
+> σ spans 29×), so a frozen `C` would hand each representation a dial calibrated for another's
+> feature scale. Applies to **4.3, 5.3, 6.5, 7.5** and the grid at **8.1**.
+
+- [ ] **4.3** `LinearSVC` on PCA features, `C` tuned on val; record cost metrics and `C`
 - [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
 - [ ] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
       track-disjoint split and once on a random per-image split, and report the gap in val
@@ -346,7 +354,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       measured number. ~15 min; feeds the discussion section. (Q2, approved)
 - [ ] **5.1** HOG via `skimage.feature.hog` on 48×48 *(task 5 = 1.5 h)*
 - [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
-- [ ] **5.3** `LinearSVC` on HOG features; record cost metrics
+- [ ] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
 - [ ] **5.4** Figure: HOG visualization, one sample per super-category
 - [ ] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — cell grid over the sign, block
       normalisation before/after, and the same degraded-input-through-the-pipeline panel as
@@ -362,7 +370,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 - [ ] **6.2** Assert every image yields the same nonzero descriptor count
 - [ ] **6.3** Subsample ~200k descriptors, `MiniBatchKMeans`, k ∈ {200, 500}
 - [ ] **6.4** Encode as k-dim histogram; L2 or power normalization
-- [ ] **6.5** `LinearSVC` on BoVW histograms; record cost metrics
+- [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
 - [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
       a sign, codeword assignment as a colour map (which patches share a word), and the
       histogram before/after normalisation. **This is the demo most likely to catch a real
@@ -380,6 +388,11 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
       seeing PCA, HOG, BoVW and CNN results. See §2 and `predictions.md`.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
+      **The runner pairs each representation with the cache it was fitted from** (Q5, decided
+      at 4.1): a representation is never obtainable without its images, with a test asserting
+      it. A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
+      shape check fires and the results look plausible. This is the one place it can happen,
+      because 8.2 loops over all three configs.
 - [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **Its job is a
       ranking-stability check, not an accuracy sweep**: show the *ranking* of methods within
       each stressor is unchanged across `raw_gray` / `clahe_gray` / `clahe_hsv`, so the
