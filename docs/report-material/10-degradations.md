@@ -42,6 +42,44 @@ Under this framing these are requirements rather than trade-offs:
 | Independent of preprocessing config | the residual is specified directly, so it does not vary with which pipeline produced it |
 | Identical pixels for all five methods | the point of the entire controlled design |
 
+### Is each stressor a *realistic* residual? Measured.
+
+The framing only holds if the injected degradation is one that could plausibly survive the
+preprocessing. Noise and blur are not in doubt — CLAHE *amplifies* structure (x1.84, note 08)
+so noise more than survives, and CLAHE performs no deblurring at all.
+
+**Gamma was the real question.** Histogram equalisation depends only on pixel *rankings*,
+and gamma is a strictly monotone transform, so a plain HE would cancel it almost entirely.
+If CLAHE did the same, injecting a full gamma shift after it would model a residual that
+cannot occur.
+
+Measured over 300 test images — gamma applied at source, then preprocessed, compared
+against the clean preprocessed image:
+
+| γ | effect under `raw_gray` | under `clahe_gray` | survives CLAHE |
+|---|---|---|---|
+| 0.4 | 67.99 gl | 61.65 gl | **91 %** |
+| 0.7 | 25.90 gl | 23.49 gl | **91 %** |
+| 1.5 | 24.64 gl | 24.21 gl | **98 %** |
+| 2.5 | 45.58 gl | 48.66 gl | **107 %** |
+
+**Gamma passes through CLAHE essentially intact.** Three reasons, all worth a line in the
+report:
+
+1. `clipLimit = 2.0` is doing its job — clipping the histogram before the CDF keeps CLAHE a
+   *constrained* normaliser rather than an equaliser. Unclipped HE would have removed most
+   of the shift.
+2. CLAHE normalises **local** contrast, not the global tone curve; a global gamma shift
+   moves every tile together and the bilinear interpolation between tile transforms
+   preserves much of that relationship.
+3. At γ = 2.5 it exceeds 100 % — CLAHE *amplifies* the difference, because the 3.71 % of
+   pixels crushed to zero cannot be recovered by any monotone remap, and CLAHE then stretches
+   the two surviving ranges apart.
+
+The magnitudes also match what is actually injected: 66.18 gl post-CLAHE at γ = 0.4 against
+61.65 gl for the capture-time ordering. So the controlled residual is quantitatively close
+to the realistic one, for the stressor where that was least obvious.
+
 ### What is out of scope, stated rather than disclaimed
 
 This design does **not** simulate capture-time degradation, and therefore cannot measure
