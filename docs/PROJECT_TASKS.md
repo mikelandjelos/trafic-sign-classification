@@ -324,6 +324,19 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       joblib reloads it C-contiguous — identical values, different BLAS kernel, projections
       differing by 1e-6, i.e. *the model changed when reloaded*. 31 tests.
       See `docs/report-material/11-pca.md`.
+- [x] **4.1b** Demo figures + risk check for the tasks that build on PCA.
+      — `scripts/demo/pca_mechanics.py` → `figures/demo/pca/` (4 figures: reconstruction
+      ladder, spectrum, PC1-is-brightness, degraded-through-clean-basis). **At k=2 every
+      sign — a Yield triangle included — reconstructs toward a round speed-limit disc**: the
+      leading components encode the dataset's modal shape, which makes "holistic, no notion
+      of a part" visible. PCA also spends variance budget on *background* (GTSRB's ~17 %
+      margin), one for the limitations. **Risk checked and cleared:** unwhitened PCA features
+      span 29× in σ (865× in variance), which should distort `LinearSVC`'s single L2
+      penalty — measured, it does not: 0.8013 unscaled vs 0.8004 standardised, both
+      converged, so no scaling step is needed. **Two risks left open**, Q4 (is one `C` across
+      five methods a confound? PCA is the only representation not internally normalised) and
+      Q5 (preproc/representation pairing is unenforced and a `raw_gray`/`clahe_gray` mix-up
+      is silent). See `docs/report-material/11-pca.md` §5–6.
 - [ ] **4.2** Sweep n_components ∈ {32, 64, 128, 256} on val, pick one
 - [ ] **4.3** `LinearSVC` on PCA features; record cost metrics
 - [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
@@ -335,6 +348,10 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 - [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
 - [ ] **5.3** `LinearSVC` on HOG features; record cost metrics
 - [ ] **5.4** Figure: HOG visualization, one sample per super-category
+- [ ] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — cell grid over the sign, block
+      normalisation before/after, and the same degraded-input-through-the-pipeline panel as
+      PCA. Must show the quantity that would expose a bug: gradient magnitude per cell under
+      noise, where HOG is predicted to suffer.
 - [ ] **7.1** Define small CNN: 3 conv blocks (32→64→128), BN, maxpool, dropout, FC head. Target < 1M params. *(task 7 = 3.0 h)*
 - [ ] **7.2** Training loop: val each epoch, early stopping, best-checkpoint save
 - [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
@@ -346,8 +363,19 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 - [ ] **6.3** Subsample ~200k descriptors, `MiniBatchKMeans`, k ∈ {200, 500}
 - [ ] **6.4** Encode as k-dim histogram; L2 or power normalization
 - [ ] **6.5** `LinearSVC` on BoVW histograms; record cost metrics
+- [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
+      a sign, codeword assignment as a colour map (which patches share a word), and the
+      histogram before/after normalisation. **This is the demo most likely to catch a real
+      bug**: 6.2 asserts a constant descriptor count numerically, but a silently degenerate
+      vocabulary — most patches collapsing onto one codeword under blur — passes that
+      assertion and is obvious on sight.
 - [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
 - [ ] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three. ~20 min, you already have both pieces.
+- [ ] **7.6** **Demo** (`scripts/demo/cnn_mechanics.py`) — training curves, first-layer
+      filters, and feature-map activations for one sign per super-category. Include the
+      `eval()`/`no_grad()` check as a *visual*: penultimate features extracted twice must be
+      identical, and are not if dropout is still active (§10) — a bug that otherwise only
+      shows up as mysteriously poor `cnn_feat_svm` accuracy.
 - [x] **P.1** ~~Write `predictions.md` — do this before task 8~~ — **done early**, on
       2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
       seeing PCA, HOG, BoVW and CNN results. See §2 and `predictions.md`.
