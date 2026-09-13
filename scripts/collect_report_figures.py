@@ -58,6 +58,12 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "The project's central methodological claim, made self-evident in one image.",
         deliverable=False),
     ReportFigure(
+        "split/split_leakage_measured.png", "split_leakage_measured.png", "4.5",
+        "STRONGLY RECOMMENDED. The leakage claim as a number: +5.08 pp accuracy and "
+        "+9.58 pp macro-F1 from a random per-image split. Pairs with split_leakage.png, "
+        "which shows the cause.",
+        deliverable=False),
+    ReportFigure(
         "demo/split/split_similarity.png", "split_similarity.png", "1.7",
         "Same-track correlation 0.61 vs 0.17 across tracks of the same class. Converts "
         "'near-duplicate' from an assertion into a magnitude, independent of any model.",
