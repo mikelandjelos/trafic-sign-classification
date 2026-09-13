@@ -434,3 +434,35 @@ No jitter anywhere. Establishes the baseline results and Table 1.
 - [ ] **11.7** A further uncropped dataset for cross-country generalisation. BelgiumTS is the
       only realistic candidate (62 classes vs 43 — needs an explicit mapping, covers a
       subset). Scoped as future work; it is the one item that could expand without bound.
+
+---
+
+## 12. Optional — composite degradation scenarios
+
+**Not part of the MVP.** Only after the core grid (§7) is complete and working. First thing
+to cut if time is short; the one-factor-at-a-time grid stands alone without it.
+
+**Why the core grid is one-factor-at-a-time.** The research question is the interaction
+between *representation* and *degradation type*. A combined condition cannot be interpreted
+without the marginal effects first — if `blur+noise` hurts BoVW badly, nothing tells you
+whether it was the blur, the noise, or the pair. A full factorial is also prohibitive:
+5³ = 125 combinations × 5 methods = 625 runs against 80.
+
+**Why a few named scenarios are still worth having.** Real conditions co-occur, and a
+deployment chooses a representation for a *condition*, not for a single stressor — which is
+the framing of proposal §1. Three named scenarios cost **15 runs** (inference only,
+seconds) and need no schema change (`degradation="night"`, `level=0`).
+
+| Scenario | Composition | Represents |
+|---|---|---|
+| `night` | blur 5 → noise 20 → γ 2.5 | dark, long exposure, sensor noise |
+| `dusk_motion` | blur 9 → noise 10 → γ 1.5 | moving vehicle, fading light |
+| `glare` | noise 5 → γ 0.4 | low sun / overexposure |
+
+- [ ] **12.1** Implement composite scenarios with a **fixed, documented application order**:
+      **blur (optical) → noise (sensor) → gamma (response curve)**, following the physical
+      imaging chain. Order is not cosmetic: motion blur is a low-pass filter, so applying it
+      *after* noise averages the noise away and materially lowers the effective σ. Any order
+      is defensible only if it is stated.
+- [ ] **12.2** Evaluate all 5 methods on the 3 scenarios; report alongside the OFAT grid,
+      never in place of it.
