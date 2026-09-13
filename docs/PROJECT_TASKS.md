@@ -261,6 +261,13 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       Found and fixed: `clahe()` bound its params as default args, so the fingerprint could
       change while pixels did not. 18 tests.
       See `docs/report-material/08-preprocessing.md`.
+> **Why these three stressors.** Each attacks a *different* structural property, which is
+> what makes the representation × stressor interaction measurable: noise **adds**
+> high-frequency energy, blur **removes** it (opposite operations on the same axis), and
+> gamma is **orthogonal** — geometry untouched, intensity remapped. Three distinct failure
+> mechanisms, matching the axes the representations differ on. Occlusion, JPEG artifacts,
+> rotation and weather were excluded — reasons in `docs/report-material/10-degradations.md`.
+
 - [x] **3.1** Degradation: Gaussian noise, σ ∈ {0, 5, 10, 20, 40} *(task 3 = 1.5 h)*
       — `gtsrb.degradations.apply(images, "noise", level, keys)`. **Governing decision:
       degradations apply to the preprocessed 48×48 model input.** Injected *after*

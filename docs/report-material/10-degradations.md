@@ -8,6 +8,46 @@ Implemented as `gtsrb.degradations`; tested in `tests/test_degradations.py`.
 
 ---
 
+## Why these three stressors
+
+Two criteria had to hold at once, and the second is the one that matters for this project.
+
+**They are the three that dominate automotive capture.** Low light gives sensor noise,
+vehicle motion gives blur, and driving between shade and direct sun gives exposure extremes.
+This is the justification given in the proposal (section 6.2).
+
+**More importantly, each attacks a *different structural property*** — which is what makes
+the representation x stressor interaction measurable at all. Had all three attacked the same
+property the grid would be redundant and the headline claim untestable.
+
+| Stressor | What it does to the signal | Which representations it should threaten |
+|---|---|---|
+| **Noise** | *adds* high-frequency energy | gradient-based encodings (HOG, dense SIFT) — differentiation amplifies it |
+| **Blur** | *removes* high-frequency energy | the same encodings, but by **starving** them rather than corrupting them |
+| **Gamma** | leaves geometry untouched, remaps intensity | holistic intensity encodings (PCA) — edges stay put, so gradient methods barely notice |
+
+Noise and blur are deliberately **opposite operations on the same axis** (add versus remove
+high-frequency content), and gamma is **orthogonal to both** (photometric rather than
+spatial). Three stressors, three distinct failure mechanisms — which is precisely what the
+headline prediction needs: PCA best under noise and worst under gamma, HOG the reverse.
+
+They also satisfy the practical criteria a grid axis needs: a **single scalar parameter**, a
+well-defined **identity level**, negligible compute, and no randomness beyond what
+`rng_for` controls.
+
+### What was excluded, and why
+
+- **Occlusion** (a sticker, a branch, a sign post) — realistic and interesting, but its
+  parameter space is multi-dimensional (position, size, shape, opacity) rather than a single
+  scalar, and it primarily probes the *spatial-layout* axis, which is the bbox-jitter
+  question already scoped to section 11.
+- **JPEG artifacts** — GTSRB ships as lossless PPM, so compression artifacts would be an
+  artifact of our own pipeline, and they are codec- and quality-factor-specific.
+- **Rotation / perspective** — a geometric transform, again closer to the framing question
+  in section 11 than to a photometric stressor.
+- **Rain, fog, glare** — not credibly simulable without a physical scattering model; a naive
+  overlay would measure the overlay, not the weather.
+
 ## The decision that governs all three stressors
 
 **Degradations are applied to the preprocessed 48×48 model input, not to the source
