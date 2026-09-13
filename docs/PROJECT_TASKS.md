@@ -442,7 +442,20 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       normalisation before/after, and the same degraded-input-through-the-pipeline panel as
       PCA. Must show the quantity that would expose a bug: gradient magnitude per cell under
       noise, where HOG is predicted to suffer.
-- [ ] **7.1** Define small CNN: 3 conv blocks (32→64→128), BN, maxpool, dropout, FC head. Target < 1M params. *(task 7 = 3.0 h)*
+- [x] **7.1** Define small CNN: 3 conv blocks (32→64→128), BN, maxpool, dropout, FC head. Target < 1M params. *(task 7 = 3.0 h)*
+      — `gtsrb.representations.cnn.SmallCNN`. **The specified head misses the budget at
+      1.48 M** — the conv trunk is only 287 k, so the first linear layer was 80 % of the
+      model. `Flatten → 4608 → 128 → 43` gives **0.88 M**. **Global average pooling (0.29 M)
+      was rejected for a structural reason, not a performance one**: GAP makes the
+      representation *orderless*, which is BoVW's defining property — two of the four methods
+      would then sit on the same point of the layout axis and that axis would stop being
+      measurable (including the §11 jitter extension). Recorded as a limitation: the head is
+      smaller than a free choice would make it, for comparability.
+      `embed()` **forces `eval()`/`no_grad()` and restores the prior mode**, enforcing the
+      §10 gotcha rather than documenting it — dropout-contaminated features do not error,
+      they just make `cnn_feat_svm` quietly worse. 17 tests.
+      Measured cost: **116 s/epoch**, 1.2 ms/img inference (~3.6× PCA, batched).
+      See `docs/report-material/13-cnn.md`.
 - [ ] **7.2** Training loop: val each epoch, early stopping, best-checkpoint save
 - [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
 

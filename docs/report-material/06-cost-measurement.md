@@ -209,3 +209,40 @@ internal attribute layout), which is tolerable only because models are regenerab
 and therefore gitignored. Any claim about embedded deployment would need the weights exported
 as plain arrays or ONNX — the arithmetic is one matrix multiply plus 43 dot products, so that
 is trivial, but the `.joblib` is not the artifact one would ship.
+
+
+---
+
+## Addendum (task 5.2) — parallelising the tuning grid: measured, and mostly not worth it
+
+The HOG sweep is 96 `LinearSVC` fits, ~2 hours. Since the fits are independent, parallelising
+them looked like an easy win. Measured on 4 fits over 12,000 × 900 features:
+
+| mode | time | speedup | results identical? |
+|---|---|---|---|
+| sequential (8 BLAS threads) | 28.3 s | — | — |
+| joblib `threading`, n_jobs=4, 1 thread each | **16.3 s** | **1.73×** | **yes** |
+| joblib `loky`, n_jobs=4, 1 thread each | 17.5 s | 1.61× | yes |
+
+**The speedup is 1.7×, not the 4× the core count suggests.** The reason is that the
+sequential baseline is *already* parallel where it can be: `LinearSVC.predict` is a BLAS GEMM
+using all 8 threads. What parallelising adds is only across liblinear's coordinate-descent
+`fit`, which is single-threaded either way. Threading and loky land within 7 % of each other,
+so memory pressure was not the limiter — this is close to the real ceiling at 4 workers.
+
+**Both backends give bit-identical macro-F1 (agreement to 1e-12).** That answers the question
+that actually mattered: parallelising would *not* have required re-running the PCA sweep,
+task 4.3 or task 4.5. Worth recording because the opposite was plausible — per-worker thread
+limits change BLAS summation order, which is exactly the 1e-6 effect documented in note 03.
+
+Two practical notes for anyone repeating this:
+
+- **Each worker must be pinned to one inner thread.** Otherwise N workers × 8 BLAS threads
+  oversubscribes the machine and runs *slower* than sequential — the same class of silent
+  failure as the env-var thread pinning at task 0.3.
+- `inner_max_num_threads` is **not accepted by joblib's threading backend** (threads share
+  one process); it needs `threadpool_limits(1)` around the block instead.
+
+Not adopted: a 45-minute saving did not justify putting untested parallel code into the one
+module every remaining method depends on. Recorded so the decision is not re-litigated from
+scratch, and so the 1.7× figure is available if a later sweep is large enough to warrant it.
