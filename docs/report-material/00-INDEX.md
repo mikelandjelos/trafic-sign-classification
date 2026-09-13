@@ -9,7 +9,8 @@ Distinct from:
 - `docs/PROJECT_TASKS.md` — the task tracker (what to do, what is done)
 - `docs/proposition/` — the project proposal (`predlog_projekta.tex`). **Never edited
   without an explicit request** — see CLAUDE.md.
-- `docs/report/` — the final Serbian writeup (does not exist yet)
+- `docs/report/` — the final Serbian writeup. `main.tex` and `references.bib` are
+  committed but **still empty**; scaffolding only, written on Day 5.
 
 ## Conventions
 
@@ -27,9 +28,9 @@ Distinct from:
 |---|---|---|
 | [01-environment-and-setup.md](01-environment-and-setup.md) | Methodology → reproducibility; Appendix | complete (task 0.1) |
 | [02-dataset-structure.md](02-dataset-structure.md) | Data; Methodology → train/val protocol | complete (task 0.2) |
-| [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (task 0.3) |
+| [03-reproducibility.md](03-reproducibility.md) | Methodology → protocol; Limitations | complete (tasks 0.3, 4.1) |
 | [04-splitting-protocol.md](04-splitting-protocol.md) | Methodology → experimental protocol | complete (tasks 1.2, 1.3, 1.7) |
-| [05-evaluation-metrics.md](05-evaluation-metrics.md) | Methodology → evaluation; Table 1; figs 9.2–9.4 | complete (task 1.4) |
+| [05-evaluation-metrics.md](05-evaluation-metrics.md) | Methodology → evaluation **and selection**; Table 1; figs 9.2–9.4 | complete (tasks 1.4, 4.2) |
 | [06-cost-measurement.md](06-cost-measurement.md) | Methodology → cost; Table 1; **Limitations** | complete (tasks 1.5, 4.3) |
 | [07-results-table.md](07-results-table.md) | Methodology → reproducibility; source of all Results | complete (task 1.6) |
 | [08-preprocessing.md](08-preprocessing.md) | Methodology → preprocessing; ablation table 9.7 | complete (tasks 2.1–2.3) |
@@ -37,7 +38,10 @@ Distinct from:
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
 | [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.3) |
 
-Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png` (source tracked, render ignored).
+Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
+render is copied into `figures/report/` (committed) by
+`scripts/collect_report_figures.py`. Updated at task 4.2 to show validation driving
+hyperparameter selection — it previously implied val fed the fit.
 
 <!-- Add a row per note as it is created. Keep status honest: in progress / complete / stale. -->
 

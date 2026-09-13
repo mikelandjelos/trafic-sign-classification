@@ -102,10 +102,30 @@ project are therefore all asserted or demonstrated, not merely configured.
 
 - **`PYTHONHASHSEED`** cannot be set from inside a running interpreter. It affects only
   str/bytes hash randomisation; nothing here depends on it for ordering.
-- **BLAS floating-point non-determinism.** Multi-threaded reductions may sum in different
-  orders between runs, so results can differ in the last bits. This is far below any
-  effect size the study discusses, but it means "bitwise identical" is not claimed —
-  **reproducible to reported precision** is.
+- **BLAS floating-point non-determinism — anticipated here, then measured at task 4.1.**
+  Multi-threaded reductions may sum in different orders, so results can differ in the last
+  bits. This is far below any effect size the study discusses, but it means "bitwise
+  identical" is not claimed — **reproducible to reported precision** is.
+
+  Two concrete instances turned up once PCA existed, and they are worth naming because
+  neither is about *repeating* a run:
+
+  1. **Memory layout, not repetition.** `PCA.fit` leaves `components_` F-contiguous; a
+     `joblib` save/load round-trip restores it C-contiguous. The values are bit-for-bit
+     identical, but BLAS selects a different GEMM kernel per layout, so a *reloaded* model's
+     projections differed from the in-memory model's by up to **9.5e-7** on scores of scale
+     ~6. "The model changed when I reloaded it" is a miserable thing to debug mid-grid, so
+     `fit` now normalises the layout with `np.ascontiguousarray` and a regression test pins
+     it. **Fixed, not tolerated.**
+  2. **Batch size.** A float32 GEMM blocks according to its number of rows, so projecting a
+     10-image subset and projecting the full batch disagree in the last bits (same ~1e-6
+     absolute, ~1e-7 relative). This one is **unfixable** and is documented rather than
+     engineered around: for a prediction to flip, an image would have to sit within 1e-6 of
+     a decision boundary. The test asserts the bound instead of exact equality.
+
+  The distinction matters for the report's reproducibility claim: run-to-run repetition is
+  stable, but *serialisation* and *batching* are additional axes along which float32 results
+  move, and only the first of those was fixable. See `11-pca.md` §3.3.
 - **Single seed, not multiple runs.** With more compute, every configuration would be run
   over several seeds and reported as mean ± std. The evaluation grid is 5 × 16 = 80 runs
   at one seed; repeating it across seeds is the obvious extension and should be named as

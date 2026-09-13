@@ -85,3 +85,30 @@ The harness was exercised on **synthetic predictions** with a speed-limit confus
 injected deliberately, purely to check plumbing. The resulting numbers (0.92 accuracy,
 0.90 macro-F1, speed limits topping the confusion table) are **not results** and must never
 be quoted as such. Real numbers arrive with task 4.3 onward.
+
+
+---
+
+## Addendum (task 4.2) — macro-F1 is also the *selection* criterion
+
+This note argues that macro-F1 must be **reported** alongside accuracy, because GTSRB is
+imbalanced 10.7x and accuracy is dominated by the large classes. Task 4.2 extends that from
+reporting to **model selection**: every hyperparameter choice in the project — `k`, `C`,
+`class_weight`, and later HOG's cell size and BoVW's vocabulary size — is made by maximising
+**validation macro-F1**, in `gtsrb.tuning.select_best`.
+
+The reason is consistency rather than a new argument. Selecting on accuracy and then leading
+the report with macro-F1 would mean the models were optimised for a criterion the report does
+not headline — indefensible if a reader asks. Both metrics are recorded at every grid point
+regardless, so the alternative selection can always be inspected.
+
+**It changes the answer, so it is not a formality.** In the PCA sweep the two criteria pick
+different cells at *k* = 128: macro-F1 selects `class_weight=None` (0.7610) while accuracy
+would have preferred a different point, and at *k* = 256 `balanced` wins on macro-F1 by
+0.55 pp. The preprocessing configs disagree more sharply — `clahe_hsv` beats `raw_gray` on
+**accuracy** (0.8257 vs 0.8140) but loses on **macro-F1** (0.7674 vs 0.7713), i.e. colour
+helps the common classes and not the rare ones. Any table comparing those two configs must
+therefore say which metric it is ranking by.
+
+Ties break toward the **smaller `C`**, so selection is a deterministic function of the
+recorded grid rather than of the order rows arrive in.
