@@ -572,3 +572,56 @@ confusions are **not** speed limits: they are the *end-of-restriction* signs, wh
 near-identical grey circles with diagonal strikethroughs and differ only in fine internal
 detail. For a holistic, intensity-based representation those are close to the same point in
 R²³⁰⁴. Whether HOG and BoVW break this tie is a direct test of the locality axis.
+
+
+---
+
+## 9. Task 4.4 — the eigensigns figure
+
+`scripts/figure_eigensigns.py` → `figures/report/pca_eigensigns.png`. The traffic-sign
+analogue of the Eigenfaces grid from the lecture, rendered from the **fitted basis** in
+`results/models/pca_svm_clahe_gray.joblib` rather than from a refit, so the figure shows the
+basis the reported numbers came from.
+
+The 16 components shown cover **75.5 %** of the training variance; PC1 alone is 39.8 %.
+
+### 9.1 Two rendering decisions that change what a reader concludes
+
+**Diverging colour map centred at zero, not grayscale.** Components are signed. Rescaling one
+into a 0–255 grayscale ramp maps "strongly negative" and "strongly positive" onto the two ends
+of the same ramp, so a bipolar pattern reads as a brightness gradient — the sign of an
+eigenvector is its entire content, and grayscale destroys it.
+
+**Each component scaled to its own amplitude, not to a shared one.** PC16 has ~1/50 of PC1's
+variance; on a shared scale the figure would show one eigenvector and fifteen flat grey
+squares. The amplitude information that scaling discards is printed back as the
+explained-variance percentage above each panel, so it is moved rather than lost.
+
+**The mean is included as its own panel.** It is subtracted before every projection, so it is
+part of the model; an eigen-decomposition figure without it shows half the transform. It
+renders as a blurred speed-limit disc with a legible "30" — the dataset's modal class, and
+the same fact that makes every low-*k* reconstruction collapse toward a speed-limit sign
+(§5.1).
+
+### 9.2 What the components actually encode
+
+| component | share | what it looks like |
+|---|---|---|
+| PC1 | 39.8 % | near-uniform red — **overall brightness**, r = +0.99 with mean intensity |
+| PC2 | 12.7 % | red disc in the centre, blue at the corners — **round vs triangular outline** |
+| PC3 | 4.2 % | blue triangular cap over a red lower band — the same shape axis, rotated |
+| PC5, PC9 | 2.8 / 1.4 % | a sharp ring with digit structure inside — **circular border + numerals** |
+| PC8, PC10, PC11 | 1.5 / 1.2 / 1.0 % | triangular interiors — warning-sign pictograms |
+| PC16 | 0.7 % | small paired blobs where digits sit |
+
+**The interpretable finding: PC2 is a shape-category detector.** The second-largest source of
+variance in the dataset is whether the sign is *round or triangular* — and unlike PC1 that is
+genuinely class-relevant. So the budget splits cleanly: the single largest direction is a pure
+nuisance factor (illumination), the second is the coarsest possible class distinction, and
+everything from PC5 down is progressively finer within-shape detail.
+
+That ordering is the figure's argument for the whole comparison. **PCA spends its capacity in
+order of variance, not in order of usefulness**, and the discriminative detail — which digit,
+which pictogram — lives in components worth under 1 % each. Truncating at any *k* throws away
+precisely the fine detail that separates `Speed limit (100)` from `Speed limit (120)`, which
+is exactly the confusion measured at §8.3.

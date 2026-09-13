@@ -396,7 +396,17 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       real-time claim. Early 9.3 signal: the two worst confusions are *not* speed limits but
       the near-identical **end-of-restriction** signs (60.0 % and 58.3 %).
       See `docs/report-material/11-pca.md` §8.
-- [ ] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
+- [x] **4.4** Figure: top-16 eigenvectors as an image grid ("eigensigns") — ties directly to the Eigenfaces lecture
+      — `scripts/figure_eigensigns.py` → `figures/report/pca_eigensigns.png`, rendered from
+      the **fitted** basis (not a refit) so it matches the reported results. Signed components
+      on a diverging map centred at zero (grayscale would turn a bipolar pattern into a
+      brightness gradient); each scaled to its own amplitude with the variance share printed
+      above, since PC16 has ~1/50 of PC1's. Mean panel included — it is subtracted at every
+      projection, and it renders as a blurred "30" disc, the dataset's modal class.
+      **Interpretable finding: PC1 = brightness (39.8 %, a pure nuisance), PC2 = round vs
+      triangular (12.7 %, the coarsest class distinction), and the discriminative detail —
+      which digit, which pictogram — lives below 1 % per component.** PCA spends capacity in
+      order of variance, not usefulness. See `docs/report-material/11-pca.md` §9.
 - [ ] **4.5** **Leakage measurement** — train PCA+`LinearSVC` twice, once on the
       track-disjoint split and once on a random per-image split, and report the gap in val
       accuracy. Turns the project's central methodological claim from an argument into a
@@ -508,7 +518,7 @@ datasets whose pixels actually exist outside the box.
 
 - [ ] Table 1 — headline comparison (accuracy, macro-F1, cost)
 - [ ] Table — **predictions vs. outcomes**
-- [ ] Figure — eigensigns
+- [x] Figure — eigensigns
 - [ ] Figure — HOG visualization
 - [ ] Figure — degradation contact sheet
 - [ ] Figure — confusion matrices (best + worst)
