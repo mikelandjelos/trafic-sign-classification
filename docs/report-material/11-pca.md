@@ -352,7 +352,8 @@ codebase makes.
 ## 7. Task 4.2 — selecting *k*
 
 `scripts/sweep_pca.py` → `results/sweeps/pca_components.csv`,
-`figures/report/pca_component_sweep.png`. 32 grid points, ~10 min.
+`figures/report/pca_component_sweep.png`. **96 grid points** (3 preprocs × 4 *k* × 4 `C` ×
+2 `class_weight`), ~30 min. All 96 converged.
 
 **Selected: k = 256, C = 0.01, `class_weight="balanced"` — validation macro-F1 0.7977,
 accuracy 0.8442.**
@@ -368,12 +369,67 @@ The cost of getting this wrong is concrete. At the arbitrary default `C = 1`, k 
 best configuration by **2.6 pp** — comparable to the gap between whole methods this study
 sets out to measure.
 
+`clahe_gray`, best per *k*:
+
 | *k* | best C | class_weight | macro-F1 | accuracy | cum. variance |
 |---|---|---|---|---|---|
 | 32 | 10 | balanced | 0.4919 | 0.5627 | 0.824 |
 | 64 | 0.1 | balanced | 0.6765 | 0.7257 | 0.889 |
 | 128 | 0.1 | — | 0.7610 | 0.8037 | 0.940 |
 | **256** | **0.01** | **balanced** | **0.7977** | **0.8442** | 0.972 |
+
+### 7.1b All three preprocessing configs are swept independently
+
+**Why, and it is not tidiness.** `DEFAULT_PREPROC = "clahe_gray"` was a bare assignment in
+`preprocessing.py` with no justification anywhere — inherited from task 2.2 and then silently
+promoted to "the headline config". Sweeping only that config would also have handed task 8.2
+a confound: running `raw_gray` and `clahe_hsv` with hyperparameters selected on `clahe_gray`
+measures preprocessing **plus how well those hyperparameters transfer**, which is exactly the
+confound Q4 closed for `C` across methods, reappearing across preprocessing configs. The
+configs have very different spectra (80 % of variance at 8 / 25 / 106 components, §3.2), so
+there was no reason to expect one *k* to suit all three.
+
+| preproc | best *k* | best C | class_weight | macro-F1 | accuracy | variance @256 |
+|---|---|---|---|---|---|---|
+| **`clahe_gray`** | 256 | **0.01** | **balanced** | **0.7977** | **0.8442** | 0.972 |
+| `raw_gray` | 256 | **0.10** | — | 0.7713 | 0.8140 | 0.985 |
+| `clahe_hsv` | 256 | **0.01** | — | 0.7674 | 0.8257 | 0.870 |
+
+**The default is vindicated — but now on evidence rather than habit.** `clahe_gray` wins by
+2.64 pp macro-F1 over `raw_gray`.
+
+**The confound was real, and is worth about a third of the effect being measured:**
+
+| preproc | at its own best | borrowing `clahe_gray`'s (k=256, C=0.01, balanced) | cost |
+|---|---|---|---|
+| `raw_gray` | 0.7713 | 0.7610 | **−1.03 pp** |
+| `clahe_hsv` | 0.7674 | 0.7587 | **−0.87 pp** |
+
+Against a preprocessing effect of 2.64 pp, borrowing hyperparameters would have contributed
+a ~1 pp artifact — **roughly 39 % of the signal 8.2 is trying to measure**, and in the
+direction that flatters the config the hyperparameters came from. Task 8.2 must therefore
+tune per (method, preproc) cell, not per method.
+
+**`clahe_hsv` beats `raw_gray` on accuracy (0.8257 vs 0.8140) but loses on macro-F1
+(0.7674 vs 0.7713).** Colour helps the common classes and not the rare ones — worth a line in
+the ablation discussion, and a reminder that the two metrics can disagree on ordering.
+
+### 7.1c Finding — variance ranks the configs *backwards*
+
+The right panel of the sweep figure is the clearest version of the §3.2 point:
+
+| preproc | variance @ k=256 | macro-F1 | rank by variance | rank by macro-F1 |
+|---|---|---|---|---|
+| `raw_gray` | **0.985** (best) | 0.7713 | 1 | 2 |
+| `clahe_gray` | 0.972 | **0.7977** (best) | 2 | 1 |
+| `clahe_hsv` | 0.870 (worst) | 0.7674 | 3 | 3 |
+
+The config whose subspace reconstructs its input *best* classifies *worse* than the one that
+reconstructs it less well. Choosing preprocessing — or *k* — by explained variance would
+have picked `raw_gray`, the wrong answer. **Explained variance measures reconstruction;
+nothing about it is a claim on discriminability.** This is the third independent instance
+(§3.2 CLAHE, §7.3 the *k* curve, and now the config ranking), which makes it a reportable
+finding rather than an anecdote.
 
 ### 7.2 Caveat: k = 256 is the edge of the grid, and the curve is still rising
 

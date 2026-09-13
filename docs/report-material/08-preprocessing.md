@@ -296,3 +296,31 @@ which is real but not decisive on its own. The value is mostly elsewhere:
 motion blur in task 3.2 is a *stressor* (a degradation applied at test time to measure
 robustness). They are different operations serving opposite purposes and must not be
 conflated in the report — one is part of the method, the other is part of the measurement.
+
+
+---
+
+## Addendum (task 4.2) — `clahe_gray` as the headline config is now measured
+
+This note originally defined the three configs without saying which one the headline results
+would use; `DEFAULT_PREPROC = "clahe_gray"` was a bare assignment in `preprocessing.py` with
+no justification. Task 4.2 swept all three independently (each with its own *k*, `C` and
+`class_weight`) and settled it on validation macro-F1:
+
+| preproc | best *k* | best C | class_weight | macro-F1 | accuracy |
+|---|---|---|---|---|---|
+| **`clahe_gray`** | 256 | 0.01 | balanced | **0.7977** | **0.8442** |
+| `raw_gray` | 256 | 0.10 | — | 0.7713 | 0.8140 |
+| `clahe_hsv` | 256 | 0.01 | — | 0.7674 | 0.8257 |
+
+The default was right, but it is now right *for a stated reason*. Two consequences for the
+ablation this note feeds (9.7):
+
+1. **The three configs select different hyperparameters**, and reusing one config's on
+   another costs ~1 pp — about 39 % of the 2.64 pp preprocessing effect. The ablation must
+   tune per cell or it measures hyperparameter transfer alongside preprocessing.
+2. **`clahe_hsv` beats `raw_gray` on accuracy but loses on macro-F1**, i.e. colour helps the
+   common classes and not the rare ones. The two metrics rank these configs differently, so
+   the ablation must say which it is reporting.
+
+Full detail and the variance-ranks-backwards finding: `11-pca.md` §7.1b–7.1c.

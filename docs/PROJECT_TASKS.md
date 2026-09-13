@@ -362,6 +362,16 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       0.49→0.80, so the "keep 95 % of variance" heuristic would have picked ~155 components
       and lost accuracy. `balanced` won by only 0.55 pp and loses at k=128 — recorded as
       within noise. All 32 grid points converged. 12 tests.
+      **All three preprocessing configs swept independently** (96 grid points): `clahe_gray`
+      wins (0.7977) over `raw_gray` (0.7713) and `clahe_hsv` (0.7674), so `DEFAULT_PREPROC`
+      is now *measured* rather than the bare unjustified assignment it had been. Each config
+      selects **different** hyperparameters (C = 0.01 / 0.10 / 0.01; balanced only for
+      `clahe_gray`), and borrowing `clahe_gray`'s costs `raw_gray` **1.03 pp** and
+      `clahe_hsv` **0.87 pp** — against a preprocessing effect of 2.64 pp, i.e. **~39 % of
+      the signal 8.2 measures**, biased toward the config the hyperparameters came from.
+      **8.2 must therefore tune per (method, preproc) cell.** Also: variance ranks the three
+      configs *backwards* (`raw_gray` has the best variance and the worse macro-F1), a third
+      independent instance of variance ≠ discriminability.
       See `docs/report-material/11-pca.md` §7.
 > **Classifier protocol (Q4, decided at 4.1).** `C` is **tuned per method** on validation,
 > and the chosen value is recorded per method in `results.csv` and reported alongside Table 1.
@@ -418,7 +428,10 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       it. A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
       shape check fires and the results look plausible. This is the one place it can happen,
       because 8.2 loops over all three configs.
-- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **Its job is a
+- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **Tune per (method,
+      preproc) cell**, not per method — measured at 4.2: reusing one config's hyperparameters
+      on another costs ~1 pp, about 39 % of the preprocessing effect itself, and biases toward
+      whichever config they were selected on. **Its job is a
       ranking-stability check, not an accuracy sweep**: show the *ranking* of methods within
       each stressor is unchanged across `raw_gray` / `clahe_gray` / `clahe_hsv`, so the
       conclusion is not an artifact of one preprocessing choice. Claim ordinally — with one

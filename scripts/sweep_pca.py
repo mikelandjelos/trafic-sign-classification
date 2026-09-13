@@ -77,23 +77,28 @@ def run_sweep(preproc: str, verbose: bool = True) -> tuple[pd.DataFrame, dict]:
 
 
 def figure(frame: pd.DataFrame, best: dict, out_dir: Path) -> Path:
-    """Accuracy and macro-F1 against k, plus the variance curve they disagree with."""
-    fig, (left, right) = plt.subplots(1, 2, figsize=(12.5, 4.8))
+    """Left: the sweep for the winning config. Right: the three configs against each other.
 
+    The left panel is restricted to the selected preproc deliberately. Overlaying all three
+    on one axis puts three points at every k, and a line drawn through them is not a curve
+    of anything -- an easy way to publish a plot that looks fine and means nothing.
+    """
+    headline = best["preproc"]
+    fig, (left, right) = plt.subplots(1, 2, figsize=(13, 4.9))
+
+    subset = frame[frame["preproc"] == headline]
     for class_weight, style in ((None, "-"), ("balanced", "--")):
-        subset = frame[frame["class_weight"].isna() if class_weight is None
-                       else frame["class_weight"] == class_weight]
-        colours = plt.cm.viridis(np.linspace(0.15, 0.8, subset["C"].nunique()))
-        for colour, (C, group) in zip(colours, subset.groupby("C"), strict=True):
+        rows = subset[subset["class_weight"].isna() if class_weight is None
+                      else subset["class_weight"] == class_weight]
+        colours = plt.cm.viridis(np.linspace(0.15, 0.8, rows["C"].nunique()))
+        for colour, (C, group) in zip(colours, rows.groupby("C"), strict=True):
             group = group.sort_values("n_components")
             left.plot(group["n_components"], group["macro_f1"], style, color=colour,
                       marker="o", ms=4, lw=1.6,
                       label=f"C={C:g}" + (", balanced" if class_weight else ""))
 
-    # Mark the selection with an open ring rather than a filled marker: at k = 256 the
-    # eight curves converge into a few pixels, and anything solid covers the very lines the
-    # reader is trying to compare. The ring sits around the point and the label is placed
-    # clear of the cluster, with an arrow doing the pointing.
+    # Open ring, not a filled marker: at k = 256 the eight curves converge into a few pixels
+    # and anything solid hides the lines the reader is comparing.
     left.plot([best["n_components"]], [best["macro_f1"]], "o", ms=13, mfc="none",
               mec="#c05621", mew=2.2, zorder=6)
     left.annotate(
@@ -107,40 +112,45 @@ def figure(frame: pd.DataFrame, best: dict, out_dir: Path) -> Path:
                     "mutation_scale": 11},
         zorder=7,
     )
-    left.set_xscale("log", base=2)
-    left.set_xticks(COMPONENT_GRID)
-    left.set_xticklabels([str(k) for k in COMPONENT_GRID])
-    left.set_xlabel("components retained (k)")
     left.set_ylabel("validation macro-F1")
-    left.set_title("Selection criterion: macro-F1 on validation", fontsize=10)
+    left.set_title(f"{headline}: k x C x class_weight", fontsize=10)
     left.legend(fontsize=7, ncol=2)
-    left.grid(alpha=0.3)
 
-    # The disagreement: variance saturates long before accuracy does.
-    per_k = frame.groupby("n_components").agg(
-        macro_f1=("macro_f1", "max"), variance=("cumulative_variance", "first")
-    ).reset_index()
-    right.plot(per_k["n_components"], per_k["variance"], "o-", color="#718096",
-               label="cumulative explained variance")
-    right.plot(per_k["n_components"], per_k["macro_f1"], "o-", color="#c05621",
-               label="best validation macro-F1")
-    right.set_xscale("log", base=2)
-    right.set_xticks(COMPONENT_GRID)
-    right.set_xticklabels([str(k) for k in COMPONENT_GRID])
-    right.set_xlabel("components retained (k)")
+    # Right: each config swept independently, so this compares preprocessing rather than how
+    # well one config's hyperparameters transfer to another.
+    configs = ("raw_gray", "clahe_gray", "clahe_hsv")
+    colours = dict(zip(configs, plt.cm.plasma(np.linspace(0.1, 0.7, len(configs))), strict=True))
+    for preproc in configs:
+        rows = frame[frame["preproc"] == preproc]
+        per_k = rows.groupby("n_components").agg(
+            macro_f1=("macro_f1", "max"), variance=("cumulative_variance", "first")
+        ).reset_index()
+        right.plot(per_k["n_components"], per_k["macro_f1"], "o-", color=colours[preproc],
+                   lw=2.0, ms=5, label=f"{preproc} — macro-F1")
+        right.plot(per_k["n_components"], per_k["variance"], ":", color=colours[preproc],
+                   lw=1.5, alpha=0.75, label=f"{preproc} — variance")
+
     right.set_ylabel("fraction")
-    right.set_title("Variance is not the objective — the two curves disagree", fontsize=10)
-    right.legend(fontsize=9, loc="lower right")
-    right.grid(alpha=0.3)
+    right.set_title("Variance (dotted) is not the objective — it ranks the configs backwards",
+                    fontsize=10)
+    right.legend(fontsize=7.5, ncol=2, loc="lower right")
+
+    for axis in (left, right):
+        axis.set_xscale("log", base=2)
+        axis.set_xticks(COMPONENT_GRID)
+        axis.set_xticklabels([str(k) for k in COMPONENT_GRID])
+        axis.set_xlabel("components retained (k)")
+        axis.grid(alpha=0.3)
 
     fig.suptitle(
-        f"PCA component sweep — selected k = {int(best['n_components'])}, "
+        f"PCA component sweep — selected {headline}, k = {int(best['n_components'])}, "
         f"C = {best['C']:g}, class_weight = {best['class_weight']}\n"
-        f"k and C are swept jointly because they interact: more components means an easier "
-        f"space to separate,\nwhich shifts the regularisation that suits it",
-        fontsize=11,
+        f"Each preprocessing config is swept independently: its own k, C and class_weight, "
+        f"so the comparison is of preprocessing\nand not of how well one config's "
+        f"hyperparameters transfer to another",
+        fontsize=10.5,
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    fig.tight_layout(rect=(0, 0, 1, 0.86))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "pca_component_sweep.png"
     fig.savefig(path, dpi=160, bbox_inches="tight")
@@ -150,7 +160,10 @@ def figure(frame: pd.DataFrame, best: dict, out_dir: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="PCA n_components sweep (task 4.2).")
-    parser.add_argument("--preproc", default=preprocessing.DEFAULT_PREPROC)
+    parser.add_argument("--preproc", nargs="+", default=list(preprocessing.PREPROC_CONFIGS),
+                        help="sweep each config separately; all three by default, so the "
+                             "ablation at 8.2 compares preprocessing rather than how well "
+                             "one config's hyperparameters transfer to another")
     parser.add_argument("--out", type=Path, default=config.RESULTS_DIR / "sweeps")
     parser.add_argument("--figures", type=Path, default=config.FIGURES_DIR / "pca")
     parser.add_argument("--from-csv", action="store_true",
@@ -168,13 +181,23 @@ def main() -> int:
         frame = pd.read_csv(csv_path)
         best = frame.loc[frame["macro_f1"].idxmax()].to_dict()
     else:
-        frame, best = run_sweep(args.preproc)
+        frames = []
+        for preproc in args.preproc:
+            print(f"\n=== {preproc} ===")
+            preproc_frame, _ = run_sweep(preproc)
+            frames.append(preproc_frame)
+        frame = pd.concat(frames, ignore_index=True)
+        best = frame.loc[frame["macro_f1"].idxmax()].to_dict()
         frame.to_csv(csv_path, index=False)
 
-    print("\n--- best per k (by macro-F1) ---")
-    per_k = frame.loc[frame.groupby("n_components")["macro_f1"].idxmax()]
-    print(per_k[["n_components", "C", "class_weight", "macro_f1", "accuracy",
+    print("\n--- best per (preproc, k) by macro-F1 ---")
+    per_k = frame.loc[frame.groupby(["preproc", "n_components"])["macro_f1"].idxmax()]
+    print(per_k[["preproc", "n_components", "C", "class_weight", "macro_f1", "accuracy",
                  "cumulative_variance", "fit_seconds"]].to_string(index=False))
+    print("\n--- best per preproc ---")
+    per_p = frame.loc[frame.groupby("preproc")["macro_f1"].idxmax()]
+    print(per_p[["preproc", "n_components", "C", "class_weight", "macro_f1",
+                 "accuracy"]].to_string(index=False))
 
     unconverged = frame[~frame["converged"]]
     if len(unconverged):

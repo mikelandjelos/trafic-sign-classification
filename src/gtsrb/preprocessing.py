@@ -197,6 +197,10 @@ PREPROC_CONFIGS: dict[str, PreprocConfig] = {
     ),
 }
 
+#: The headline preprocessing config. **Measured, not assumed** (task 4.2): each of the
+#: three was swept independently over k x C x class_weight, and clahe_gray won on validation
+#: macro-F1 -- 0.7977 against 0.7713 (raw_gray) and 0.7674 (clahe_hsv). Was previously a bare
+#: default with no justification. See docs/report-material/11-pca.md section 7.
 DEFAULT_PREPROC = "clahe_gray"
 
 
