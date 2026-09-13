@@ -1,7 +1,7 @@
 # 07 — The results table
 
 **Feeds:** Methodology → reproducibility; the source of every table and figure in Results.
-**Status:** complete (task 1.6)
+**Status:** complete (tasks 1.6, 4.3 — the `val_` prefix and hyperparameter conventions)
 
 Implemented as `gtsrb.results`; tested in `tests/test_results.py`.
 

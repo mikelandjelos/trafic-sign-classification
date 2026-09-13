@@ -3,7 +3,7 @@
 **Feeds:** Methodology → experimental protocol; Limitations. The degradation-seeding
 argument below is not housekeeping — it is what makes the robustness curves (figure 9.5)
 a valid comparison rather than five methods measured on five different datasets.
-**Status:** complete (task 0.3)
+**Status:** complete (tasks 0.3, 4.1 — the measured determinism findings)
 
 Implemented in `src/gtsrb/config.py`.
 

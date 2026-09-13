@@ -215,17 +215,6 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       determinism. **Measured the hazard: a naive random per-image split puts 1,305 of
       1,307 tracks on both sides, and 100% of val images (7,808/7,808) have a sibling
       frame in train.** See `docs/report-material/04-splitting-protocol.md`.
-- [x] **1.7** **Demo** for the splitting protocol — `scripts/demo/split_mechanics.py` →
-      `figures/demo/split/`. The 1,305-of-1,307 leakage count is conclusive but abstract;
-      these make it visible. **New measurement: "near-duplicate" quantified** — median pixel
-      correlation is **0.61** between two frames of the same track vs **0.17** between two
-      images from *different tracks of the same class* (the hard comparison). ~3.5×, with
-      barely overlapping distributions, and independent of any model — this is the number to
-      quote in the report. The frame strip is ordered by `frame_id`, so it reads as a car
-      approaching: the frames are *near*-duplicates, not identical, which is why any
-      deduplication check would miss the leak. The naive per-image split is reimplemented in
-      the demo rather than imported, since `gtsrb.data` deliberately cannot do it.
-      See `docs/report-material/04-splitting-protocol.md`.
 - [x] **1.4** Eval harness → accuracy, macro-F1, per-class F1, confusion matrix
       — `gtsrb.evaluation.evaluate()` returns one `ClassificationResult` with all of them,
       plus `most_confused_pairs()` (9.3), `accuracy_by_group()`/`size_buckets()` (9.4) and
@@ -234,7 +223,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       predicted. 10 tests. See `docs/report-material/05-evaluation-metrics.md`.
 - [x] **1.5** Timing harness → train wall-clock, inference ms/img (median of ≥3 runs, discard first)
       — `gtsrb.timing`: `time_training()`, `time_inference()`, and `platform_info()` →
-      `results/platform.json` (CPU, RAM, OS, pinned threads, **achieved** BLAS/torch thread
+      `results/platform_<run_id>.json` (CPU, RAM, OS, pinned threads, **achieved** BLAS/torch thread
       counts, load average, library versions, git commit). Warmup discard justified
       empirically: first call measured **4.5× slower** than the median. 10 tests.
       **Timings are relative costs in one recorded environment, not deployment latency —
@@ -248,6 +237,17 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       the commit. `pivot()` refuses to silently average levels/runs; `append_rows()` refuses
       NaN; `check_complete()` reports missing grid cells for 8.3. 19 tests.
       See `docs/report-material/07-results-table.md`.
+- [x] **1.7** **Demo** for the splitting protocol — `scripts/demo/split_mechanics.py` →
+      `figures/demo/split/`. The 1,305-of-1,307 leakage count is conclusive but abstract;
+      these make it visible. **New measurement: "near-duplicate" quantified** — median pixel
+      correlation is **0.61** between two frames of the same track vs **0.17** between two
+      images from *different tracks of the same class* (the hard comparison). ~3.5×, with
+      barely overlapping distributions, and independent of any model — this is the number to
+      quote in the report. The frame strip is ordered by `frame_id`, so it reads as a car
+      approaching: the frames are *near*-duplicates, not identical, which is why any
+      deduplication check would miss the leak. The naive per-image split is reimplemented in
+      the demo rather than imported, since `gtsrb.data` deliberately cannot do it.
+      See `docs/report-material/04-splitting-protocol.md`.
 - [x] **2.1** Preprocessing: `to_gray`, `to_hsv`, `clahe`, `gaussian_blur`, `resize(48,48)` *(task 2 = 1.5 h)*
       — `gtsrb.preprocessing`, all uint8-in/uint8-out for the 2.3 cache, plus `load_image`
       and `crop_roi`. **`resize` picks interpolation per image** (39.2% of crops shrink,
@@ -459,8 +459,24 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       model via forward hooks, so it cannot drift). Shows the branch that makes one
       network produce two of the five rows.
       See `docs/report-material/13-cnn.md`.
-- [ ] **7.2** Training loop: val each epoch, early stopping, best-checkpoint save
+- [x] **7.2** Training loop: val each epoch, early stopping, best-checkpoint save
+      — `gtsrb.training.train()`. **Early stopping on validation macro-F1**, the same
+      criterion every other method selects on — stopping on accuracy while the report leads
+      with macro-F1 would optimise for a metric the write-up does not use, and under 10.7×
+      imbalance the two disagree. **The returned model holds the *best* epoch's weights, not
+      the last**: `patience` epochs of no improvement are by construction epochs where the
+      model got no better and may have got worse. Pinned by a test that trains twice with
+      identical seeds — once stopping at the best epoch, once running past it — and asserts
+      the weights come back bit-identical. Batch order seeded off `config.SEED`. 16 tests.
+      See `docs/report-material/13-cnn.md`.
 - [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
+      **Three runs, one per preprocessing config** (~1 h each). Unlike the other methods, the
+      CNN's representation *is* its weights, so each config is a full retrain — but 8.2
+      ("best 2 methods × 3 configs") needs them regardless, and exempting the CNN would
+      reintroduce the hyperparameter-transfer confound measured at 4.2. `clahe_hsv` is a live
+      contender here in a way it was not for PCA: signs are colour-coded and a CNN can exploit
+      that. Guideline, not a gate: `cnn_e2e` below ~95 % val macro-F1 indicates a training
+      problem, not a finding — see `13-cnn.md` §5.
 
 ### Day 3 — BoVW, CNN finalize, full grid (~5.5 h)
 
@@ -488,9 +504,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       `eval()`/`no_grad()` check as a *visual*: penultimate features extracted twice must be
       identical, and are not if dropout is still active (§10) — a bug that otherwise only
       shows up as mysteriously poor `cnn_feat_svm` accuracy.
-- [x] **P.1** ~~Write `predictions.md` — do this before task 8~~ — **done early**, on
-      2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
-      seeing PCA, HOG, BoVW and CNN results. See §2 and `predictions.md`.
+> **P.1 (see §2)** — ~~write `predictions.md` before task 8~~ was **done early**, on
+>   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
+>   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
       **The runner pairs each representation with the cache it was fitted from** (Q5, decided
       at 4.1): a representation is never obtainable without its images, with a test asserting

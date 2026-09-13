@@ -7,6 +7,7 @@ Implementation: `src/gtsrb/representations/cnn.py`. Tests: `tests/test_cnn.py` (
 Figure: `scripts/figure_cnn_architecture.py` → `figures/report/cnn_architecture.png` — shapes
 and parameter counts are read off the real model with forward hooks, so the diagram cannot
 drift from the code.
+**Status:** complete (tasks 7.1, 7.2); 7.3 not yet launched
 
 ---
 
@@ -159,7 +160,55 @@ Two things to carry into the report:
 
 ---
 
-## 5. Open for tasks 7.2 / 7.3
+## 5. A guideline for "is the CNN actually working"
+
+Not a pass/fail gate and not a target — a sanity band, written down before the first run so
+it cannot be adjusted to whatever arrives.
+
+> **A small CNN on GTSRB should land comfortably above ~95 % validation macro-F1.**
+> Materially below that suggests a *training* problem — learning rate, schedule, epochs —
+> rather than a finding about convolutional representations.
+
+Why ~95 % and not the 98–99 % the literature reports: published results use augmentation,
+the full 39,209 training images, and often larger or ensembled networks. This project has
+none of those. It trains on 31,379 images (train split only, for comparability — §1.1 of
+`11-pca.md` §8.1), 0.88 M parameters, no augmentation, on CPU.
+
+**Two things this guideline is deliberately not:**
+
+1. **Not a licence to retrain until the CNN wins.** That would be tailoring the project to a
+   desired outcome, which `CLAUDE.md` forbids for predictions and which applies just as much
+   to a method. Task 7.4 is the CNN's tuning budget; the other methods each got one sweep.
+   **If more than 7.4's budget is spent, the asymmetry gets recorded**, because ten retraining
+   attempts against PCA's single sweep would tilt the comparison.
+2. **Not about `cnn_feat_svm`.** That method trailing `cnn_e2e` is *expected* — the objective
+   mismatch of §1.1 — and is a finding, not a defect. The guideline concerns `cnn_e2e` alone.
+
+---
+
+## 6. Preprocessing: three training runs, not one
+
+Every other method sweeps all three preprocessing configs cheaply, because the representation
+is a fixed function and only the classifier is refit. **For the CNN the representation *is*
+the trained weights**, so each config costs a full training run: ~1 h each, ~3 h total.
+
+It is done anyway, for two reasons:
+
+- **Protocol symmetry.** Task 4.2 established that each method selects its own preprocessing,
+  after measuring that borrowing another config's hyperparameters cost ~1 pp — about 39 % of
+  the preprocessing effect itself. Exempting the CNN would reintroduce exactly that confound.
+- **Task 8.2 requires it regardless.** The ablation is "best 2 methods × 3 configs", and the
+  CNN is almost certainly one of the best two. The three runs are needed either way; doing
+  them at 7.3 costs the same compute as discovering the need at 8.2.
+
+Worth noting for the discussion: the headline config `clahe_gray` is **grayscale**, and
+traffic signs are colour-coded. A CNN can exploit colour in ways PCA cannot, so `clahe_hsv`
+is a live contender here in a way it was not for PCA (where it lost on macro-F1, note 11
+§7.1b). This is the method where the colour question may actually change the answer.
+
+---
+
+## 7. Open for tasks 7.2 / 7.3
 
 - Training loop with per-epoch validation, early stopping and best-checkpoint saving.
 - The run is launched in the background (7.3) because at ~2 min/epoch it is the longest single

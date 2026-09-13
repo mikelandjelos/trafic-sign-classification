@@ -1,7 +1,7 @@
 # 06 — Cost measurement: what the timing numbers can and cannot claim
 
 **Feeds:** Methodology → cost measurement; Table 1 (cost columns); **Limitations**.
-**Status:** complete (task 1.5)
+**Status:** complete (tasks 1.5, 4.3, 5.2 — batched-vs-single latency, model-size composition, tuning parallelism)
 
 Implemented as `gtsrb.timing`; tested in `tests/test_timing.py`.
 
@@ -52,7 +52,7 @@ actual subject — is unaffected. Only the cost column carries this caveat.
 ## What is recorded alongside every timing
 
 A duration without its environment is uninterpretable, so `timing.platform_info()` captures
-the environment and `save_platform_info()` writes it to `results/platform.json` next to
+the environment and `save_platform_info()` writes it to `results/platform_<run_id>.json` next to
 `results.csv`:
 
 ```json

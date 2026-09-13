@@ -5,8 +5,9 @@
 eigensigns figure (4.4); discussion of the gamma panel (9.5).*
 
 Implementation: `src/gtsrb/representations/pca.py`, `src/gtsrb/tuning.py`,
-`scripts/sweep_pca.py`. Tests: `tests/test_pca.py` (31), `tests/test_tuning.py` (12).
+`scripts/sweep_pca.py`. Tests: `tests/test_pca.py` (31), `tests/test_tuning.py` (16).
 Interface: `src/gtsrb/representations/__init__.py`.
+**Status:** complete (tasks 4.1, 4.2, 4.3, 4.4)
 
 ---
 

@@ -1,7 +1,7 @@
 # 01 — Environment and setup
 
 **Feeds:** Methodology → reproducibility subsection; Appendix (exact versions).
-**Status:** in progress — version table filled after `poetry install` completes.
+**Status:** complete (task 0.1)
 
 ---
 

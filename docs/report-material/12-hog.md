@@ -4,6 +4,7 @@
 noise and gamma panels (9.5).*
 
 Implementation: `src/gtsrb/representations/hog.py`. Tests: `tests/test_hog.py` (28).
+**Status:** complete (task 5.1); 5.2 sweep running
 
 ---
 

@@ -1,7 +1,7 @@
 # 05 — Evaluation metrics and the measurement harness
 
 **Feeds:** Methodology → evaluation; Results → Table 1; supports figures 9.2–9.4.
-**Status:** complete (task 1.4)
+**Status:** complete (tasks 1.4, 4.2 — macro-F1 also became the *selection* criterion)
 
 Implemented as `gtsrb.evaluation`; tested in `tests/test_evaluation.py`.
 

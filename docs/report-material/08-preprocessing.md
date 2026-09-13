@@ -1,7 +1,7 @@
 # 08 — Preprocessing
 
 **Feeds:** Methodology → preprocessing; the ablation table (task 9.7); supports fig. 9.4.
-**Status:** complete (tasks 2.1, 2.2, 2.3)
+**Status:** complete (tasks 2.1, 2.2, 2.3, 4.2 — `clahe_gray` as headline config is now measured)
 
 Implemented as `gtsrb.preprocessing`; tested in `tests/test_preprocessing.py`.
 
