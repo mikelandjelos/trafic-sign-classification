@@ -480,8 +480,25 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ### Day 3 — BoVW, CNN finalize, full grid (~5.5 h)
 
-- [ ] **6.1** **Dense** SIFT: fixed grid (stride ~6 px on 48×48), fixed keypoint size (~12 px), no detector *(task 6 = 2.5 h)*
-- [ ] **6.2** Assert every image yields the same nonzero descriptor count
+- [x] **6.1** **Dense** SIFT: fixed grid (stride ~6 px on 48×48), fixed keypoint size (~12 px), no detector *(task 6 = 2.5 h)*
+      — `gtsrb.representations.bovw.DenseSIFT`. step=6, size=12 → **8×8 = 64 keypoints**,
+      neighbourhoods overlapping by half; 0.57 ms/img (~18 s per training pass). Descriptors
+      arrive from OpenCV **already L2-normalised to ≈512**, so they sit on a sphere — the
+      right footing for k-means, and no rescaling is applied. **`upright=True` is a decision,
+      not a default**: signs are upright so absolute gradient orientation is signal, and
+      SIFT's per-patch orientation estimate is unstable on low-contrast patches. Found and
+      fixed: `sample_descriptors` returned 480 for a request of 500 (`round` undershoots),
+      which would have silently shrunk the 6.3 vocabulary sample.
+      See `docs/report-material/14-bovw.md`.
+- [x] **6.2** Assert every image yields the same nonzero descriptor count
+      — **0 keypoints pruned** at every (step, size) tried, and the guard raises loudly if
+      OpenCV ever prunes one (a dropped keypoint makes that image's histogram incomparable,
+      silently). A test also pins *why* a detector is unusable here: it returns a **variable**
+      count per image, so histograms would not be comparable even where it fires.
+      **Zero descriptors: 0 of 128,000 clean, and 0 of 38,400 under blur 15 / noise 40 /
+      gamma 2.5** — checked rather than assumed, since heavy blur flattens local structure.
+      But a *perfectly* uniform patch does produce a zero vector, so the code relies on
+      "never happens on GTSRB", not on "cannot happen" — both are asserted.
 - [ ] **6.3** Subsample ~200k descriptors, `MiniBatchKMeans`, k ∈ {200, 500}
 - [ ] **6.4** Encode as k-dim histogram; L2 or power normalization
 - [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
@@ -550,7 +567,6 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 ### Day 5 — Report (Serbian)
 
 - [ ] Write up, has same formatting as the proposal, but needs to be created based on this research and the implementation:
-  - [ ] consult and brainstorm about sections, before starting to write -- the structure needs to be scaffolded firstly;
 
 ---
 
