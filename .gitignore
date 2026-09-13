@@ -228,6 +228,11 @@ data/
 
 # Preprocessed image caches (task 2.3) and model checkpoints -- regenerable.
 *.npy
+# Trained models -- regenerable from scripts/train_*.py. NOTE the recursive `**`: models
+# live in results/models/, so a bare `results/*.joblib` matches nothing and a 2.4 MB
+# checkpoint slips in on the next `git add -A` (found at task 4.3).
+results/**/*.pt
+results/**/*.joblib
 results/*.pt
 results/*.joblib
 
