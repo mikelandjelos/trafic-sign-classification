@@ -162,9 +162,12 @@ def tune_linear_svc(
             records.append(record)
             if verbose:
                 flag = "" if record.converged else "  [did not converge]"
+                # flush: these sweeps run for hours redirected to a log file, where
+                # Python block-buffers stdout. Without it a sweep that is working fine
+                # looks stalled for 25 minutes at a stretch (observed at task 5.2).
                 print(f"    C={C:<7} class_weight={class_weight!s:<9} "
                       f"macro_f1={record.macro_f1:.4f} acc={record.accuracy:.4f} "
-                      f"{record.fit_seconds:5.1f}s{flag}")
+                      f"{record.fit_seconds:5.1f}s{flag}", flush=True)
 
     return TuningResult(best=select_best(records), records=records)
 
