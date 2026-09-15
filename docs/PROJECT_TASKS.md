@@ -451,7 +451,18 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       **unverified, worth checking before 9.7**.
       Third confirmation of the dimensionality/`C` coupling (C=0.01 at 1764 dims, 0.10 at 900).
       See `docs/report-material/12-hog.md` §4.
-- [ ] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
+- [x] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
+      — `scripts/train_hog.py`. Val accuracy **0.9298**, macro-F1 **0.9175** (reproduces the
+      5.2 cell exactly). Model **0.58 MB** — *entirely* SVM coefficients, since HOG learns
+      nothing, against PCA's 2.35 MB that is 96 % basis. Batching ratio **1.3×**, completing
+      the spread: PCA 49×, HOG 1.3×, CNN 0.87×.
+      **Finding: HOG fails on completely different classes than PCA and the CNN.** Four of its
+      five top confusions are *speed limits* (80→50 at 16.9 %), where PCA and the CNN both
+      struggle with the *end-of-restriction* signs that barely trouble HOG. Mechanism: the
+      strikethrough is a strong oriented gradient HOG encodes and a holistic subspace cannot;
+      speed-limit digits differ in fine stroke detail *within* a cell, which HOG pools away.
+      **The representation × difficulty interaction, visible on clean data.**
+      See `docs/report-material/12-hog.md` §5.2.
 - [ ] **5.4** Figure: HOG visualization, one sample per super-category
 - [ ] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — cell grid over the sign, block
       normalisation before/after, and the same degraded-input-through-the-pipeline panel as
@@ -573,7 +584,13 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       it. A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
       shape check fires and the results look plausible. This is the one place it can happen,
       because 8.2 loops over all three configs.
-- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **Tune per (method,
+- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs.
+      **Largely answered already** (note 08 addendum): all three completed methods swept all
+      three configs, and **the ranking is stable — CNN > HOG > PCA under both grayscale
+      configs**. The largest preprocessing effect (+3.0 pp, PCA) is smaller than the smallest
+      between-method gap (8.6 pp). CLAHE helps **only** the method with no internal contrast
+      normalisation (PCA +2.6 pp), is neutral for the CNN (BatchNorm, +0.2) and *hurts* HOG
+      (L2-Hys already does it, −0.4). **Tune per (method,
       preproc) cell**, not per method — measured at 4.2: reusing one config's hyperparameters
       on another costs ~1 pp, about 39 % of the preprocessing effect itself, and biases toward
       whichever config they were selected on. **Its job is a
