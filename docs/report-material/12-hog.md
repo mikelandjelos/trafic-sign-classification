@@ -4,7 +4,7 @@
 noise and gamma panels (9.5).*
 
 Implementation: `src/gtsrb/representations/hog.py`. Tests: `tests/test_hog.py` (28).
-**Status:** complete (task 5.1); 5.2 sweep running
+**Status:** complete (tasks 5.1, 5.2)
 
 ---
 
@@ -133,7 +133,108 @@ real measurement instead of a foregone conclusion.
 
 ---
 
-## 4. Open for task 5.2
+## 4. Task 5.2 — the configuration sweep
+
+`scripts/sweep_hog.py` → `results/sweeps/hog_configs.csv`,
+`figures/report/hog_config_sweep.png`. 96 grid points (3 preproc × 4 geometries × 4 `C` ×
+2 `class_weight`), ~2 h 20 m. **All 96 converged.**
+
+**Selected: `raw_gray`, 6 px cells, 9 orientations, C = 0.01, `class_weight="balanced"` —
+validation macro-F1 0.9175, accuracy 0.9298.**
+
+| preproc | best geometry | dim | best C | macro-F1 | accuracy |
+|---|---|---|---|---|---|
+| **`raw_gray`** | 6px / 9o | 1764 | 0.01 | **0.9175** | 0.9298 |
+| `clahe_gray` | 6px / 9o | 1764 | 0.01 | 0.9138 | 0.9264 |
+| `clahe_hsv` | 6px / 12o | 2352 | 0.01 | 0.8205 | 0.8456 |
+
+### 4.1 Finding — HOG and PCA select *different* preprocessing
+
+PCA chose `clahe_gray` (note 11 §7.1b); **HOG chooses `raw_gray`**. The margin is small
+(+0.0037) but the *direction* is opposite, and that is what matters.
+
+This is the 4.2 decision paying off concretely. Had `clahe_gray` been imposed on HOG because
+PCA preferred it, HOG would have been measured at a handicap and the difference would have
+been attributed to the representation. **A per-method preprocessing choice is not bookkeeping
+— the methods genuinely disagree about what preprocessing helps them.**
+
+The mechanism is consistent with §2.2: HOG block-normalises internally, so CLAHE's contrast
+normalisation is largely redundant for it — it is doing a job HOG already does. PCA has no
+such internal normalisation, which is why CLAHE helps PCA and not HOG.
+
+### 4.2 Finding — cell size dominates orientation count
+
+Best macro-F1 per geometry on the winning preproc:
+
+| geometry | dim | macro-F1 |
+|---|---|---|
+| **6px / 9o** | 1764 | **0.9175** |
+| 6px / 12o | 2352 | 0.9140 |
+| 8px / 9o | 900 | 0.8819 |
+| 8px / 12o | 1200 | 0.8765 |
+
+Halving the cell area (8 px → 6 px) is worth **~3.5 pp**; going from 9 to 12 orientation bins
+is worth **nothing** — it is slightly *negative* at both cell sizes. Spatial resolution is the
+binding constraint on a 48×48 crop, not angular resolution, which makes sense: at 8 px cells
+the grid is only 6×6 for a whole sign.
+
+Useful for the report's cost discussion: the selected config is **not** the highest-dimensional
+one. 2352 dims buys nothing over 1764.
+
+### 4.3 The dimensionality/regularisation coupling, again
+
+Best `C` is **0.01** at 1764–2352 dims and **0.10** at 900–1200 dims — the same coupling
+measured for PCA, where the best `C` fell from 10 to 0.01 as *k* grew 32 → 256. Third
+independent confirmation that `C` cannot be fixed while feature dimensionality varies.
+
+### 4.4 `clahe_hsv` hurts HOG badly (−9.7 pp) — and a likely reason worth checking
+
+Colour costs HOG almost ten points, far more than it cost PCA. A plausible mechanism, **stated
+as a hypothesis because it has not been verified**:
+
+`skimage.feature.hog` with `channel_axis` computes gradients in every channel and keeps the
+largest-magnitude one per pixel. In HSV, **hue is an angular quantity that wraps** (0–179 in
+OpenCV), and red — the most common sign colour — sits exactly at the wrap point. A spatial
+gradient computed across that discontinuity is spurious and *large*, so it would win the
+max-magnitude selection precisely where it is meaningless.
+
+**VERIFIED (task 7.3).** Measured on the cached data: *Stop* has 56.5 % of its saturated
+pixels at hue < 10 and 4.4 % at hue > 169; *No entry* 39.2 % and 14.2 % — red genuinely
+straddles the wrap. **3.98 % of adjacent-pixel hue gradients exceed 90**, i.e. claim more than
+half the colour wheel between neighbours, and mean hue gradients (17.17) are as large as
+intensity gradients (17.06), so they routinely win the max-magnitude selection.
+
+The CNN independently corroborates it: `clahe_hsv` cost it 2.3 pp *and* made it peak at epoch
+5 instead of 18 — a strong spurious signal learned early that does not generalise. The
+ordering across methods follows the mechanism: the more a method relies on spatial
+derivatives, the more the wrap costs it (HOG −9.7, PCA −3.0, which never differentiates).
+
+Full measurement and the consequences for the 9.7 ablation: `08-preprocessing.md`, addendum.
+
+### 4.5 The three methods treat `clahe_hsv` differently — and must, but say so
+
+Worth recording because the preprocessing ablation (9.7) compares across methods:
+
+| method | what it does with the 3 channels |
+|---|---|
+| PCA | flattens all three (6912 dims) |
+| HOG | gradients per channel, keeps max magnitude (`channel_axis=-1`) |
+| BoVW | **V channel only** — SIFT is defined on intensity (note 14 §5) |
+| CNN | all three as input planes |
+
+Each is the natural choice for that representation, and there is no single convention that
+would suit all four. But it means "`clahe_hsv` is worse" is **not one statement** — it is four
+different operations on the same pixels. The ablation must say which.
+
+---
+
+## 5. Open for tasks 5.3–5.5
+
+- **5.3** train the final model at the selected configuration and record cost metrics.
+- **5.4** the HOG visualisation figure, one sample per super-category.
+- **5.5** the mechanics demo — cell grid, block normalisation before/after, and gradient
+  magnitude per cell under noise, where HOG is predicted to suffer most (§3.2 measured a
+  displacement of 0.988 under σ=40).
 
 - Sweep `pixels_per_cell ∈ {(6,6), (8,8)}` × `orientations ∈ {9, 12}`, jointly with `C` and
   `class_weight` via `gtsrb.tuning`, exactly as PCA was — the 4.2 finding that the best `C`

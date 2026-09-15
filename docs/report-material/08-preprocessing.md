@@ -324,3 +324,64 @@ ablation this note feeds (9.7):
    the ablation must say which it is reporting.
 
 Full detail and the variance-ranks-backwards finding: `11-pca.md` §7.1b–7.1c.
+
+
+---
+
+## Addendum (tasks 5.2 / 7.3) — `clahe_hsv` has a latent defect: hue wraps
+
+**This changes how the preprocessing ablation must be read, so it is recorded before 9.7 is
+written.**
+
+`clahe_hsv` stores OpenCV HSV, where **hue is an angular quantity on 0–179 that wraps**. Red
+sits exactly at the wrap point — and red is the commonest sign colour in GTSRB.
+
+Measured on the cached training data (saturated pixels only, S > 80, where hue is meaningful):
+
+| class | hue < 10 | hue > 169 | |
+|---|---|---|---|
+| 14 *Stop* | **56.5 %** | **4.4 %** | wraps |
+| 17 *No entry* | **39.2 %** | **14.2 %** | wraps |
+| 12 *Priority road* (yellow) | 14.8 % | 0.6 % | no wrap |
+
+So a single red sign face carries hue values at **both ends of the scale**, and two visually
+identical reds at 178 and 2 are 4 apart on the colour wheel but **176 apart numerically**.
+
+The consequence, measured on horizontal gradients:
+
+| | mean \|d/dx\| | max |
+|---|---|---|
+| hue channel | **17.17** | 179.0 |
+| value channel | 17.06 | 204.0 |
+
+**3.98 % of adjacent-pixel hue gradients exceed 90** — i.e. they claim more than half the
+colour wheel between neighbouring pixels. Those are wrap artifacts, and because mean hue
+gradients are as large as intensity gradients, they routinely *win* any max-magnitude
+selection.
+
+### What it explains
+
+| method | `clahe_hsv` cost | why |
+|---|---|---|
+| **HOG** | **−9.7 pp** | `skimage.hog` keeps the **largest-magnitude gradient across channels**, so spurious wrap edges are selected precisely where they are meaningless |
+| **CNN** | −2.3 pp, and it **peaked at epoch 5 vs 18** | convolutions over a wrapped channel; a strong spurious signal to latch onto early, which does not generalise |
+| PCA | −3.0 pp | takes no gradients — the wrap is a strange but *consistent* coordinate, so it is far less damaging |
+
+The ordering follows the mechanism exactly: **the more a method relies on spatial derivatives,
+the more the wrap costs it.** HOG, which explicitly selects on gradient magnitude, suffers
+most; PCA, which never differentiates, suffers least.
+
+### What this does and does not license saying
+
+> **"`clahe_hsv` performs worse" must not be reported as "colour is uninformative for traffic
+> signs."** It is evidence that *this encoding of colour* is defective for gradient-based
+> representations. Signs are deliberately colour-coded; the finding is about the
+> representation of hue, not about hue.
+
+**The fix is known and not applied:** encode hue as a `(cos θ, sin θ)` pair, or use a
+non-circular space such as CIELab. Not adopted because all three completed sweeps (PCA 96
+points, HOG 96 points, three CNN training runs) used the current config, and re-running them
+would cost hours for an ablation arm that is already interpretable once the cause is stated.
+
+**Recorded as a limitation and as future work**, and as the explanation the 9.7 table must
+carry.
