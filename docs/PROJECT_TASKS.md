@@ -568,6 +568,14 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       accuracy (0.446) — it had subsampled with `iloc[:3000]` on class-ordered annotations and
       contained 3 of 43 classes. A large accuracy/macro-F1 gap is a label-space signature.
 - [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
+      **PARKED until 7.5 is done** (decision 2026-09-15). Current best 0.5248 macro-F1 is not
+      acceptable to report. Plan recorded in `14-bovw.md` §8: **Stage 1** add
+      `(step, keypoint_size)` to the sweep — density is the measured lever (0.3402 → 0.5248),
+      and the literature check says vocabulary size is *not* (a published pLSA system succeeds
+      with 300 words, inside our range). **Stage 2** only if Stage 1 plateaus: multi-scale
+      dense SIFT, soft assignment, or VLAD — all still orderless. **Spatial pyramid matching is
+      excluded**: it is the standard fix but would move BoVW onto HOG's position on the layout
+      axis and void the §11 premise.
       **OPEN: the plan's sampling density is too coarse.** Measured on the full split, k=500:
       size12/step6 (the value specified in 6.1) gives macro-F1 **0.3402**; size8/step4 gives
       0.4583; size6/step3 gives **0.5248**. +18.5 pp from density alone — more than `k` or `C`

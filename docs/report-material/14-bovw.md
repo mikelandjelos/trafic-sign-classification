@@ -4,7 +4,7 @@
 the §11 jitter extension, whose premise rests on this method's orderlessness.*
 
 Implementation: `src/gtsrb/representations/bovw.py`. Tests: `tests/test_bovw.py` (33).
-**Status:** complete (tasks 6.1–6.4); 6.5 blocked on the sampling-density decision (§6.3).
+**Status:** complete (tasks 6.1–6.4). **6.5 parked** — the current score is not acceptable and the plan to fix it is §8. Resumes after task 7.5.
 
 ---
 
@@ -247,3 +247,71 @@ plan's "sweep k ∈ {200, 500}" and multiplies the grid. Parked pending that dec
 - Cost: the vocabulary and encoding are cheap (~5 s and ~4 s per 3,000 images in the probe);
   as with HOG, the grid is dominated by the `LinearSVC` fits — but at 200–500 dimensions
   those are far cheaper than HOG's 900–2,352.
+
+
+---
+
+## 8. PARKED — the plan to make BoVW acceptable
+
+**Decision (2026-09-15): BoVW is parked until `cnn_feat_svm` (7.5) is done.** The current
+number — **0.5248 macro-F1 / 0.5936 accuracy** at the best configuration tried — is not
+acceptable to report, and finishing the fifth method first gives the complete picture before
+more time is spent here.
+
+### 8.1 What the literature says, and what it does not
+
+Checked against published GTSRB work. Two things came out of it, and the second corrects an
+assumption:
+
+**There is no published plain-BoVW, 43-way, linear-SVM number to compare against.** The
+closest work is a pLSA system using **BoVW + SIFT with a 300-word k-means codebook** — very
+close to our setup — but it adds a probabilistic topic model on top of the histogram, and it
+reports **per sign-category** accuracies (Speed limits 98.82, Prohibitions 98.27,
+Derestriction 97.93, Mandatory 96.86, Danger 96.95, Unique 100.00). Each column is a
+sub-problem of roughly 6–12 classes. **Those are not comparable with our 43-way number.** A
+second system reaching 98.76 % overall is hierarchical, and its headline 99.79 % is its
+*coarse*, category-level stage.
+
+> **A claim I made and had to withdraw:** a search summary attributed "dense SIFT + HOG + LBP
+> + **spatial pyramid matching** → 99.67 %" to this literature. Both papers were downloaded
+> and checked: **neither mentions spatial pyramid matching at all.** The figure was the search
+> engine's synthesis, not a finding. Recorded because it nearly became a citation.
+
+**The useful consequence: vocabulary size is probably not the missing ingredient.** The pLSA
+work succeeds with 300 words, squarely inside our 200–500 range. That makes the planned
+k ∈ {500, 1000, 2000} sweep *less* promising than it looked, and moves sampling density to
+the front.
+
+### 8.2 The plan, in order of expected value
+
+**Stage 1 — sampling density (measured, not speculative).**
+Already demonstrated: `size=12,step=6` → 0.3402, `size=8,step=4` → 0.4583,
+`size=6,step=3` → **0.5248**. The curve has not flattened. Test `size=4,step=2` (576 kp/img)
+and take the best. Add `(step, keypoint_size)` to the 6.5 sweep. ~10 min per geometry.
+
+**Stage 2 — richer encoding, still orderless.** Only if Stage 1 plateaus below something
+defensible. In rough order of expected gain per unit of work:
+
+| option | keeps orderlessness? | note |
+|---|---|---|
+| **multi-scale dense SIFT** (descriptors at several sizes per location, concatenated) | yes | standard dense-SIFT practice; needs a small `DenseSIFT` change |
+| **soft / kernel codebook assignment** | yes | a descriptor votes for several nearby words instead of one |
+| **VLAD encoding** (residuals to the nearest centroid, not counts) | yes | usually a large gain over count histograms; would make the method "VLAD", which is a naming and scope question worth raising before adopting |
+
+**Explicitly excluded: spatial pyramid matching.** It is the standard fix and we will not use
+it. Adding 2×2 and 4×4 spatial bins re-introduces layout, which would move BoVW onto HOG's
+position on the layout axis — the axis this study exists to measure — and would also
+invalidate the §11 jitter premise. **If BoVW ends up weak because it is orderless, that is the
+finding.** What must not happen is BoVW ending up weak because of lazy parameters.
+
+### 8.3 Stopping rule, agreed in advance
+
+Stage 1 is cheap and clearly warranted. Stage 2 is a real time investment, and
+`PROJECT_TASKS.md` §9 lists **BoVW as the first thing to cut** if the schedule slips. So:
+
+- run Stage 1;
+- if BoVW is then in a range that can be reported honestly alongside the other four, stop and
+  report it, **however low**, with the orderlessness explanation;
+- only escalate to Stage 2 if the number is so low that it would read as a bug rather than as
+  a property — and record which option was used, since it changes what "BoVW" means in the
+  comparison.
