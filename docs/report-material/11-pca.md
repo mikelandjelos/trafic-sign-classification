@@ -1,4 +1,4 @@
-# 11 — PCA: the holistic representation (tasks 4.1, 4.2)
+# 11 — PCA: the holistic representation (tasks 4.1–4.4)
 
 *Feeds: Methodology → representations; Methodology → **classifier selection protocol**
 (§7.4, which governs 5.2 / 6.3 / 7.5 too); Table 1 (9.1); component-sweep figure (4.2);
@@ -7,7 +7,7 @@ eigensigns figure (4.4); discussion of the gamma panel (9.5).*
 Implementation: `src/gtsrb/representations/pca.py`, `src/gtsrb/tuning.py`,
 `scripts/sweep_pca.py`. Tests: `tests/test_pca.py` (31), `tests/test_tuning.py` (16).
 Interface: `src/gtsrb/representations/__init__.py`.
-**Status:** complete (tasks 4.1, 4.2, 4.3, 4.4)
+**Status:** complete (tasks 4.1–4.4); the leakage measurement 4.5 lives in note 04
 
 ---
 
