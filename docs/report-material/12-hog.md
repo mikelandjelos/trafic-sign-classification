@@ -4,7 +4,7 @@
 noise and gamma panels (9.5).*
 
 Implementation: `src/gtsrb/representations/hog.py`. Tests: `tests/test_hog.py` (28).
-**Status:** complete (tasks 5.1, 5.2, 5.3)
+**Status:** complete (tasks 5.1–5.5)
 
 ---
 
@@ -290,7 +290,90 @@ method in the middle has a different one. The tables must cover all five.
 
 ---
 
-## 6. Open for tasks 5.4–5.5
+## 6. Task 5.4 — the visualisation figure
+
+`scripts/figure_hog.py` → `figures/report/hog_visualization.png`. Four shapes rather than four
+arbitrary classes — octagonal (*Stop*), triangular warning (*Road work*), round mandatory
+(*Keep right*), round prohibitory (*Speed limit 80*) — because what matters is what the grid
+does to **shape**. Configuration read from the sweep CSV, not hard-coded.
+
+**Two things the figure must state, and does:**
+
+- **It is drawn from the *un-normalised* cell histograms.** The classifier sees the
+  block-normalised vector, in which a contrast change has been divided out (§2.2). A reader
+  who takes the rendering for the descriptor will draw the wrong conclusion about the gamma
+  panel at 9.5.
+- **The rendering is brightened for display only** (`exposure.rescale_intensity` at 35 % of
+  max). Raw, a few strong cells dominate and everything else is near-black. Cosmetic; the
+  descriptor is untouched.
+
+The cell grid is drawn over the HOG panel, so the pooling unit is visible rather than implied.
+
+### 6.1 The figure corroborates the 5.2 result visually
+
+**Speed limit (80)** is the useful panel. The circular border produces strong, confident
+strokes around the rim, while the **digits produce only short, weak segments** — the fine
+stroke detail that separates 80 from 50 is pooled into near-identical cell histograms. That is
+§5.2's confusion finding made visible: HOG sees the *shape* clearly and the *digits* barely.
+
+Contrast *Road work*, where the triangle's three edges are unmistakable, and *Keep right*,
+where the arrow's diagonal dominates a whole band of cells. Both are shape distinctions, and
+both are classes HOG handles well.
+
+---
+
+## 7. Task 5.5 — the mechanics demo
+
+`scripts/demo/hog_mechanics.py` → `figures/demo/hog/`. Three figures, built from
+`gtsrb.representations.hog` and `gtsrb.degradations` themselves. The sample is *Speed limit
+(80)* throughout — the class HOG confuses most (§5.2), so the demo is pointed at its own
+weakest case rather than a flattering one.
+
+### 7.1 `hog_block_normalisation.png` — the gamma mechanism, quantified on one sign
+
+| variant | mean \|Δdescriptor\| |
+|---|---|
+| contrast ×0.5 (linear) | **0.0000** |
+| gamma 2.5 (non-linear) | **0.0339** |
+
+The two descriptor traces for the linear change are **exactly superimposed** — L2-Hys divides
+a global gradient scaling straight out. The gamma trace visibly departs: peaks shift in
+relative height, because a gamma curve changes the *ratios* between gradients rather than
+scaling them all equally.
+
+This is §2.2 and §3.1 made visible on a single image, and it is the figure to point at when
+the 9.5 gamma panel is discussed: **HOG's protection against contrast is exact, and its
+protection against gamma is partial.**
+
+### 7.2 `hog_noise_response.png` — the demo's failure test
+
+Per-cell gradient energy at σ ∈ {0, 5, 10, 20, 40}, with the bottom row showing energy
+**relative to clean**. This is the quantity that would expose a problem, per the demo rule,
+and it shows the predicted mechanism directly:
+
+- the **corner cells** — low-contrast sky and road, no real gradient — reach **6× or more**
+  of their clean energy;
+- the **sign centre**, where genuine high-contrast structure lives, stays near 1×.
+
+So noise does not raise all cells equally. It swamps precisely the cells that had nothing to
+report, and their orientation votes become close to random while the informative cells are
+barely touched. **That is why differentiation is the wrong operation under noise** — it is
+high-pass, so it amplifies rather than averages. Mean |Δdescriptor| at σ=40: 0.1261, roughly
+4× the gamma displacement.
+
+### 7.3 `hog_cell_size.png` — why 6 px beat 8 px
+
+The same sign at both cell sizes with the grid drawn on. At 8 px a whole sign gets only a 6×6
+grid and the digits fall *inside* single cells; at 6 px the 8×8 grid begins to resolve them.
+The visual counterpart of the +3.5 pp measured at 5.2, and of why the digits are what HOG
+loses (§5.2).
+
+---
+
+## 8. Task 5 is complete
+
+5.1–5.5 done. Open items belonging elsewhere: the `clahe_hsv` hue-wrap check is verified and
+recorded in note 08; `transform_sqrt` remains an untested ablation (§2.4).
 - **5.4** the HOG visualisation figure, one sample per super-category.
 - **5.5** the mechanics demo — cell grid, block normalisation before/after, and gradient
   magnitude per cell under noise, where HOG is predicted to suffer most (§3.2 measured a

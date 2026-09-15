@@ -463,11 +463,26 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       speed-limit digits differ in fine stroke detail *within* a cell, which HOG pools away.
       **The representation × difficulty interaction, visible on clean data.**
       See `docs/report-material/12-hog.md` §5.2.
-- [ ] **5.4** Figure: HOG visualization, one sample per super-category
-- [ ] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — cell grid over the sign, block
-      normalisation before/after, and the same degraded-input-through-the-pipeline panel as
-      PCA. Must show the quantity that would expose a bug: gradient magnitude per cell under
-      noise, where HOG is predicted to suffer.
+- [x] **5.4** Figure: HOG visualization, one sample per super-category
+      — `scripts/figure_hog.py` → `figures/report/hog_visualization.png`. Four *shapes*, not
+      four arbitrary classes; config read from the sweep CSV. States explicitly that it renders
+      the **un-normalised** histograms (the classifier sees the block-normalised vector) and
+      that brightness is rescaled for display only. **Corroborates 5.3 visually**: on
+      *Speed limit (80)* the circular border gives strong strokes while the digits give only
+      short weak ones — the detail separating 80 from 50 is pooled away, which is precisely
+      HOG's worst confusion. See `docs/report-material/12-hog.md` §6.
+- [x] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — three figures into
+      `figures/demo/hog/`, all built from the real modules, and pointed at *Speed limit (80)* —
+      HOG's **worst** class (5.3) rather than a flattering one.
+      **Block normalisation quantified:** linear contrast ×0.5 gives mean |Δdescriptor| =
+      **0.0000** (traces exactly superimposed); gamma 2.5 gives **0.0339**. Exact protection
+      against contrast, partial against gamma — the 9.5 panel's mechanism on one image.
+      **The failure test:** per-cell gradient energy relative to clean as σ rises. Corner cells
+      (low-contrast sky, no real gradient) reach **6×+** their clean energy while the sign
+      centre stays near 1× — noise swamps exactly the cells that had nothing to report, so
+      their orientation votes go random. Mean |Δdescriptor| at σ=40 is 0.1261, ~4× gamma's.
+      **Cell size** shown side by side: at 8 px the digits fall inside single cells.
+      See `docs/report-material/12-hog.md` §7. **Task 5 complete.**
 - [x] **7.1** Define small CNN: 3 conv blocks (32→64→128), BN, maxpool, dropout, FC head. Target < 1M params. *(task 7 = 3.0 h)*
       — `gtsrb.representations.cnn.SmallCNN`. **The specified head misses the budget at
       1.48 M** — the conv trunk is only 287 k, so the first linear layer was 80 % of the
