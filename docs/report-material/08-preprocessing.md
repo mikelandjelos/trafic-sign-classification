@@ -385,3 +385,60 @@ would cost hours for an ablation arm that is already interpretable once the caus
 
 **Recorded as a limitation and as future work**, and as the explanation the 9.7 table must
 carry.
+
+
+---
+
+## Addendum (task 5.3) — the ablation, three methods in, and it is already conclusive
+
+All three completed methods swept all three preprocessing configs independently, each with its
+own hyperparameters. So the 9.7 table can be previewed now, and the answer is clear.
+
+### Validation macro-F1
+
+| method | `raw_gray` | `clahe_gray` | `clahe_hsv` | Δ (clahe_gray − raw_gray) |
+|---|---|---|---|---|
+| `pca_svm` | 0.7713 | **0.7977** | 0.7674 | **+0.0264** |
+| `hog_svm` | **0.9175** | 0.9138 | 0.8205 | **−0.0038** |
+| `cnn_e2e` | 0.9856 | **0.9872** | 0.9642 | **+0.0017** |
+
+### Validation accuracy
+
+| method | `raw_gray` | `clahe_gray` | `clahe_hsv` | Δ (clahe_gray − raw_gray) |
+|---|---|---|---|---|
+| `pca_svm` | 0.8140 | **0.8442** | 0.8257 | **+0.0301** |
+| `hog_svm` | **0.9298** | 0.9264 | 0.8456 | **−0.0033** |
+| `cnn_e2e` | 0.9865 | **0.9902** | 0.9755 | **+0.0037** |
+
+### 1. The ranking is stable — which is exactly what 8.2 asks
+
+**CNN > HOG > PCA on both metrics, under both grayscale configs.** Preprocessing moves no
+method past another. The conclusion of the study is therefore not an artifact of one
+preprocessing choice, which is the claim task 8.2 exists to support and the only claim it is
+entitled to make with one seed.
+
+The margin is not close: the **largest** preprocessing effect anywhere in the table (+3.0 pp
+accuracy, PCA) is smaller than the **smallest** gap between adjacent methods (HOG − PCA =
+8.6 pp macro-F1).
+
+### 2. CLAHE helps exactly one method, and it is the predictable one
+
+| method | internal contrast normalisation | gains from CLAHE |
+|---|---|---|
+| PCA | **none** | **+2.6 pp** |
+| CNN | BatchNorm | +0.2 pp |
+| HOG | L2-Hys per block | **−0.4 pp** |
+
+The effect tracks a single structural property. PCA is the only representation with no
+internal normalisation and the only one CLAHE meaningfully helps; HOG is actively *hurt*,
+because CLAHE is doing a job HOG already does and doing it less well; the CNN is indifferent
+because BatchNorm absorbs it.
+
+**This is a better ablation result than "config X is best."** It says *what kind of method*
+benefits from contrast normalisation and why — a claim that transfers beyond GTSRB.
+
+### 3. The `clahe_hsv` column is not clean
+
+Those losses are contaminated by the hue-wrap defect documented above: they measure a broken
+encoding of colour, not the value of colour. **The two grayscale columns are the interpretable
+comparison.** Stated wherever the third column is shown.
