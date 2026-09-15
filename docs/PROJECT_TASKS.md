@@ -591,7 +591,19 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       vocabulary — most patches collapsing onto one codeword under blur — passes that
       assertion and is obvious on sight.
 - [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
-- [ ] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three. ~20 min, you already have both pieces.
+- [x] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three.
+      — `scripts/train_cnn_features.py`, no retraining. **macro-F1 0.9797, accuracy 0.9889**
+      (C=0.01, balanced). **All five methods now exist.**
+      **The objective mismatch costs 0.75 pp macro-F1 but only 0.13 pp accuracy** — it does not
+      cost uniformly, it costs on the hard rare classes: the top two confusions both roughly
+      *double* versus `cnn_e2e` (31.7 % vs 15.0 %, 16.7 % vs 8.3 %). Reading: the CNN's
+      features are nearly sufficient alone, but the last increment on the hardest pairs comes
+      from the jointly-trained head, not the representation.
+      **`C` barely matters** — all 8 grid points within 0.001 macro-F1, where PCA's `C` moved
+      it 2.6 pp. A good representation makes the classifier's settings stop mattering.
+      **Table 1 caveat:** the 0.04 MB artifact is the SVM head only; it cannot run without the
+      shared 3.38 MB network, so the honest figure is **3.42 MB**.
+      See `docs/report-material/13-cnn.md` §9.
       **No retraining — it reuses 7.3's network.** There is exactly one training run in the
       whole project. Caveat to report alongside the result: those features were optimised for
       a *softmax head*, so if `cnn_feat_svm` trails `cnn_e2e`, part of the gap is objective

@@ -1,4 +1,4 @@
-# 13 — The small CNN: the learned representation (tasks 7.1–7.3)
+# 13 — The small CNN: the learned representation (tasks 7.1–7.3, 7.5)
 
 *Feeds: Methodology → representations; Table 1 (9.1); **Limitations** (no GPU); the
 `cnn_e2e` vs `cnn_feat_svm` distinction throughout.*
@@ -7,7 +7,7 @@ Implementation: `src/gtsrb/representations/cnn.py`. Tests: `tests/test_cnn.py` (
 Figure: `scripts/figure_cnn_architecture.py` → `figures/report/cnn_architecture.png` — shapes
 and parameter counts are read off the real model with forward hooks, so the diagram cannot
 drift from the code.
-**Status:** complete (tasks 7.1–7.3; all three preprocessing runs done)
+**Status:** complete (tasks 7.1–7.3, 7.5)
 
 ---
 
@@ -290,3 +290,66 @@ confusions for **more than just the best and worst method**.
 - Hyperparameters (LR, epochs, batch size) are **not** chosen yet; whatever is swept must go
   through the same validation-macro-F1 protocol as every other method (§7.4 of `11-pca.md`),
   even though the CNN's own head means `C` does not apply to `cnn_e2e`.
+
+
+---
+
+## 9. Task 7.5 — `cnn_feat_svm`, the CNN on the same footing as the others
+
+`scripts/train_cnn_features.py`. **No retraining**: the 128-d penultimate layer of the
+network task 7.3 already trained, fed to the same `LinearSVC`, with `C` and `class_weight`
+tuned on validation exactly as for every other method.
+
+| | `cnn_feat_svm` | `cnn_e2e` | difference |
+|---|---|---|---|
+| val accuracy | 0.9889 | 0.9902 | **−0.13 pp** |
+| val macro-F1 | **0.9797** | **0.9872** | **−0.75 pp** |
+| feature dim | 128 | — | |
+| inference, batched | 1.1895 ms | 1.7031 ms | |
+| inference, single | 1.6346 ms | 1.4772 ms | |
+
+Selected `C = 0.01`, `class_weight="balanced"`.
+
+### 9.1 The gap is small, and it lands where the theory says it should
+
+The objective mismatch of §1.1 costs **0.75 pp macro-F1** — the features were shaped by
+cross-entropy against 43 softmax units, not by what would please a maximum-margin linear
+classifier. That the penalty is under a point says the CNN's representation transfers well;
+the SVM is not the bottleneck.
+
+**The more interesting part is that macro-F1 falls nearly 6× more than accuracy** (0.75 pp vs
+0.13 pp). The transfer does not cost uniformly — it costs on the **hard, rare classes**:
+
+| confusion | `cnn_e2e` | `cnn_feat_svm` |
+|---|---|---|
+| End of no passing → End of all speed limits | 15.0 % | **31.7 %** |
+| Roundabout mandatory → Priority road | 8.3 % | 16.7 % |
+
+Both roughly **double**. The softmax head, trained jointly with the features, resolves the
+hardest pairs better than a linear classifier bolted on afterwards can — and those pairs are
+in the small classes that macro-F1 weights equally. So the right reading is:
+
+> The CNN's features are nearly sufficient on their own, but the last increment on the hardest
+> classes comes from the jointly-trained head, not from the representation.
+
+### 9.2 `C` barely matters — informative in itself
+
+All eight grid points landed within **0.001 macro-F1** of each other (0.9788–0.9797). The
+features are so nearly linearly separable that regularisation has almost nothing to do.
+
+Contrast PCA, where `C` moved macro-F1 by 2.6 pp and the best value shifted by three orders
+of magnitude with dimensionality (note 11 §7.1). **The flatness of this grid is a property of
+the representation**, and worth one line in the report: a good representation makes the
+classifier's settings stop mattering.
+
+### 9.3 Table 1 caveat — the 0.04 MB model size is not the cost
+
+The saved artifact is **0.04 MB**, because it is only the SVM head (128 × 43). But it cannot
+run without the **3.38 MB network** that produced the features, which is shared with
+`cnn_e2e`.
+
+So the honest figure for `cnn_feat_svm` is **3.42 MB**, not 0.04 MB. This is the third
+distinct thing the `model_size_mb` column measures (note 06): PCA is 96 % learned basis, HOG
+is purely SVM coefficients with nothing learned, and this row is an SVM head plus a shared
+network. **Table 1 must state what each number contains**, or this row will look like the
+cheapest method in the study when it is among the most expensive.
