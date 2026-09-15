@@ -4,7 +4,7 @@
 noise and gamma panels (9.5).*
 
 Implementation: `src/gtsrb/representations/hog.py`. Tests: `tests/test_hog.py` (28).
-**Status:** complete (tasks 5.1, 5.2)
+**Status:** complete (tasks 5.1, 5.2, 5.3)
 
 ---
 
@@ -228,9 +228,69 @@ different operations on the same pixels. The ablation must say which.
 
 ---
 
-## 5. Open for tasks 5.3–5.5
+## 5. Task 5.3 — the trained model and its cost
 
-- **5.3** train the final model at the selected configuration and record cost metrics.
+`scripts/train_hog.py` → `results/results.csv` (59 rows),
+`results/models/hog_svm_raw_gray.joblib`.
+
+| | value |
+|---|---|
+| val accuracy | **0.9298** |
+| val macro-F1 | **0.9175** |
+| training time | descriptors + `LinearSVC` (nothing is learned in between) |
+| inference, batched | 0.7592 ms/img |
+| inference, single image | 0.9830 ms/img |
+| model size | **0.58 MB** |
+| feature dim | 1764 |
+
+Reproduces the 5.2 selected cell exactly, the same end-to-end consistency check PCA passed.
+
+### 5.1 The cost columns behave as the structural claim predicts
+
+**Model size: 0.58 MB against PCA's 2.35 MB** — and the composition is the point, not the
+number. HOG's model is *entirely* `LinearSVC` coefficients (1764 × 43 doubles ≈ 0.6 MB); it
+has no learned stage to store. PCA's 2.35 MB is 96 % basis. This is exactly the caveat note 06
+records: **the column does not measure the same thing across rows**, and Table 1 must say what
+dominates each.
+
+**Batching ratio: 1.3×** (0.7592 batched vs 0.9830 single). The three methods now span the
+full range — PCA **49×**, HOG **1.3×**, CNN **0.87×** — tracking how much per-image work each
+does. PCA's cost is one matrix multiply that amortises beautifully; HOG spends most of its
+time in per-image descriptor extraction; the CNN is nearly all per-image work.
+
+### 5.2 Finding — HOG fails on *completely different classes* than PCA and the CNN
+
+This is the sharpest result so far, and it was not predicted.
+
+| | worst classes | top confusion |
+|---|---|---|
+| **PCA** | 41, 32, 40, 29 | End of no passing → End of all speed limits (60.0 %) |
+| **CNN** | 41, 32, 40, 29 | End of no passing → End of all speed limits (15.0 %) |
+| **HOG** | **29, 24, 30, 5** | **Speed limit (80) → Speed limit (50) (16.9 %)** |
+
+**Four of HOG's five top confusions are speed limits.** PCA's and the CNN's hardest pairs are
+the *end-of-restriction* signs, which barely trouble HOG.
+
+The mechanism follows the structural axes directly:
+
+- **End-of-restriction signs** are near-identical grey circles distinguished by a diagonal
+  strikethrough — a strong, well-localised **oriented gradient**, precisely what HOG encodes
+  and what a holistic intensity subspace cannot separate. So HOG solves what PCA cannot.
+- **Speed-limit digits** sit at the same position in every sign and differ only in fine
+  stroke shape *within* a cell. HOG's 8×8 px cells pool exactly that detail away, while a
+  holistic or hierarchical encoding keeps it.
+
+**This is the representation × difficulty interaction the project set out to find**, appearing
+on *clean* data before any degradation is applied. It also revises the 9.3 premise twice over:
+"speed limits confuse predictably" is true **for HOG** and false for PCA and the CNN.
+
+**Consequence for task 9.2/9.3:** reporting confusion matrices only for the best and worst
+method would hide this entirely — the two extremes (CNN and PCA) share a failure mode, and the
+method in the middle has a different one. The tables must cover all five.
+
+---
+
+## 6. Open for tasks 5.4–5.5
 - **5.4** the HOG visualisation figure, one sample per super-category.
 - **5.5** the mechanics demo — cell grid, block normalisation before/after, and gradient
   magnitude per cell under noise, where HOG is predicted to suffer most (§3.2 measured a
