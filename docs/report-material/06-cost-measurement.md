@@ -1,7 +1,7 @@
 # 06 — Cost measurement: what the timing numbers can and cannot claim
 
 **Feeds:** Methodology → cost measurement; Table 1 (cost columns); **Limitations**.
-**Status:** complete (tasks 1.5, 4.3, 5.2 — batched-vs-single latency, model-size composition, tuning parallelism)
+**Status:** complete (tasks 1.5, 4.3, 5.2, 7.3 — batched-vs-single latency, model-size composition, tuning parallelism, CPU power state)
 
 Implemented as `gtsrb.timing`; tested in `tests/test_timing.py`.
 
@@ -246,3 +246,55 @@ Two practical notes for anyone repeating this:
 Not adopted: a 45-minute saving did not justify putting untested parallel code into the one
 module every remaining method depends on. Recorded so the decision is not re-litigated from
 scratch, and so the 1.7× figure is available if a later sweep is large enough to warrant it.
+
+
+---
+
+## Addendum (task 7.3) — the CPU power profile silently changes every timing
+
+Mid-session the machine was switched from the "power saver" profile to "balanced", and the
+effect on the running jobs was immediately visible: CNN epochs dropped from **153 s to 120 s**
+(-22 %) with no code change.
+
+What the knob actually is, since the naming misleads:
+
+| | value |
+|---|---|
+| `scaling_governor` | `powersave` — **on amd-pstate this is the normal name, not a throttle** |
+| `energy_performance_preference` (EPP) | changed to `balance_performance` |
+| observed clock | ~3456 MHz avg, 3554 max (Ryzen 7 5800H base 3.2 GHz) |
+
+**The governor string is not the setting.** It reads `powersave` in both profiles; the EPP is
+what moved. Anyone checking only `scaling_governor` would conclude nothing had changed.
+
+### Consequence for Table 1
+
+Timings taken under different power profiles are **not comparable**, and nothing in
+`results.csv` records the profile. This compounds two effects already noted:
+
+1. thread count (recorded as `torch_threads`, and it differs between CNN runs),
+2. machine contention (two jobs sharing cores),
+3. **CPU power profile** (not recorded).
+
+All three move wall-clock time without touching accuracy. The existing caveat — *timings are
+relative costs in one recorded environment, not deployment latency* — therefore has to be
+stated more strongly than "one environment": within a single session the environment itself
+changed by 22 %.
+
+**Practical rule for the final numbers:** the timings that go into Table 1 should be
+re-measured in one pass, on an idle machine, at a fixed power profile and thread count, rather
+than taken from whichever run happened to produce them. Accuracy needs no such re-run.
+
+### Addendum — the CNN inverts PCA's batching advantage
+
+Measured at task 7.3 and recorded here because it changes how the cost column reads:
+
+| method | batched | single image | ratio |
+|---|---|---|---|
+| PCA + LinearSVC | 0.0066 ms | 0.3254 ms | **49×** |
+| CNN | 1.703 ms | 1.477 ms | **0.87×** |
+
+The CNN gains essentially nothing from batching — its per-image convolution work leaves
+nothing to amortise. So the ranking depends on which column is read: batched, PCA looks ~260×
+cheaper; **per frame it is only ~4.5×**. The single-image column is the honest one for any
+real-time claim.

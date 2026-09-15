@@ -39,7 +39,7 @@ Distinct from:
 | [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.4) |
 | [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (task 5.1) |
 | [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU) | complete (task 7.1) |
-| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; demo 6.6; blur panel (9.5); §11 premise | extraction complete (tasks 6.1, 6.2) |
+| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; demo 6.6; blur panel (9.5); §11 premise | complete (tasks 6.1–6.4) |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
 render is copied into `figures/report/` (committed) by

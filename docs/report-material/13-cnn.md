@@ -7,7 +7,7 @@ Implementation: `src/gtsrb/representations/cnn.py`. Tests: `tests/test_cnn.py` (
 Figure: `scripts/figure_cnn_architecture.py` → `figures/report/cnn_architecture.png` — shapes
 and parameter counts are read off the real model with forward hooks, so the diagram cannot
 drift from the code.
-**Status:** complete (tasks 7.1, 7.2); 7.3 not yet launched
+**Status:** complete (tasks 7.1, 7.2); 7.3 run 1 of 3 done (`clahe_gray`)
 
 ---
 
@@ -208,9 +208,83 @@ is a live contender here in a way it was not for PCA (where it lost on macro-F1,
 
 ---
 
-## 7. Open for tasks 7.2 / 7.3
+## 7. Task 7.3, run 1 of 3 — `clahe_gray`
 
-- Training loop with per-epoch validation, early stopping and best-checkpoint saving.
+Run `20260913T...`, 6 threads (shared with the HOG sweep), `results/models/cnn_e2e_clahe_gray.pt`,
+epoch history in `results/histories/`.
+
+| | value |
+|---|---|
+| val accuracy | **0.9902** |
+| val macro-F1 | **0.9872** |
+| val weighted-F1 | 0.9901 |
+| best epoch | **18** (of 24 run; early-stopped, patience 6) |
+| training time | 3,350 s = **55.8 min**, 140 s/epoch |
+| inference, batched | 1.703 ms/img |
+| inference, single image | **1.477 ms/img** |
+| model size | 3.38 MB |
+| feature dim | 128 |
+
+Comfortably above the ~95 % guideline of §5, so no training problem to chase.
+
+### 7.1 The best-epoch rule earned its keep
+
+The run continued 6 epochs past its optimum (patience), and the final epoch was **0.0052
+macro-F1 worse** than epoch 18. Returning the last epoch — the easy implementation — would
+have reported a model measurably past its own peak, with nothing to indicate it. Small, but
+it is exactly the silent-degradation case `training.train` was written to prevent, and it
+happened on the very first real run.
+
+### 7.2 Finding — batching barely helps the CNN, unlike PCA
+
+| method | batched | single image | ratio |
+|---|---|---|---|
+| PCA + LinearSVC | 0.0066 ms | 0.3254 ms | **49×** |
+| **CNN** | **1.703 ms** | **1.477 ms** | **0.87×** |
+
+The CNN's single-image figure is *lower* than its batched one — within measurement noise of
+each other, and the opposite of PCA's 49× gap. There is so much per-image work in the
+convolutions that there is almost nothing left to amortise over a batch.
+
+**This inverts the cost comparison at batch size 1**, which is the realistic setting for a
+camera. Batched, PCA looks ~260× cheaper than the CNN; per frame it is only ~4.5×. Any
+real-time claim in the report must use the single-image column, and this is the clearest
+demonstration of why both are recorded.
+
+### 7.3 Finding — the CNN's hardest classes are PCA's hardest classes
+
+Worst classes by F1, and the top confusions, compared across two methods that share nothing
+but the data and the evaluation harness:
+
+| confusion | PCA (macro-F1 0.798) | CNN (macro-F1 0.987) |
+|---|---|---|
+| End of no passing → End of all speed and passing limits | 60.0 % | **15.0 %** |
+| Roundabout mandatory → Priority road | 58.3 % | 8.3 % |
+
+Worst-class overlap is just as strong: classes **41** (*End of no passing*), **32** (*End of
+all speed and passing limits*), **40** (*Roundabout mandatory*) and **29** (*Bicycles
+crossing*) are in the bottom five for both.
+
+**The same pairs, attenuated roughly 4×.** Two representations with nothing structurally in
+common — one holistic and linear, one hierarchical and learned — fail on the same classes.
+That says the difficulty is **intrinsic to those classes**, not an artifact of PCA's
+holistic encoding, which is what a single method's confusion table could never establish.
+
+The end-of-restriction signs are near-identical grey circles with diagonal strikethroughs,
+differing only in fine internal detail; *Roundabout* and *Priority road* are both
+diamond/circular high-contrast shapes. Strong material for task 9.3, and a reason to report
+confusions for **more than just the best and worst method**.
+
+---
+
+## 8. Open for the remaining 7.3 runs
+
+- `raw_gray` and `clahe_hsv`, ~1 h each. `clahe_hsv` is the live contender: signs are
+  colour-coded and a CNN can exploit that in a way PCA could not (note 11 §7.1b).
+- Thread count differs across runs (6 for run 1, which shared the machine with the HOG
+  sweep; 7–8 for the rest), so **training times are not comparable between runs** — only
+  accuracy is. Recorded per run as `torch_threads` in `results.csv`.
+
 - The run is launched in the background (7.3) because at ~2 min/epoch it is the longest single
   compute item in the project.
 - Hyperparameters (LR, epochs, batch size) are **not** chosen yet; whatever is swept must go

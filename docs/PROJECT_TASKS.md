@@ -435,7 +435,22 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       0.53–0.83 ms/img. **Verified: a linear contrast change is cancelled exactly (shift
       0.000); gamma is only partly cancelled (0.358).** 28 tests.
       See `docs/report-material/12-hog.md`.
-- [ ] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
+- [x] **5.2** Sweep `pixels_per_cell` ∈ {(6,6),(8,8)}, `orientations` ∈ {9,12}
+      — `scripts/sweep_hog.py`, 96 points (× 3 preproc × `C` × `class_weight`), ~2 h 20 m,
+      **all converged**. **Selected `raw_gray`, 6px/9o, C=0.01, balanced → macro-F1 0.9175,
+      accuracy 0.9298.**
+      **Finding: HOG selects `raw_gray` where PCA selected `clahe_gray`** — the methods
+      genuinely disagree about preprocessing, which is exactly what the 4.2 per-method
+      decision was for. Mechanism: HOG block-normalises internally, so CLAHE is redundant for
+      it; PCA has no internal normalisation.
+      **Finding: cell size dominates orientation count** — 8px→6px is worth ~3.5 pp, 9→12
+      orientations is worth *nothing* (slightly negative). Spatial resolution is the binding
+      constraint on 48×48, not angular. The selected config is **not** the highest-dimensional.
+      `clahe_hsv` costs HOG −9.7 pp; hypothesis recorded (hue wraps at red, so gradients across
+      the discontinuity are spurious and win skimage's max-magnitude channel selection) —
+      **unverified, worth checking before 9.7**.
+      Third confirmation of the dimensionality/`C` coupling (C=0.01 at 1764 dims, 0.10 at 900).
+      See `docs/report-material/12-hog.md` §4.
 - [ ] **5.3** `LinearSVC` on HOG features, `C` tuned on val; record cost metrics and `C`
 - [ ] **5.4** Figure: HOG visualization, one sample per super-category
 - [ ] **5.5** **Demo** (`scripts/demo/hog_mechanics.py`) — cell grid over the sign, block
@@ -470,6 +485,13 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       the weights come back bit-identical. Batch order seeded off `config.SEED`. 16 tests.
       See `docs/report-material/13-cnn.md`.
 - [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
+      **Run 1 of 3 done (`clahe_gray`): val accuracy 0.9902, macro-F1 0.9872**, best epoch 18
+      of 24 (early-stopped), 55.8 min at 6 threads. Well above the ~95 % guideline.
+      The best-epoch rule mattered on the very first run: the final epoch was 0.0052 macro-F1
+      *worse* than epoch 18, so returning the last would have reported a model past its peak.
+      **Finding: the CNN gains nothing from batching** (1.703 ms batched vs 1.477 single) where
+      PCA gains 49× — so at batch size 1, the realistic camera setting, PCA's cost advantage
+      shrinks from ~260× to ~4.5×. Runs 2-3 (`raw_gray`, `clahe_hsv`) pending.
       **Three runs, one per preprocessing config** (~1 h each). Unlike the other methods, the
       CNN's representation *is* its weights, so each config is a full retrain — but 8.2
       ("best 2 methods × 3 configs") needs them regardless, and exempting the CNN would
@@ -499,9 +521,30 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       gamma 2.5** — checked rather than assumed, since heavy blur flattens local structure.
       But a *perfectly* uniform patch does produce a zero vector, so the code relies on
       "never happens on GTSRB", not on "cannot happen" — both are asserted.
-- [ ] **6.3** Subsample ~200k descriptors, `MiniBatchKMeans`, k ∈ {200, 500}
-- [ ] **6.4** Encode as k-dim histogram; L2 or power normalization
+- [x] **6.3** Subsample ~200k descriptors, `MiniBatchKMeans`, k ∈ {200, 500}
+      — `BoVWRepresentation.fit()`. Seeded vocabulary (two fits with the same seed agree,
+      asserted). `sample_descriptors` streams instead of materialising all ~2M descriptors
+      (the full array would be ~1 GB).
+- [x] **6.4** Encode as k-dim histogram; L2 or power normalization
+      — **`power_l2` by default, and the reason is narrower than it looks**: every image
+      contributes exactly 64 descriptors, so raw histograms *already* sum to a constant and
+      `l1`/`l2` are pure rescales that cannot change the ratio between two bins. Only the
+      square root does — Perronnin's burstiness correction. Measured on a 43-class stratified
+      subsample: power_l2 0.2769 > l2 0.2695 > none 0.2426 macro-F1. Fixed with a stated
+      reason rather than swept, following the precedent of HOG's `block_norm`.
+      Encoding is chunked for memory; `chunk=7` and `chunk=1000` give byte-identical results.
+      **Trap recorded:** the first probe reported chance-level macro-F1 (0.023) with plausible
+      accuracy (0.446) — it had subsampled with `iloc[:3000]` on class-ordered annotations and
+      contained 3 of 43 classes. A large accuracy/macro-F1 gap is a label-space signature.
 - [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
+      **OPEN: the plan's sampling density is too coarse.** Measured on the full split, k=500:
+      size12/step6 (the value specified in 6.1) gives macro-F1 **0.3402**; size8/step4 gives
+      0.4583; size6/step3 gives **0.5248**. +18.5 pp from density alone — more than `k` or `C`
+      move anything. Not a bug (vocabulary fully used, ~37 distinct words/img, larger `C`
+      monotonically worse). **Decision needed: add `(step, keypoint_size)` to the sweep?**
+      Separately, BoVW trailing the others is *expected* — spatial pyramid matching exists to
+      fix orderless weakness on aligned objects, and we deliberately omit it because it would
+      collapse BoVW onto HOG's position on the layout axis. See `14-bovw.md` §6.3.
 - [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
       a sign, codeword assignment as a colour map (which patches share a word), and the
       histogram before/after normalisation. **This is the demo most likely to catch a real
@@ -553,13 +596,31 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       vs none. See `docs/report-material/06-cost-measurement.md`.
 - [ ] **9.2** Figure: confusion matrix, best and worst method
 - [ ] **9.3** Table: top-10 most-confused class pairs + commentary (speed limits confuse predictably)
+      **Report confusions for more than the best and worst method.** PCA and the CNN — which
+      share nothing structurally — fail on the *same* classes, with the same top confusion
+      (End of no passing → End of all speed and passing limits: 60.0 % for PCA, 15.0 % for the
+      CNN) and four of five worst classes in common (41, 32, 40, 29). Same pairs, attenuated
+      ~4×. That establishes the difficulty is **intrinsic to those classes**, which a single
+      method's confusion table cannot show. Note also the commentary premise needs revising:
+      the hardest pairs are *not* the speed limits but the near-identical end-of-restriction
+      signs. See `docs/report-material/13-cnn.md` §7.3.
 - [ ] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
 - [ ] **9.5** Figure: robustness curves — 3 panels (noise, blur, gamma), one line per method.
       Plot accuracy **relative to each method's own clean baseline**, so the figure compares
       rate of degradation rather than starting point (and stays commensurable with the §11
       jitter panel, which lives on a different test set).
 - [ ] **9.6** **Table: predictions vs. outcomes** — which held, which didn't, and why. This is the core of the discussion section.
-- [ ] **9.7** Table: preprocessing ablation — reported as **ranking stability per
+- [ ] **9.7** Table: preprocessing ablation — **must carry the hue-wrap finding.**
+      `clahe_hsv` stores OpenCV HSV where hue wraps at 0/179, and red — the commonest sign
+      colour — sits on the wrap: *Stop* has 56.5 % of saturated pixels at hue<10 and 4.4 % at
+      hue>169. **3.98 % of adjacent-pixel hue gradients exceed 90**, and mean hue gradients
+      match intensity gradients, so they win any max-magnitude selection. Costs scale with
+      reliance on derivatives: **HOG −9.7 pp** (selects max-magnitude gradient across
+      channels), **CNN −2.3 pp and peaks at epoch 5 vs 18**, **PCA −3.0 pp** (never
+      differentiates). **Do not report this as "colour is uninformative"** — it is a defective
+      *encoding* of colour. Fix is known (hue as cos/sin, or CIELab) and deliberately not
+      applied: all three sweeps used the current config. See `08-preprocessing.md` addendum.
+      Reported as **ranking stability per
       stressor** across the three configs (see 8.2), not as a bare accuracy comparison.
 - [ ] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
 - [ ] Buffer
@@ -655,6 +716,15 @@ Those are what make this a study rather than a tutorial.
   `platform.json` with the numbers — a duration without its environment is uninterpretable,
   and the timings are relative, not deployment latency.
 - **PPM format** — original GTSRB is P6 PPM; `cv2.imread` handles it natively.
+- **A long job redirected to a log looks stalled** — Python block-buffers stdout when it is
+  not a terminal, so a sweep writing one line per fit can go 25 minutes without touching the
+  file while sitting at 98 % CPU. Check `ps -o stat=,%cpu=` before concluding anything is
+  wrong, and pass `flush=True` on progress prints. Hit at task 5.2.
+- **The CPU power profile changes timings by ~20 % and is not recorded anywhere** — switching
+  from "power saver" to "balanced" cut CNN epochs from 153 s to 120 s mid-run. Note that
+  `scaling_governor` reads `powersave` in *both* profiles on amd-pstate; the knob is
+  `energy_performance_preference`. Table 1 timings must be re-measured in one pass on an idle
+  machine at a fixed profile. See `docs/report-material/06-cost-measurement.md`.
 - **`.gitignore` patterns are not recursive** — `results/*.joblib` matches nothing in
   `results/models/`, so a 2.4 MB checkpoint sat untracked-but-unignored and would have been
   committed by the next `git add -A`. Found at task 4.3; fixed with `results/**/*.joblib`.
