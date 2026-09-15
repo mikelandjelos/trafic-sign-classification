@@ -1,4 +1,4 @@
-# 12 — HOG: the rigid-grid, locally-normalised representation (task 5.1)
+# 12 — HOG: the rigid-grid, locally-normalised representation (tasks 5.1–5.5)
 
 *Feeds: Methodology → representations; Table 1 (9.1); HOG figure (5.4); discussion of the
 noise and gamma panels (9.5).*

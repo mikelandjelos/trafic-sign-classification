@@ -1,10 +1,10 @@
-# 14 — BoVW: the orderless representation (tasks 6.1–6.2)
+# 14 — BoVW: the orderless representation (tasks 6.1–6.4)
 
 *Feeds: Methodology → representations; Table 1 (9.1); BoVW demo (6.6); the blur panel (9.5);
 the §11 jitter extension, whose premise rests on this method's orderlessness.*
 
 Implementation: `src/gtsrb/representations/bovw.py`. Tests: `tests/test_bovw.py` (33).
-**Status:** extraction complete (tasks 6.1, 6.2); vocabulary and encoding at 6.3–6.4.
+**Status:** complete (tasks 6.1–6.4); 6.5 blocked on the sampling-density decision (§6.3).
 
 ---
 

@@ -37,8 +37,8 @@ Distinct from:
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
 | [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.4) |
-| [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (task 5.1) |
-| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU) | complete (task 7.1) |
+| [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (tasks 5.1–5.5) |
+| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU) | complete (tasks 7.1–7.3) |
 | [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; demo 6.6; blur panel (9.5); §11 premise | complete (tasks 6.1–6.4) |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the

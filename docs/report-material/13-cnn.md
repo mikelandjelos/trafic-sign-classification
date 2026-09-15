@@ -1,4 +1,4 @@
-# 13 — The small CNN: the learned representation (task 7.1)
+# 13 — The small CNN: the learned representation (tasks 7.1–7.3)
 
 *Feeds: Methodology → representations; Table 1 (9.1); **Limitations** (no GPU); the
 `cnn_e2e` vs `cnn_feat_svm` distinction throughout.*
@@ -7,7 +7,7 @@ Implementation: `src/gtsrb/representations/cnn.py`. Tests: `tests/test_cnn.py` (
 Figure: `scripts/figure_cnn_architecture.py` → `figures/report/cnn_architecture.png` — shapes
 and parameter counts are read off the real model with forward hooks, so the diagram cannot
 drift from the code.
-**Status:** complete (tasks 7.1, 7.2); 7.3 run 1 of 3 done (`clahe_gray`)
+**Status:** complete (tasks 7.1–7.3; all three preprocessing runs done)
 
 ---
 

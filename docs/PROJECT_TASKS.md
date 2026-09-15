@@ -510,9 +510,14 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       identical seeds — once stopping at the best epoch, once running past it — and asserts
       the weights come back bit-identical. Batch order seeded off `config.SEED`. 16 tests.
       See `docs/report-material/13-cnn.md`.
-- [ ] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
-      **Run 1 of 3 done (`clahe_gray`): val accuracy 0.9902, macro-F1 0.9872**, best epoch 18
-      of 24 (early-stopped), 55.8 min at 6 threads. Well above the ~95 % guideline.
+- [x] **7.3** **Launch baseline training in the background** — it trains while you write BoVW tomorrow
+      **All three runs complete.** Selected **`clahe_gray`** (macro-F1 0.9872 / acc 0.9902),
+      over `raw_gray` (0.9856 / 0.9865) and `clahe_hsv` (0.9642 / 0.9755). Best epoch 18 of 24
+      for both grayscale runs; `clahe_hsv` peaked at **epoch 5** and stopped at 11 — the
+      hue-wrap defect (note 08) showing up as a spurious signal learned early that does not
+      generalise. 55.8 / 43.2 / 18.9 min at 6 / 7 / 8 threads, so **training times are not
+      comparable across the three** (recorded per run as `torch_threads`).
+      Well above the ~95 % guideline.
       The best-epoch rule mattered on the very first run: the final epoch was 0.0052 macro-F1
       *worse* than epoch 18, so returning the last would have reported a model past its peak.
       **Finding: the CNN gains nothing from batching** (1.703 ms batched vs 1.477 single) where
@@ -659,6 +664,18 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ### Day 5 — Report (Serbian)
 
+- [x] consult and brainstorm about sections -- the structure is scaffolded first
+      — `docs/report/main.tex` compiles cleanly (0 errors, 6 pages) with an empty body:
+      every section and subsection is in place, each carrying a comment naming **which
+      report-material note and which task** its content comes from, plus the figure filename
+      from `figures/report/`. Writing is then transcription, not reconstruction.
+      Three local toolchain fixes, all documented inline in the preamble: **`biber` is not
+      installed** (nor `biblatex.sty`) so it uses plain `bibtex` with `unsrt`, which gives the
+      same numeric-by-appearance style; **`serbian.ldf` is absent** (the diplomski was built
+      on Overleaf's full TeX Live) so babel needs `provide=*`; and babel's `serbian` defaults
+      to **Cyrillic** captions, so `import=sr-Latn` is required or the build dies on a machine
+      without Cyrillic fonts. `references.bib` seeded with the proposal's 18 entries
+      (copied — the proposal itself was not modified).
 - [ ] Write up, has same formatting as the proposal, but needs to be created based on this research and the implementation:
 
 ---

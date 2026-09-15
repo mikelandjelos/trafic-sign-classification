@@ -1,0 +1,296 @@
+% =====================================================================================
+% Uporedna analiza reprezentacija pri simuliranim degradacijama slike
+% primenjena na zadatak klasifikacije saobraćajnih znakova
+%
+% SKELET. Sadržaj se popunjava iz docs/report-material/*.md -- svaka sekcija ispod nosi
+% komentar sa izvorom (nota + zadatak) i imenom slike iz figures/report/.
+%
+% Formatiranje je namerno identično predlogu projekta
+% (docs/proposition/predlog_projekta.tex): isti documentclass, iste margine, isti stil
+% sekcija (\section* sa ručnim brojem), obična bibtex bibliografija, isti blok za uklanjanje
+% naslova "References". Bez babel paketa -- predlog ga ne koristi, a utf8 + T1 + lmodern je
+% dovoljno za srpsku latinicu i izbegava zavisnost od serbian.ldf, koji na ovoj mašini nije
+% instaliran (i koji po podrazumevanim podešavanjima daje ĆIRILICU).
+% =====================================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{array}
+\usepackage{soul}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\geometry{margin=2.2cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+\setlist[itemize]{leftmargin=1.2cm,itemsep=2pt,topsep=4pt}
+\setlist[enumerate]{leftmargin=1.0cm,itemsep=4pt,topsep=6pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.2}
+
+\renewcommand*\figurename{Slika}
+\renewcommand*\tablename{Tabela}
+\captionsetup[figure]{labelfont={bf},name={Slika},labelsep=colon}
+\captionsetup[table]{labelfont={bf},name={Tabela},labelsep=colon}
+
+\graphicspath{{../../figures/report/}}
+
+% Skraćenice za imena metoda, da ostanu dosledna kroz ceo rad.
+\newcommand{\pcasvm}{\texttt{pca\_svm}}
+\newcommand{\hogsvm}{\texttt{hog\_svm}}
+\newcommand{\bovwsvm}{\texttt{bovw\_svm}}
+\newcommand{\cnnfeat}{\texttt{cnn\_feat\_svm}}
+\newcommand{\cnne}{\texttt{cnn\_e2e}}
+
+% Ukloni automatski naslov ("References") iz thebibliography okruženja -- isto kao u predlogu.
+\makeatletter
+\renewenvironment{thebibliography}[1]
+     {\list{\@biblabel{\@arabic\c@enumiv}}%
+           {\settowidth\labelwidth{\@biblabel{#1}}%
+            \leftmargin\labelwidth
+            \advance\leftmargin\labelsep
+            \@openbib@code
+            \usecounter{enumiv}%
+            \let\p@enumiv\@empty
+            \renewcommand\theenumiv{\@arabic\c@enumiv}}%
+      \sloppy
+      \clubpenalty4000
+      \@clubpenalty \clubpenalty
+      \widowpenalty4000%
+      \sfcode`\.\@m}
+     {\def\@noitemerr
+       {\@latex@warning{Empty `thebibliography' environment}}%
+      \endlist}
+\makeatother
+
+\begin{document}
+
+\begin{center}
+{\Large Univerzitet u Nišu\\Elektronski fakultet}\\[1.2cm]
+{\LARGE \textbf{Projekat iz predmeta Računarski vid}}\\[0.6cm]
+{\Large \textbf{Uporedna analiza reprezentacija pri simuliranim degradacijama slike primenjena na zadatak klasifikacije saobraćajnih znakova}}\\[1.2cm]
+{\large Student: Mihajlo Madić, broj indeksa 2119}\\[0.3cm]
+{\large Niš, 2026.}
+\end{center}
+
+\vspace{0.6cm}
+
+% =====================================================================================
+\section*{Sažetak}
+% Izvor: README.md + PROJECT_TASKS.md §1 i §2. ~200 reči.
+% Mora da sadrži: (1) GTSRB je zasićen benchmark, pa pitanje nije "koja reprezentacija je
+% najtačnija" nego "koja otkazuje pod kojim uslovima"; (2) četiri reprezentacije, fiksiran
+% linearni klasifikator, pet konfiguracija; (3) tri degradacije x pet nivoa; (4) glavni
+% nalaz -- popuniti iz zadatka 9.8.
+
+\noindent\textbf{Ključne reči:} računarski vid, klasifikacija saobraćajnih znakova, GTSRB,
+reprezentacije slike, PCA, HOG, vreća vizuelnih reči, konvolucione neuronske mreže, robusnost.
+
+% =====================================================================================
+\section*{1. Uvod}
+% Izvor: predlog §4.1-4.2, README.md.
+
+\subsection*{1.1 Kontekst -- mesto modula u širem sistemu}
+% Izvor: predlog §4.1. Ceo lanac: detekcija -> klasifikacija -> praćenje -> procena
+% udaljenosti. Eksplicitno označiti koji JEDAN modul ovaj rad isporučuje.
+
+\subsection*{1.2 Formulacija problema}
+% Izvor: predlog §4.2. Ulaz: RGB isečak 15x15 do 250x250 sa tačno jednim znakom.
+% Izlaz: jedna od 43 klase.
+
+\subsection*{1.3 Istraživačko pitanje i doprinos}
+% Izvor: PROJECT_TASKS §1. Doprinos NIJE rang-lista nego INTERAKCIJA reprezentacija x
+% degradacija. Navesti falsifikabilnu tvrdnju iz §2 (ukrštanje PCA/HOG pod šumom i gamom).
+
+\subsection*{1.4 Struktura rada}
+
+% =====================================================================================
+\section*{2. Reprezentacije slike}
+% Izvor: note 11, 12, 13, 14 -- svaka ima sekciju "What the representation is".
+
+\subsection*{2.1 Strukturne ose poređenja}
+% Izvor: PROJECT_TASKS §1 tabela. OKOSNICA CELOG RADA -- tabela sa 4 reda (prostorna
+% struktura / lokalnost / da li uči) mora doći rano, jer sva predviđanja i cela diskusija
+% referišu na nju.
+
+\subsection*{2.2 Analiza glavnih komponenti (PCA)}
+% Izvor: note 11 §1-§2. Eigenfaces~\cite{eigenfaces}. Holistička, kritična na poravnanje.
+% Odluka whiten=False i obrazloženje (note 11 §2.1).
+
+\subsection*{2.3 Histogrami orijentisanih gradijenata (HOG)}
+% Izvor: note 12 §1-§2. \cite{hog}. Kruta rešetka; blokovska L2-Hys normalizacija je
+% mehanizam na kome počiva predviđanje o gami.
+
+\subsection*{2.4 Vreća vizuelnih reči (BoVW)}
+% Izvor: note 14 §1-§2. \cite{bovw,sift}. JEDINA reprezentacija bez prostornog rasporeda.
+% Gusti SIFT umesto detektora i zašto (detektor vraća promenljiv broj tačaka po slici).
+
+\subsection*{2.5 Konvoluciona neuronska mreža (CNN)}
+% Izvor: note 13 §1-§2. \cite{ciresan}. Jedna mreža -> dve metode (\cnne{} i \cnnfeat{}).
+% Slika: cnn_architecture.png. Zašto \cnnfeat{} uopšte postoji (note 13 §1).
+
+% =====================================================================================
+\section*{3. Skup podataka}
+
+\subsection*{3.1 GTSRB}
+% \cite{gtsrb}. 43 klase, 39.209 / 12.630 isečaka.
+
+\subsection*{3.2 Struktura traka i podela na skupove}
+% Izvor: note 04 -- NAJVAŽNIJA METODOLOŠKA SEKCIJA.
+% Ključ je (class_id, track_id), NE sirovi TTTTT prefiks (75 naspram 1307).
+% Izmereno: korelacija 0,61 unutar trake naspram 0,17 između traka iste klase.
+% Slike: split_leakage.png, split_similarity.png.
+
+\subsection*{3.3 Neuravnoteženost klasa}
+% Izvor: note 02. 10,7x (2250 naspram 210) -- razlog zašto se izveštava makro-F1.
+
+% =====================================================================================
+\section*{4. Metodologija}
+
+\subsection*{4.1 Pretprocesiranje}
+% Izvor: note 08. Tri konfiguracije kao lestvica; svaka dodaje tačno jedan faktor.
+% Slika: preprocessing_configs.png.
+
+\subsection*{4.2 Kontrolisane degradacije}
+% Izvor: note 10. Tri stresora x pet nivoa.
+% Slike: degradation_contact_sheet.png, pipeline.png.
+% KLJUČNO: degradacija se primenjuje POSLE pretprocesiranja -- ubacuje se rezidual koji
+% pretprocesiranje nije uklonilo. Obrazloženje izbora baš ova tri stresora.
+
+\subsection*{4.3 Fiksiran klasifikator i protokol izbora hiperparametara}
+% Izvor: note 11 §6.2 i §7.4 (pitanje Q4).
+% "Fiksiran klasifikator" = isti estimator i isti protokol izbora, NE isti hiperparametri.
+% C i class_weight se biraju po metodi, na validaciji, po makro-F1.
+
+\subsection*{4.4 Metrike}
+% Izvor: note 05. labels=range(43). Makro-F1 je i kriterijum IZBORA, ne samo izveštavanja.
+
+\subsection*{4.5 Merenje cene}
+% Izvor: note 06. DVA broja za inferenciju (paketna i pojedinačna): PCA 49x, HOG 1,3x,
+% CNN 0,87x. Veličina modela ne meri istu stvar za sve metode (PCA je 96% baza, HOG nema
+% naučenu komponentu). Vremena su relativne cene u jednom okruženju.
+
+\subsection*{4.6 Reproducibilnost}
+% Izvor: note 03, note 07. Jedan seed, pinovanje niti, sadržajno izvedeni seedovi za
+% degradacije, results.csv sa run_id. Granice tvrdnje (float32, raspored u memoriji, EPP).
+
+% =====================================================================================
+\section*{5. Implementacija}
+% Izvor: note 01, 07, 08. Onoliko koliko treba da rezultat bude ponovljiv, ne više.
+
+\subsection*{5.1 Organizacija koda i tok izvršavanja}
+% Slika: pipeline.png.
+
+\subsection*{5.2 Keširanje pretprocesiranih slika}
+% Izvor: note 08. 83x ubrzanje; keš se proverava bit-po-bit prema referentnoj implementaciji.
+
+% =====================================================================================
+\section*{6. Eksperimentalna postavka}
+% Izvor: PROJECT_TASKS §7. Mreža 5 metoda x 16 uslova = 80 evaluacija.
+% Obuka je uvek na čistim podacima -- bez augmentacije i bez degradacija.
+
+\subsection*{6.1 Predviđanja zabeležena pre eksperimenata}
+% Izvor: predictions.md, datirano 13.09.2026, pre bilo kakvog modela.
+% Tabela ide OVDE, a ne u diskusiju -- poenta je da su zapisana unapred.
+
+% =====================================================================================
+\section*{7. Rezultati}
+
+\subsection*{7.1 Uporedna tabela metoda}
+% Izvor: zadatak 9.1, results.csv. Pet redova.
+% UPOZORENJE (note 06): kolona "veličina modela" ne meri istu stvar za sve metode.
+
+\subsection*{7.2 Matrice konfuzije}
+% Izvor: zadatak 9.2. Slika: confusion_best_worst.png.
+% NAPOMENA: prikazati VIŠE od najbolje i najgore metode -- PCA i CNN dele iste najteže
+% klase, a HOG ima potpuno druge (note 12 §5.2).
+
+\subsection*{7.3 Najčešće zamene klasa}
+% Izvor: zadatak 9.3, note 12 §5.2, note 13 §7.3.
+% PCA i CNN: znaci prestanka zabrane (60,0% i 15,0%). HOG: ograničenja brzine (80->50, 16,9%).
+
+\subsection*{7.4 Tačnost u funkciji veličine znaka}
+% Izvor: zadatak 9.4. Slika: accuracy_by_size.png. 47,6% slika je ispod 32 px.
+
+\subsection*{7.5 Krive robusnosti}
+% Izvor: zadatak 9.5. Slika: robustness_curves.png -- GLAVNA SLIKA RADA.
+% Relativno u odnosu na sopstvenu čistu osnovu svake metode.
+
+\subsection*{7.6 Ablacija pretprocesiranja}
+% Izvor: zadatak 9.7, note 08 dodatak. Izveštava se kao STABILNOST RANGIRANJA.
+% Mora nositi nalaz o obavijanju nijanse (hue wrap) -- videti 8.5.
+
+% =====================================================================================
+\section*{8. Diskusija}
+
+\subsection*{8.1 Predviđanja naspram ishoda}
+% Izvor: zadatak 9.6 -- JEZGRO DISKUSIJE. Red koji kaže "pogrešno, jer..." vredi više.
+
+\subsection*{8.2 Zašto reprezentacije otkazuju onako kako otkazuju}
+% Izvor: note 11 §3.1 (PC1 je osvetljenje, 52,3%), §9.2 (PC2 je oblik), note 12 §3.1-3.2
+% (linearni kontrast se poništava TAČNO, gama samo delimično).
+% Slike: pca_eigensigns.png, pca_reconstruction.png, pca_pc1_brightness.png,
+% hog_visualization.png.
+
+\subsection*{8.3 Curenje podataka kroz trake -- izmereno, ne tvrđeno}
+% Izvor: note 04, zadatak 4.5. Slika: split_leakage_measured.png.
+% +5,08 p.p. tačnosti i +9,58 p.p. makro-F1. Makro-F1 se naduvava DVOSTRUKO.
+
+\subsection*{8.4 Objašnjena varijansa nije diskriminativnost}
+% Izvor: note 11 §3.2, §7.1c, §7.3. Slika: pca_component_sweep.png. Tri nezavisna slučaja.
+
+\subsection*{8.5 Defekt u konfiguraciji clahe\_hsv -- nijansa se obavija}
+% Izvor: note 08 dodatak. Crvena boja je na tački obavijanja (0/179): Stop ima 56,5%
+% zasićenih piksela pri nijansi <10 i 4,4% pri >169. 3,98% susednih gradijenata nijanse
+% prelazi 90. Cena raste sa oslanjanjem na izvode: HOG -9,7 p.p., CNN -2,3 p.p. (i vrhunac
+% u epohi 5 umesto 18), PCA -3,0 p.p. NE sme se izvestiti kao "boja ne pomaže".
+
+\subsection*{8.6 Ograničenja}
+% Izvor: note 03 (jedan seed), note 06 (nema GPU; EPP menja vremena za 20%), note 09
+% (zašto jitter nije moguć na GTSRB), note 11 §2.1 (nebeljena PCA), note 13 §1.1 (obeležja
+% CNN-a optimizovana za softmax glavu), note 13 §2.2 (glava mreže manja zbog uporedivosti),
+% note 14 §6.3 (BoVW bez prostorne piramide -- namerno).
+
+% =====================================================================================
+\section*{9. Zaključak}
+% Izvor: zadatak 9.8 (pet konkretnih nalaza). Odgovoriti EKSPLICITNO na pitanje iz §1.3:
+% da li se rangiranje menja između stresora. Oba ishoda su rezultat.
+
+\subsection*{9.1 Pravci daljeg rada}
+% Izvor: PROJECT_TASKS §11 (GTSDB, jitter) i §12 (degradacija u trenutku snimanja,
+% složeni scenariji). Plus: ispravka clahe_hsv (nijansa kao cos/sin ili CIELab).
+
+% =====================================================================================
+\section*{10. Literatura}
+
+\bibliographystyle{unsrt}
+\nocite{szeliski, milosavljevic, laganiere}
+\bibliography{references}
+
+\newpage
+
+\subsection*{Dodatak A -- Tabela akronima}
+% Preneti iz predloga (Dodatak B) i dopuniti: GTSDB, CLAHE, SIFT, BoVW, HOG, PCA, SVM,
+% CNN, ROI, BLAS, SMT, EPP.
+
+\subsection*{Dodatak B -- Okruženje i verzije biblioteka}
+% Izvor: note 01 + results/platform_<run_id>.json. Tačne verzije, broj niti, commit.
+
+\end{document}
