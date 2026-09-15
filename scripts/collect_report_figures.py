@@ -74,6 +74,12 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "is on validation macro-F1 and not on a variance threshold.",
         deliverable=False),
     ReportFigure(
+        "hog/hog_config_sweep.png", "hog_config_sweep.png", "5.2",
+        "Justifies HOG's configuration, and shows the two findings the ablation rests on: "
+        "HOG selects raw_gray where PCA selected clahe_gray, and cell size dominates "
+        "orientation count.",
+        deliverable=False),
+    ReportFigure(
         "demo/pca/pca_reconstruction.png", "pca_reconstruction.png", "4.1",
         "What the subspace keeps at k=2..256. At low k every sign, triangles included, "
         "collapses toward a speed-limit disc: 'holistic, no notion of a part', visibly.",
