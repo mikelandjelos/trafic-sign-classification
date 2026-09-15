@@ -126,13 +126,124 @@ has to materialise the rest.
 
 ---
 
-## 6. Open for tasks 6.3–6.4
+## 6. Vocabulary and encoding (tasks 6.3–6.4)
 
-- `MiniBatchKMeans` on ~200k sampled descriptors, k ∈ {200, 500}.
-- Histogram encoding, then **L2 or power normalisation** — a decision to make explicitly, not
-  by default: raw counts would make the histogram scale with the number of descriptors, which
-  is constant here (64), so the choice is about the *distribution* of mass across words rather
-  than about total magnitude.
-- Per the 4.2 result, **sweep all three preprocessing configs** and tune `C` jointly with
-  *k* — the vocabulary size changes the feature dimensionality (200 vs 500), and the best `C`
-  tracked dimensionality closely for PCA.
+`BoVWRepresentation` completes the method: dense SIFT → `MiniBatchKMeans` vocabulary →
+orderless histogram → normalisation.
+
+**`MiniBatchKMeans`, not full `KMeans`** — ~200k × 128 descriptors would fit in RAM, but full
+Lloyd iterations over them are needlessly slow and the vocabulary is a means to an encoding,
+not an object of study. Seeded from `config.SEED`; two fits with the same seed produce the
+same vocabulary, which is asserted.
+
+**Encoding is chunked.** Assigning the whole test split at once means 12,630 × 64 = 808k
+descriptors against the centroids, and the distance matrix alone runs to hundreds of MB.
+Chunking bounds that, and cannot change the result — each descriptor's nearest word depends
+only on that descriptor. A test proves it: `chunk=7` and `chunk=1000` give byte-identical
+histograms.
+
+### 6.1 The normalisation choice, and why it is narrower than it looks
+
+The usual reason to normalise a BoVW histogram is that images yield *different numbers* of
+keypoints, so raw counts are not comparable. **That reason does not apply here.** Every image
+contributes exactly 64 descriptors and each is assigned to exactly one word, so every raw
+histogram already sums to 64 — pinned by `test_raw_counts_sum_to_the_keypoint_count`.
+
+So `l1` is a pure rescale that a linear classifier cannot see, and the real question is the
+**distribution of mass across words** — specifically *burstiness*, where one repeated texture
+fires the same codeword many times and that bin dominates the vector.
+
+Only the square root changes relative weights. On a bursty histogram `[36, 16, 4, 8]`:
+
+| scheme | result | top/second ratio |
+|---|---|---|
+| none | `[36, 16, 4, 8]` | 2.25 |
+| l1 | `[.562, .250, .062, .125]` | 2.25 |
+| l2 | `[.891, .396, .099, .198]` | 2.25 |
+| **power_l2** | `[.750, .500, .250, .354]` | **1.50** |
+
+`l1` and `l2` leave the ratio exactly as it was; `power_l2` compresses it to its square root.
+That is Perronnin's burstiness correction, and it is why **`power_l2` is the default**.
+
+Measured on a class-stratified subsample (5,160 train / 1,690 val, all 43 classes, k=200,
+`C`=1, untuned):
+
+| scheme | macro-F1 | accuracy |
+|---|---|---|
+| **power_l2** | **0.2769** | 0.2976 |
+| l2 | 0.2695 | 0.2911 |
+| none | 0.2426 | 0.2598 |
+
+The predicted ordering holds. *(Absolute values are low because the subsample is a sixth of
+the training split with an untuned classifier — this validates the default, it is not a
+result.)*
+
+Following the precedent set for HOG's `block_norm`, the scheme is **fixed with a stated
+reason rather than swept**: it is part of the representation's definition. It remains a
+parameter, so it is available as an ablation.
+
+### 6.2 A trap this probe walked into
+
+The first smoke test reported macro-F1 **0.023** — chance level for 43 classes — which looked
+like a broken encoder. It was a broken *probe*: it subsampled with `frame.iloc[:3000]`, and
+the annotations are class-ordered, so the sample contained **3 of 43 classes**.
+
+Worth recording because the same mistake would be invisible in a results table: accuracy was
+0.446, which looks plausible, while macro-F1 was at chance. **A large accuracy/macro-F1 gap is
+the signature of a label-space problem**, not of a weak model — the same reason
+`labels=range(43)` is pinned in `gtsrb.evaluation` (note 05).
+
+---
+
+## 6.3 OPEN ISSUE — the planned sampling density is too coarse
+
+Measured on the full training split, k=500, best of C ∈ {0.1, 1}:
+
+| keypoint size | step | keypoints/img | macro-F1 | accuracy |
+|---|---|---|---|---|
+| **12** (the plan's value) | 6 | 64 | **0.3402** | 0.4162 |
+| 8 | 4 | 144 | 0.4583 | 0.5295 |
+| **6** | 3 | 256 | **0.5248** | 0.5936 |
+
+**+18.5 pp macro-F1 from sampling density alone**, which is far more than `k` or `C` moved
+anything. The cause is visible in the descriptors: at size 12 a keypoint covers a quarter of
+a 48×48 crop, so the 64 patches overlap heavily and describe nearly the same content. Mean
+within-image descriptor correlation:
+
+| size | 6 | 8 | 12 | 16 |
+|---|---|---|---|---|
+| mean within-image corr | +0.077 | +0.119 | **+0.228** | +0.362 |
+
+**The implementation is not broken**, which was checked before concluding: the vocabulary is
+fully used (200/200 words), each image spreads its 64 descriptors over ~36–39 distinct words,
+and larger `C` is monotonically *worse* (1 → 1000 falls 0.3402 → 0.3131), so the grid is not
+mis-centred either.
+
+**Two things are being conflated and must stay separate in the report:**
+
+1. **The parameters are badly chosen.** `step=6, size=12` come from `PROJECT_TASKS` 6.1 and
+   are too coarse for 48×48 input. This is fixable and should be swept at 6.5.
+2. **Orderless encoding is genuinely weak on aligned rigid objects**, and always will be.
+   What separates "30" from "50" is *where* strokes sit; a bag of patches cannot see that.
+   **Spatial Pyramid Matching exists precisely to fix this** — 2×2 and 4×4 spatial bins were
+   introduced because pure orderless BoVW underperforms on exactly this kind of task.
+
+   We deliberately do **not** add a spatial pyramid. It would re-introduce layout and collapse
+   BoVW onto HOG's position on the layout axis — the axis this study exists to measure. So
+   BoVW is expected to trail the others, and that is a *result*, not a defect. The report must
+   say so explicitly, or a reader will read a weak BoVW row as a bad implementation.
+
+**Decision needed before 6.5:** whether to add `(step, keypoint_size)` to the sweep. The
+evidence says it is the higher-leverage parameter — more than `k` — but it deviates from the
+plan's "sweep k ∈ {200, 500}" and multiplies the grid. Parked pending that decision.
+
+---
+
+## 7. Open for task 6.5
+
+- Sweep k ∈ {200, 500} jointly with `C` and `class_weight`, across all three preprocessing
+  configs — the 4.2 protocol. Vocabulary size changes the feature dimensionality (200 vs
+  500), and the best `C` tracked dimensionality closely for PCA.
+- Cost: the vocabulary and encoding are cheap (~5 s and ~4 s per 3,000 images in the probe);
+  as with HOG, the grid is dominated by the `LinearSVC` fits — but at 200–500 dimensions
+  those are far cheaper than HOG's 900–2,352.

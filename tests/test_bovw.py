@@ -12,7 +12,13 @@ import cv2
 import numpy as np
 import pytest
 
-from gtsrb.representations.bovw import DESCRIPTOR_DIM, DenseSIFT
+from gtsrb.representations import Representation
+from gtsrb.representations.bovw import (
+    DESCRIPTOR_DIM,
+    BoVWRepresentation,
+    DenseSIFT,
+    normalise_histograms,
+)
 
 
 @pytest.fixture(scope="module")
@@ -225,3 +231,129 @@ def test_detector_sift_finds_almost_nothing_on_these_crops(images: np.ndarray) -
     counts = [len(detector.detect(image, None)) for image in images]
     assert min(counts) < DenseSIFT().n_keypoints
     assert len(set(counts)) > 1, "a detector gives a variable count; that is the problem"
+
+
+# =====================================================================================
+# Tasks 6.3-6.4: vocabulary and histogram encoding
+# =====================================================================================
+
+@pytest.fixture(scope="module")
+def bovw(images: np.ndarray) -> BoVWRepresentation:
+    return BoVWRepresentation(n_words=12, n_vocab_samples=600).fit(images)
+
+
+# --- normalisation ------------------------------------------------------------------------
+
+
+def test_none_leaves_counts_untouched() -> None:
+    h = np.array([[36.0, 16.0, 4.0, 8.0]], dtype=np.float32)
+    np.testing.assert_array_equal(normalise_histograms(h, "none"), h)
+
+
+def test_l1_sums_to_one() -> None:
+    h = np.array([[36.0, 16.0, 4.0, 8.0]], dtype=np.float32)
+    assert normalise_histograms(h, "l1").sum() == pytest.approx(1.0)
+
+
+def test_l2_gives_unit_norm() -> None:
+    h = np.array([[36.0, 16.0, 4.0, 8.0]], dtype=np.float32)
+    assert np.linalg.norm(normalise_histograms(h, "l2")) == pytest.approx(1.0, abs=1e-6)
+
+
+def test_power_l2_is_the_only_scheme_that_changes_relative_weights() -> None:
+    """The point of the default, asserted rather than asserted-in-prose.
+
+    Every image contributes the same number of descriptors here, so total mass is already
+    constant and `l1`/`l2` are pure rescales -- they cannot change the *ratio* between two
+    bins. Only the square root compresses a bursty dominant word relative to the rest.
+    """
+    h = np.array([[36.0, 16.0, 4.0, 8.0]], dtype=np.float32)
+    raw_ratio = h[0, 0] / h[0, 1]
+    for scheme in ("l1", "l2"):
+        v = normalise_histograms(h, scheme)[0]
+        assert v[0] / v[1] == pytest.approx(raw_ratio)
+    powered = normalise_histograms(h, "power_l2")[0]
+    assert powered[0] / powered[1] == pytest.approx(np.sqrt(raw_ratio))
+    assert powered[0] / powered[1] < raw_ratio
+
+
+def test_zero_histogram_does_not_divide_by_zero() -> None:
+    zeros = np.zeros((1, 5), dtype=np.float32)
+    for scheme in ("l1", "l2", "power_l2"):
+        assert np.isfinite(normalise_histograms(zeros, scheme)).all()
+
+
+def test_unknown_normalisation_raises() -> None:
+    with pytest.raises(ValueError, match="unknown normalisation"):
+        normalise_histograms(np.zeros((1, 3), np.float32), "sqrt")
+
+
+def test_constructor_validates_the_scheme_immediately() -> None:
+    """Caught at construction, not two hours into a sweep."""
+    with pytest.raises(ValueError, match="unknown normalisation"):
+        BoVWRepresentation(normalisation="nope")
+
+
+# --- the representation --------------------------------------------------------------------
+
+
+def test_satisfies_the_representation_protocol(bovw: BoVWRepresentation) -> None:
+    assert isinstance(bovw, Representation)
+    assert bovw.name == "bovw"
+
+
+def test_transform_shape(bovw: BoVWRepresentation, images: np.ndarray) -> None:
+    features = bovw.transform(images)
+    assert features.shape == (len(images), bovw.n_features) == (len(images), 12)
+    assert features.dtype == np.float32
+
+
+def test_vocabulary_shape(bovw: BoVWRepresentation) -> None:
+    assert bovw.vocabulary_.shape == (12, DESCRIPTOR_DIM)
+
+
+def test_raw_counts_sum_to_the_keypoint_count(images: np.ndarray) -> None:
+    """The property the whole normalisation discussion rests on: mass is already constant.
+
+    Every image yields exactly `n_keypoints` descriptors and each is assigned to exactly
+    one word, so an unnormalised histogram always sums to 64 -- which is why `l1` changes
+    nothing here and `power_l2` is the meaningful choice.
+    """
+    raw = BoVWRepresentation(n_words=12, n_vocab_samples=600,
+                             normalisation="none").fit(images).transform(images)
+    np.testing.assert_allclose(raw.sum(axis=1), 64.0)
+
+
+def test_chunk_size_does_not_change_the_result(bovw, images) -> None:
+    """Each descriptor's nearest word depends only on that descriptor, so chunking is an
+    implementation detail -- and must be provably so, since the chunk size is tuned for
+    memory rather than for results."""
+    np.testing.assert_array_equal(bovw.transform(images, chunk=7),
+                                  bovw.transform(images, chunk=1000))
+
+
+def test_transform_is_deterministic(bovw: BoVWRepresentation, images) -> None:
+    np.testing.assert_array_equal(bovw.transform(images), bovw.transform(images))
+
+
+def test_two_fits_with_the_same_seed_agree(images: np.ndarray) -> None:
+    """MiniBatchKMeans is stochastic; the vocabulary must still be reproducible."""
+    first = BoVWRepresentation(n_words=12, n_vocab_samples=600).fit(images)
+    second = BoVWRepresentation(n_words=12, n_vocab_samples=600).fit(images)
+    np.testing.assert_allclose(first.vocabulary_, second.vocabulary_)
+    np.testing.assert_array_equal(first.transform(images), second.transform(images))
+
+
+def test_transform_before_fit_raises(images: np.ndarray) -> None:
+    with pytest.raises(RuntimeError, match="not fitted"):
+        BoVWRepresentation().transform(images)
+
+
+def test_too_few_words_raises() -> None:
+    with pytest.raises(ValueError, match="n_words"):
+        BoVWRepresentation(n_words=1)
+
+
+def test_histograms_are_unit_norm_under_the_default(bovw, images) -> None:
+    norms = np.linalg.norm(bovw.transform(images), axis=1)
+    np.testing.assert_allclose(norms, 1.0, atol=1e-5)

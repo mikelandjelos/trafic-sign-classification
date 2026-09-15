@@ -212,3 +212,157 @@ class DenseSIFT:
             f"DenseSIFT(step={self.step}, keypoint_size={self.keypoint_size}, "
             f"upright={self.upright}, grid={rows}x{cols}={self.n_keypoints} keypoints)"
         )
+
+
+# =====================================================================================
+# Tasks 6.3-6.4: vocabulary and histogram encoding
+# =====================================================================================
+
+#: Vocabulary sizes swept at task 6.5.
+VOCABULARY_SIZES: tuple[int, ...] = (200, 500)
+
+#: Descriptors drawn to fit the vocabulary. ~200k of the ~2M the training split produces
+#: (31,379 images x 64) -- enough for a stable k-means at k <= 500, and 10x cheaper.
+DEFAULT_VOCAB_SAMPLES = 200_000
+
+
+def normalise_histograms(histograms: np.ndarray, scheme: str = "power_l2") -> np.ndarray:
+    """Normalise count histograms, row-wise.
+
+    **What this choice is and is not about.** Every image contributes exactly
+    `n_keypoints` descriptors, so every raw histogram already sums to the same number --
+    unlike the usual BoVW setting where images yield different numbers of keypoints and
+    normalisation is what makes them comparable at all. Here total mass is *already*
+    constant, so `l1` is a pure rescale that changes nothing a linear classifier can see.
+
+    The choice is therefore about the **distribution of mass across words**, specifically
+    about *burstiness*: a repeated texture (a stretch of uniform sign face, a repeated
+    edge) fires the same codeword many times and that one bin dominates the vector.
+
+    - ``power_l2`` (default) -- square root, then L2. The square root compresses large
+      bins relative to small ones, which is Perronnin's fix for burstiness, and L2 puts
+      every image on the unit sphere. This is the standard pairing for BoVW with a linear
+      SVM and is why it is the default here.
+    - ``l2`` -- L2 only. Keeps burstiness; useful as the contrast that shows whether the
+      square root is doing anything.
+    - ``l1`` -- mass to 1. Included for completeness; a pure rescale in this setting.
+    - ``none`` -- raw counts.
+    """
+    histograms = np.asarray(histograms, dtype=np.float32)
+    if scheme == "none":
+        return histograms
+    if scheme == "l1":
+        totals = histograms.sum(axis=1, keepdims=True)
+        return histograms / np.maximum(totals, 1e-12)
+    if scheme in ("l2", "power_l2"):
+        values = np.sqrt(histograms) if scheme == "power_l2" else histograms
+        norms = np.linalg.norm(values, axis=1, keepdims=True)
+        return (values / np.maximum(norms, 1e-12)).astype(np.float32)
+    raise ValueError(
+        f"unknown normalisation {scheme!r}; expected one of "
+        f"'power_l2', 'l2', 'l1', 'none'"
+    )
+
+
+class BoVWRepresentation:
+    """Dense SIFT -> visual-word vocabulary -> orderless histogram."""
+
+    name = "bovw"
+
+    def __init__(
+        self,
+        n_words: int = 500,
+        step: int = DEFAULT_STEP,
+        keypoint_size: int = DEFAULT_KEYPOINT_SIZE,
+        normalisation: str = "power_l2",
+        n_vocab_samples: int = DEFAULT_VOCAB_SAMPLES,
+        preproc: str = "clahe_gray",
+        random_state: int = config.SEED,
+    ) -> None:
+        if n_words < 2:
+            raise ValueError(f"n_words must be >= 2, got {n_words}")
+        normalise_histograms(np.zeros((1, 2), np.float32), normalisation)  # validate early
+        self.n_words = int(n_words)
+        self.normalisation = normalisation
+        self.n_vocab_samples = int(n_vocab_samples)
+        self.preproc = preproc
+        self.random_state = random_state
+        self.extractor = DenseSIFT(step=step, keypoint_size=keypoint_size)
+        self._kmeans = None
+
+    # --- task 6.3: the vocabulary -----------------------------------------------------
+
+    def fit(self, images: np.ndarray, progress: bool = False) -> BoVWRepresentation:
+        """Learn the visual-word vocabulary from **clean training images only**.
+
+        `MiniBatchKMeans`, not full `KMeans`: ~200k x 128 descriptors would fit in RAM but
+        full Lloyd iterations over them are needlessly slow, and the vocabulary is a means
+        to an encoding rather than an object of study in its own right.
+        """
+        from sklearn.cluster import MiniBatchKMeans
+
+        descriptors = self.extractor.sample_descriptors(
+            images, self.n_vocab_samples, seed_parts=("bovw", "vocab", self.preproc),
+            progress=progress,
+        )
+        self._kmeans = MiniBatchKMeans(
+            n_clusters=self.n_words,
+            random_state=self.random_state,
+            n_init=3,
+            batch_size=4096,
+            max_iter=100,
+        ).fit(descriptors)
+        return self
+
+    # --- task 6.4: the encoding -------------------------------------------------------
+
+    def transform(self, images: np.ndarray, chunk: int = 2000,
+                  progress: bool = False) -> np.ndarray:
+        """`(n, H, W[, C])` -> `(n, n_words)` float32 histograms.
+
+        Chunked deliberately: assigning every descriptor of the test split at once means
+        12,630 x 64 = 808k vectors of 128 floats against the centroids, and the distance
+        matrix alone would be hundreds of megabytes. Chunking bounds it without changing
+        the result -- each descriptor's nearest centroid depends only on that descriptor.
+        """
+        kmeans = self._fitted()
+        out = np.zeros((len(images), self.n_words), dtype=np.float32)
+        starts = range(0, len(images), chunk)
+        if progress:
+            from tqdm import tqdm
+
+            starts = tqdm(list(starts), desc="  BoVW encode", unit="chunk")
+        for start in starts:
+            block = images[start:start + chunk]
+            descriptors = self.extractor.describe_batch(block)
+            flat = descriptors.reshape(-1, DESCRIPTOR_DIM)
+            words = kmeans.predict(flat).reshape(len(block), self.extractor.n_keypoints)
+            for i, row in enumerate(words):
+                out[start + i] = np.bincount(row, minlength=self.n_words)
+        return normalise_histograms(out, self.normalisation)
+
+    def fit_transform(self, images: np.ndarray) -> np.ndarray:
+        return self.fit(images).transform(images)
+
+    def _fitted(self):
+        if self._kmeans is None:
+            raise RuntimeError(
+                "BoVWRepresentation is not fitted; call fit(train_images) first"
+            )
+        return self._kmeans
+
+    @property
+    def n_features(self) -> int:
+        return self.n_words
+
+    @property
+    def vocabulary_(self) -> np.ndarray:
+        """`(n_words, 128)` -- the visual words themselves, for the task 6.6 demo."""
+        return self._fitted().cluster_centers_
+
+    def __repr__(self) -> str:
+        state = "fitted" if self._kmeans is not None else "unfitted"
+        return (
+            f"BoVWRepresentation(n_words={self.n_words}, "
+            f"normalisation={self.normalisation!r}, preproc={self.preproc!r}, {state})"
+        )
