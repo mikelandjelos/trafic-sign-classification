@@ -99,7 +99,55 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "demo/preprocessing/preprocessing_configs.png", "preprocessing_configs.png", "2.2",
         "The three preprocessing configs side by side — needed to read the ablation (9.7).",
         deliverable=False),
+    ReportFigure(
+        "demo/hog/hog_block_normalisation.png", "hog_block_normalisation.png", "5.5",
+        "The gamma panel's mechanism on one image: a linear contrast change gives mean "
+        "|Δdescriptor| = 0.0000 (exactly cancelled by L2-Hys) while gamma 2.5 gives 0.0339. "
+        "Shows precisely what HOG's normalisation does and does not protect against.",
+        deliverable=False),
+    ReportFigure(
+        "demo/hog/hog_noise_response.png", "hog_noise_response.png", "5.5",
+        "The noise panel's mechanism, per cell. Low-contrast background cells reach 6x their "
+        "clean gradient energy at sigma=40 while the sign centre stays near 1x — noise swamps "
+        "exactly the cells that had nothing to report, so their orientation votes go random.",
+        deliverable=False),
+    ReportFigure(
+        "bovw/bovw_config_sweep.png", "bovw_config_sweep.png", "6.5",
+        "Justifies BoVW's configuration and carries the largest single effect measured in the "
+        "project: +53 pp from the plan's parameters to the swept ones. Also shows the "
+        "scale-vs-density decoupling, which is why the lever is descriptor scale.",
+        deliverable=False),
+    ReportFigure(
+        "demo/bovw/bovw_permutation.png", "bovw_permutation.png", "6.6",
+        "STRONGLY RECOMMENDED. Shuffle the keypoint positions and re-pool: the plain BoVW "
+        "histogram is the SAME VECTOR, while BoVW+SPM changes. Orderlessness stops being an "
+        "assertion and becomes a measurement, and it is the visual companion to the +10.4 pp "
+        "layout result — the single clearest statement of the study's central axis.",
+        deliverable=False),
+    ReportFigure(
+        "demo/bovw/bovw_blur_collapse.png", "bovw_blur_collapse.png", "6.6",
+        "The mechanism behind BoVW's predicted blur weakness: vocabulary usage collapses AND "
+        "different classes converge on the same histogram. The second panel is the correcting "
+        "quantity — a falling word count alone could be misread as compactness.",
+        deliverable=False),
+    ReportFigure(
+        "demo/bovw/bovw_grid_and_words.png", "bovw_grid_and_words.png", "6.6",
+        "The dense grid and the codeword map across four sign shapes. The methodology "
+        "section's explanatory figure for a reader who does not already know BoVW.",
+        deliverable=False),
+    ReportFigure(
+        "demo/bovw/bovw_normalisation.png", "bovw_normalisation.png", "6.6",
+        "Why power_l2: l1 and l2 leave the ratio between bins untouched, so only the square "
+        "root does anything a linear classifier can see. Justifies a fixed parameter that is "
+        "otherwise taken on trust.",
+        deliverable=False),
     # --- pending: produced by tasks not yet done ---
+    ReportFigure(
+        "demo/cnn/cnn_training_curves.png", "cnn_training_curves.png", "7.6",
+        "Validation macro-F1 per epoch with the selected epoch marked. Carries the 7.4b "
+        "disclosure visually: the run STOPPED at epoch 24 having last improved at 18, which "
+        "is the early-stopping rule firing, not a verified plateau.",
+        deliverable=False),
     ReportFigure(
         "pca/pca_eigensigns.png", "pca_eigensigns.png", "4.4",
         "Top-16 eigenvectors as images. Ties directly to the Eigenfaces lecture.",
