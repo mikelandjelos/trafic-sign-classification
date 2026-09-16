@@ -43,7 +43,7 @@ import joblib
 import numpy as np
 import sklearn
 
-from gtsrb import cache, config, data, degradations, evaluation, results
+from gtsrb import cache, config, data, degradations, evaluation, preprocessing, results
 
 #: The comparison, in report order. Six rows since the 2026-09-16 plan change.
 METHODS: tuple[str, ...] = (
@@ -134,9 +134,9 @@ def _load_cnn_e2e() -> LoadedMethod:
         raise SystemExit("no trained cnn_e2e; run scripts/train_cnn.py")
     # Several preprocessing variants exist from 7.3, so pick the one the comparison fixed on
     # rather than whichever sorts first -- and say so if it is absent.
-    wanted = config.MODELS_DIR / f"cnn_e2e_{config.DEFAULT_PREPROC}.pt"
+    wanted = config.MODELS_DIR / f"cnn_e2e_{preprocessing.DEFAULT_PREPROC}.pt"
     if not wanted.exists():
-        raise SystemExit(f"no cnn_e2e trained on {config.DEFAULT_PREPROC}; have "
+        raise SystemExit(f"no cnn_e2e trained on {preprocessing.DEFAULT_PREPROC}; have "
                          f"{[p.name for p in matches]}")
     weights = torch.load(wanted, weights_only=True)
     preproc = str(weights["preproc"])
