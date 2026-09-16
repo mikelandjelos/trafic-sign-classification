@@ -622,10 +622,17 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       **Also withdrawn: the ~75–82 % accuracy "cap"** extrapolated from Lazebnik's Caltech-101
       result. Plain BoVW reaches 92.3 %. Had that bound been believed, the search would have
       stopped ~0.73.
-      **TO DO:** re-run on `raw_gray` (the §1 plan change) with `k=2000` added — `k` had not
-      plateaued — and **persist to `results.csv`**. The size-2 and pyramid numbers above were
-      printed to a terminal and never written to disk; that is the documentation failure of
-      this task. Then train + record both `bovw_svm` and `bovw_spm_svm`.
+      **TO DO:** re-run on `raw_gray` (the §1 plan change) and **persist to `results.csv`**.
+      The size-2 and pyramid numbers above were printed to a terminal and never written to
+      disk; that is the documentation failure of this task. Then train + record both
+      `bovw_svm` and `bovw_spm_svm`.
+      **Decision 2026-09-17: the vocabulary is capped at k = 1000**, and `k=2000` is *not*
+      run. `k` had not plateaued (+6 pp at 500→1000), so this is a **stated compute budget,
+      not a located optimum** — the same caveat PCA's k=256 carries, and it must be reported
+      the same way: BoVW's number is a lower bound and a larger vocabulary would likely
+      improve it. The budget is spent instead on the degradation grid, which is the project's
+      actual subject; at size 2 a k=2000 vocabulary would also put SPM L=2 at ~42,000
+      dimensions, where the classifier cost starts to crowd out §7's 96 cells.
       See `14-bovw.md` §7–§8.
 - [ ] **6.5b** **BoVW+SPM as the sixth configuration** (new, 2026-09-16). Move the pooling out
       of `scripts/experiment_spatial_pyramid.py` into `gtsrb.representations.bovw` as a proper
@@ -637,6 +644,10 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       contributing ~nothing net. Second finding: **the pyramid helps less as the base
       representation improves** (+14.1 pp at the poor config, +10.4 pp at the good one) —
       layout and descriptor quality are partial substitutes.
+      **Decision 2026-09-17: the row is L = 2 only.** L=1 stays in note 14 as the intermediate
+      measurement — it is what shows the effect is *graded* rather than a step change, and that
+      layout and descriptor quality are partial substitutes — but it does not get a Table 1
+      row. Table 1 stays at six.
       Rationale for adding rather than substituting: `14-bovw.md` §9.4.
 - [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
       a sign, codeword assignment as a colour map (which patches share a word), and the
@@ -649,15 +660,30 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       turns orderlessness from an asserted property into a demonstrated one, and puts both
       sides of the layout axis in a single figure — the visual companion to the +10.4 pp
       measurement. Candidate for `figures/report/`.
-- [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
-      All three preprocessing runs are complete (7.3). Under the §1 plan change the reported
-      run is **`raw_gray`** — macro-F1 0.9856 / accuracy 0.9865, checkpoint
-      `results/models/cnn_e2e_raw_gray.pt`, already trained; the `clahe_gray` run (0.9872)
-      stays in the note as the measured preprocessing effect, not as the headline.
-      Remaining work: confirm the `raw_gray` run is converged rather than patience-limited,
-      and ensure its cost metrics are recorded in one pass on an idle machine at a fixed CPU
-      profile (§10 gotcha — the power profile moved epoch time by ~20 %). **Also re-run 7.5
-      (`cnn_feat_svm`) off the `raw_gray` network**, since the recorded one used `clahe_gray`.
+- [x] **7.4** Check background run, ~~tune LR/epochs~~, finalize end-to-end CNN
+      Reported run is **`raw_gray`**: macro-F1 **0.9856** / accuracy 0.9865, best epoch 18 of
+      24, checkpoint `results/models/cnn_e2e_raw_gray.pt`. The `clahe_gray` run (0.9872) stays
+      in note 13 as the measured preprocessing effect, not as the headline.
+      **Closed with two parts of the task deliberately NOT done, both disclosed (note 13
+      addendum 2):**
+      **(a) The learning rate was never tuned.** All three runs used Adam at `lr=1e-3`, the
+      library default, never swept. The CNN is therefore **the only method whose principal
+      optimisation hyperparameter was taken on faith**, where every other method had its
+      representation parameters and its `C` selected on validation. The bias direction is
+      knowable — tuning could only help — so the CNN's numbers are a *lower* bound and the
+      method that already wins is the under-tuned one. Benign direction, but stated.
+      **(b) The run is patience-limited, not verified-converged** (decision 2026-09-17:
+      accept, do not retrain). It stopped after exactly `patience=6` epochs without improving
+      on epoch 18. Both grayscale runs stopped at identical epoch indices, so the behaviour is
+      reproducible and schedule-determined. **The report says "stopped by the early-stopping
+      rule at epoch 24, having last improved at epoch 18" — never "converged".** Not retrained
+      because ~45 min buys a plausible ~0.1 pp against a 6.8 pp lead; no ranking, curve or
+      conclusion turns on it.
+      **(c) Training times are NOT comparable across the three runs** — `torch_threads` was
+      6/7/8, so 3350/2596/1133 s measure three different degrees of parallelism. Only the
+      `raw_gray` row is a Table 1 candidate, and 9.1 must re-measure all six methods in one
+      pass at a fixed CPU profile (§10).
+      7.5 (`cnn_feat_svm`) re-run off the `raw_gray` network: **0.9774 / 0.9860**.
 - [x] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three.
       — `scripts/train_cnn_features.py`, no retraining. **macro-F1 0.9797, accuracy 0.9889**
       (C=0.01, balanced). **All five methods now exist.**
@@ -799,9 +825,11 @@ preproc       = raw_gray                                    # FIXED -- see the �
 Core grid: 6 × 16 = **96** evaluation runs, all at `raw_gray`. (Was 80 at 5 methods; before
 that 105, when bbox jitter was still in — no cell in the remaining grid is compromised.)
 
-**The grid may additionally be run at `clahe_gray` and `clahe_hsv` if time allows**, since it
-is inference-only and cheap. Those rows are a ranking-stability check (8.2) and a limitations
-note, *not* the reported result: `raw_gray` is what enters the report regardless, with the
+**Decision 2026-09-17: run `raw_gray` first and bank it, then extend to `clahe_gray` and
+`clahe_hsv` only if the clock allows.** The grid is inference-only and cheap, but BoVW
+encoding at 576 keypoints is not free, and nothing in the report depends on the extra configs.
+Those rows are a ranking-stability check (8.2) and a limitations note, *not* the reported
+result: `raw_gray` is what enters the report regardless, with the
 observation that CLAHE — with or without the HSV conversion — may improve absolute numbers
 for the methods that lack internal contrast normalisation.
 Size-stratified results are free — group the existing clean-test predictions by ROI height.

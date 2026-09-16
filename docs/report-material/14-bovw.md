@@ -461,8 +461,16 @@ recorded as the tuning *journey*, and the reported figures come from the re-run.
 
 Also outstanding:
 
-- **`k = 2000` at size 2 is untested** and is the one remaining promising cell: `k` was worth
-  +6 pp at 500 → 1000 and has not been shown to plateau.
+- **`k` is capped at 1000 by decision, not by measurement** (2026-09-17). `k=2000` at size 2
+  remains untested and is the one demonstrably promising cell left: `k` was worth +6 pp at
+  500 → 1000 and has *not* been shown to plateau. **BoVW's reported number is therefore a
+  lower bound**, and the report must say so in the same breath as PCA's k=256 caveat — both
+  are selections pinned to the edge of a grid that was not widened. The budget goes to the
+  degradation grid instead, which is the project's actual subject, and at size 2 a k=2000
+  vocabulary would put SPM L=2 at ~42,000 dimensions.
+- **The SPM row is L = 2 only** (2026-09-17). L=1 stays here as the intermediate measurement
+  — it is what shows the effect is graded and that layout and descriptor quality are partial
+  substitutes — but it does not get a Table 1 row.
 - **Persist everything.** The size-2 results and every pyramid row above were printed to a
   terminal and never written to a CSV — they exist only in a session transcript. This is the
   documentation failure of this task and the reason 6.5 is being re-run rather than

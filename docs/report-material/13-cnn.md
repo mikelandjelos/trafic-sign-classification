@@ -384,3 +384,65 @@ representation*. Under the old per-method protocol that variation was silently a
 the method-vs-method gaps; under the fixed protocol it is visible and reportable.
 
 §1.1's objective-mismatch caveat and §7.3's shared-confusions finding are unaffected.
+
+---
+
+## ADDENDUM 2 (2026-09-17) — task 7.4 closed, and what it does *not* claim
+
+Task 7.4 read "check background run, **tune LR/epochs**, finalize end-to-end CNN". Two parts
+of that were not done, and the report says so rather than letting the task title imply
+otherwise.
+
+### 7.4a The learning rate was never tuned
+
+**All three runs used Adam at `lr = 1e-3`, the library default. No learning-rate sweep was
+ever run.** It was chosen because it is the standard Adam starting point and the first run
+worked; nothing about it is measured.
+
+This is a genuine gap, and it is *asymmetric* in a way that matters for the comparison: PCA,
+HOG and BoVW each had their representation hyperparameters swept (k, cell size, geometry,
+vocabulary), and every method's `C` was tuned. **The CNN is the only method whose principal
+optimisation hyperparameter was taken on faith.** The direction of the bias is knowable —
+tuning could only help it — so the CNN's reported numbers are, if anything, a *lower* bound,
+and the method that already wins is the one that was under-tuned. That is the benign
+direction, but it should be stated, not left for a reader to notice.
+
+### 7.4b The selected run is patience-limited, not verified-converged
+
+**Decision (2026-09-17): accept the existing `raw_gray` run; do not retrain.** The reasoning,
+in full, because the claim needs to be exact:
+
+`train()` stops after `patience` epochs with no improvement in validation macro-F1, and
+returns the **best** epoch's weights. The `raw_gray` run selected **epoch 18** and stopped at
+**24** — i.e. exactly `patience = 6` epochs of no improvement.
+
+| preproc | best epoch | epochs run | threads | train s | val macro-F1 |
+|---|---|---|---|---|---|
+| `raw_gray` (**reported**) | 18 | 24 | 7 | 2,596 | **0.9856** |
+| `clahe_gray` | 18 | 24 | 6 | 3,350 | 0.9872 |
+| `clahe_hsv` | 5 | 11 | 8 | 1,133 | 0.9642 |
+
+**What this licenses us to say:** the early-stopping criterion fired as designed, and the
+returned weights are the best seen. Both grayscale runs stopped at *identical* epoch indices,
+which says the behaviour is reproducible and schedule-determined rather than noise.
+
+**What it does not license:** the word *converged*. We did not observe a long-horizon plateau,
+and a larger `patience` might have found further improvement. The honest phrasing is
+**"training was stopped by the early-stopping rule at epoch 24, having last improved at epoch
+18"** — not "training converged".
+
+Not retrained because the cost (~45 min) buys a plausible ~0.1 pp against a **6.8 pp** lead
+over the next method: no ranking, no robustness curve and no conclusion in this report turns
+on it. Recorded here so the decision is visible rather than silent.
+
+### 7.4c Training times are not comparable across the three runs
+
+`torch_threads` was 6 / 7 / 8 across the three runs, so the 3,350 / 2,596 / 1,133 s figures
+measure three different machines' worth of parallelism. **They must not be compared with each
+other**, and only the `raw_gray` row (7 threads) is a candidate for Table 1.
+
+This compounds the §10 gotcha already on record — the CPU power profile moved epoch time by
+~20 % mid-run, and `scaling_governor` reads `powersave` in both profiles on amd-pstate, so the
+change is invisible in the logs. **Table 1's timing column must be re-measured for all six
+methods in one pass on an idle machine at a fixed `energy_performance_preference`** (task
+9.1). Until then every duration in `results.csv` is indicative only, per note 06.

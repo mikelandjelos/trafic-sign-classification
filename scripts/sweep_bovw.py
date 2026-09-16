@@ -76,8 +76,12 @@ GEOMETRY_GRID: tuple[tuple[int, int], ...] = (
     (2, 2),    # best on clahe_gray; the curve had still not flattened
 )
 
-#: 500 -> 1000 was worth a consistent +6 pp and had not plateaued, so 2000 is on the grid.
-VOCAB_GRID: tuple[int, ...] = (500, 1000, 2000)
+#: **Capped at 1000 by decision (2026-09-17), not by measurement.** 500 -> 1000 was worth a
+#: consistent +6 pp and had NOT plateaued, so this is a stated compute budget and BoVW's
+#: reported number is a lower bound -- the same caveat PCA's k=256 carries at 4.2. The budget
+#: goes to the degradation grid instead, which is what the project is actually about; and at
+#: size 2, k=2000 would put SPM L=2 at ~42,000 dimensions.
+VOCAB_GRID: tuple[int, ...] = (500, 1000)
 VOCAB_SAMPLES = 200_000
 
 #: BoVW wants a LARGER `C` than the other methods -- its features are the lowest-dimensional
