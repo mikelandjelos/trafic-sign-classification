@@ -29,10 +29,12 @@ feature space rather than inheriting the other's.
 from __future__ import annotations
 
 import argparse
+import gc
 import time
 from pathlib import Path
 
 import joblib
+import numpy as np
 import sklearn
 from sklearn.svm import LinearSVC
 
@@ -48,14 +50,33 @@ def model_path(method: str, preproc: str) -> Path:
     return config.MODELS_DIR / f"{method}_{preproc}.joblib"
 
 
+def encode_dtype(phi) -> type:
+    """float64 for the wide pyramid, float32 otherwise.
+
+    `LinearSVC` (liblinear) requires float64 and upcasts internally, so handing it float32
+    costs the float32 array PLUS a float64 copy, per fit. At the pyramid's 21,000 dimensions
+    that is 2.45 + 4.91 = **7.36 GB at peak** against ~8 GB free -- six times over, once per
+    fit. Encoding straight to float64 means one 4.91 GB array every fit borrows without
+    copying. Below ~5,000 dims the copy is cheap and float32 halves the resident set, so the
+    threshold is a real trade rather than a blanket choice.
+    """
+    return np.float64 if phi.n_features >= 5000 else np.float32
+
+
 def train_one(method: str, phi, train_images, y_train, val_images, y_val,
               c_grid, dry_run: bool) -> dict:
     """Tune `C` for this feature space, fit, evaluate, time, save, and record."""
     print(f"\n=== {method} ({phi.n_features} dims) ===", flush=True)
+    dtype = encode_dtype(phi)
+    gib = phi.n_features * len(train_images) * np.dtype(dtype).itemsize / 1024**3
+    print(f"encoding as {np.dtype(dtype).name} ({gib:.2f} GB for the training split)",
+          flush=True)
 
     started = time.perf_counter()
-    features_train = phi.transform(train_images)
-    features_val = phi.transform(val_images)
+    features_train = phi.transform(train_images, dtype=dtype) \
+        if isinstance(phi, BoVWSpatialPyramid) else phi.transform(train_images)
+    features_val = phi.transform(val_images, dtype=dtype) \
+        if isinstance(phi, BoVWSpatialPyramid) else phi.transform(val_images)
     encode_s = time.perf_counter() - started
     print(f"encoded train+val in {encode_s:.0f}s", flush=True)
 
@@ -65,27 +86,36 @@ def train_one(method: str, phi, train_images, y_train, val_images, y_val,
     class_weight = tuned.best.params["class_weight"]
     print(f"selected: C={C:g} class_weight={class_weight}")
 
+    # Release the tuning arrays BEFORE the timed refit re-encodes. Holding both would put
+    # two 4.91 GB float64 blocks alive at once for the pyramid, which OOMs on this machine.
+    del features_train, features_val
+    gc.collect()
+
     classifier = LinearSVC(C=C, class_weight=class_weight, max_iter=5000,
                            random_state=config.SEED)
 
     # Training cost is the WHOLE method: vocabulary fit + encoding + SVM. Timing only the SVM
     # would flatter BoVW against HOG, which has no fitted stage at all (note 12 §2.1).
+    def encode(images):
+        return (phi.transform(images, dtype=dtype)
+                if isinstance(phi, BoVWSpatialPyramid) else phi.transform(images))
+
     def fit_everything() -> None:
         phi.fit(train_images)
-        classifier.fit(phi.transform(train_images), y_train)
+        classifier.fit(encode(train_images), y_train)
 
     train_timing = timing.time_training(fit_everything, label="train")
     print(f"train: {train_timing.median_s:.1f} s (vocabulary + encoding + LinearSVC)")
 
-    val_result = evaluation.evaluate(y_val, classifier.predict(phi.transform(val_images)))
+    val_result = evaluation.evaluate(y_val, classifier.predict(encode(val_images)))
     print(val_result.summary())
 
     infer_timing = timing.time_inference(
-        lambda: classifier.predict(phi.transform(val_images)),
+        lambda: classifier.predict(encode(val_images)),
         n_items=len(val_images), label="inference")
     single = val_images[:1]
     single_timing = timing.time_inference(
-        lambda: classifier.predict(phi.transform(single)),
+        lambda: classifier.predict(encode(single)),
         n_items=1, label="inference_single")
     print(f"inference (batched): {infer_timing.ms_per_item:.4f} ms/img")
     print(f"inference (single) : {single_timing.ms_per_item:.4f} ms/img")

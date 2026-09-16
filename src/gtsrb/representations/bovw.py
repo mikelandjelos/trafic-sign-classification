@@ -285,7 +285,12 @@ def normalise_histograms(histograms: np.ndarray, scheme: str = "power_l2") -> np
     - ``l1`` -- mass to 1. Included for completeness; a pure rescale in this setting.
     - ``none`` -- raw counts.
     """
-    histograms = np.asarray(histograms, dtype=np.float32)
+    # Preserve a float64 input rather than forcing float32. At 21,000 dimensions the caller
+    # may deliberately be building float64 to avoid liblinear's internal upcast -- see
+    # `BoVWSpatialPyramid.transform`.
+    histograms = np.asarray(histograms)
+    if histograms.dtype not in (np.float32, np.float64):
+        histograms = histograms.astype(np.float32)
     if scheme == "none":
         return histograms
     if scheme == "l1":
@@ -294,7 +299,7 @@ def normalise_histograms(histograms: np.ndarray, scheme: str = "power_l2") -> np
     if scheme in ("l2", "power_l2"):
         values = np.sqrt(histograms) if scheme == "power_l2" else histograms
         norms = np.linalg.norm(values, axis=1, keepdims=True)
-        return (values / np.maximum(norms, 1e-12)).astype(np.float32)
+        return values / np.maximum(norms, 1e-12)
     raise ValueError(
         f"unknown normalisation {scheme!r}; expected one of "
         f"'power_l2', 'l2', 'l1', 'none'"
@@ -482,17 +487,28 @@ class BoVWSpatialPyramid(BoVWRepresentation):
         return chunk_for_budget(self.extractor.n_keypoints, self.n_words, budget_bytes)
 
     def transform(self, images: np.ndarray, chunk: int | None = None,
-                  progress: bool = False) -> np.ndarray:
-        """`(n, H, W[, C])` -> `(n, n_words * n_cells)` float32 histograms.
+                  progress: bool = False, dtype=np.float32) -> np.ndarray:
+        """`(n, H, W[, C])` -> `(n, n_words * n_cells)` histograms.
 
         `levels=0` reduces exactly to `BoVWRepresentation.transform` -- asserted by a test,
         because that identity is what makes the pyramid a controlled manipulation rather
         than a different method.
+
+        **`dtype=np.float64` exists for one concrete reason.** At k=1000 and L=2 this returns
+        31,379 x 21,000 values: 2.45 GB as float32, but `LinearSVC` (liblinear) requires
+        float64 and upcasts internally, so a float32 input costs **2.45 + 4.91 = 7.36 GB at
+        peak, per fit** -- against ~8 GB free on this machine, six times over (four `C`
+        values, the timed refit, the evaluation). Building float64 here instead means one
+        4.91 GB array that every fit borrows without copying.
+
+        This is a real cost of the sixth row and belongs in Table 1's discussion: recovering
+        spatial layout costs 21x the dimensionality of the orderless histogram, and that is
+        no longer free at training time.
         """
         chunk = self.chunk_for() if chunk is None else chunk
         kmeans = self._fitted()
         rows, cols = self.extractor.grid_shape
-        out = np.zeros((len(images), self.n_features), dtype=np.float32)
+        out = np.zeros((len(images), self.n_features), dtype=dtype)
 
         # Precomputed once: which spatial cell each grid position falls into, per level.
         binning = [
@@ -518,7 +534,7 @@ class BoVWSpatialPyramid(BoVWRepresentation):
                 out[start + i] = np.concatenate(pieces)
 
         # Weight the cells BEFORE normalising, so the normalisation sees the weighted vector.
-        out *= np.repeat(self.cell_weights, self.n_words)
+        out *= np.repeat(self.cell_weights, self.n_words).astype(dtype)
         return normalise_histograms(out, self.normalisation)
 
     def __repr__(self) -> str:
