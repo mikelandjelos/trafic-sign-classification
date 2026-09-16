@@ -11,6 +11,11 @@ Latest commit at time of recording: task 3.5 (degradations complete, no model tr
 > **wrong are more valuable to the discussion than entries that hold** — a failed prediction
 > localises a wrong belief about the representations.
 
+> ⚠ **One addendum was added later, on 2026-09-17**, for a method that did not exist when
+> this file was locked. It is at the bottom, separately dated, and states exactly what was
+> known when it was written. **Everything above the addendum is untouched and predates every
+> result.** The addendum predates every *degradation* result, which is what it predicts.
+
 ---
 
 ## MVP stressors
@@ -60,3 +65,65 @@ Lower confidence than the table above; recorded so they cannot be retrofitted.
 - **Preprocessing ablation:** `clahe_gray` > `raw_gray` for the gradient methods (contrast
   normalisation helps the under-exposed frames), with `clahe_hsv` buying little for its 3×
   dimensionality — and possibly hurting BoVW, which can only use one channel.
+
+---
+
+# ADDENDUM — BoVW + Spatial Pyramid Matching
+
+**Recorded: 2026-09-17**, before task 8.1 — i.e. **before any degradation result exists for
+any method**. Latest commit at time of recording: the task 8.1 grid runner, which has not been
+run.
+
+## Why this is a late addition, and what was already known
+
+`bovw_spm_svm` was promoted to a sixth configuration on 2026-09-16 (note 14 §9.4, index Q6).
+It did not exist when this file was locked, so it has no row in the table above.
+
+**Disclosed in full, because it bears on whether these predictions are legitimate.** At the
+time of writing I knew:
+
+- every method's **clean validation** score, including SPM's (0.9184 macro-F1 on `clahe_gray`,
+  landing within 0.1 pp of HOG's 0.9175);
+- that layout is worth +10.4 pp on clean data, and that the benefit *shrinks* as the base
+  representation improves (+14.1 pp at a poor configuration, +10.4 pp at a good one).
+
+I did **not** know any degradation result, for any method, at any level. Nothing below is
+retrodiction: the entire robustness grid was unrun.
+
+The clean scores do constrain these predictions — knowing SPM ≈ HOG on clean data is what
+makes "SPM should track HOG's curves" a natural guess. That is stated rather than hidden, and
+9.6 should read these rows with that caveat attached. They are weaker evidence than the
+2026-09-13 table, and should not be presented as equal to it.
+
+## Predictions
+
+The interesting question is not whether SPM beats plain BoVW — it does on clean data, and
+will almost certainly continue to. It is **whether the gap between them is constant across
+stressors**. The pair differs in exactly one variable, so any *change* in their gap localises
+what layout is actually buying.
+
+| Stressor | Prediction | Reasoning |
+|---|---|---|
+| **Motion blur** k 0→15 | **SPM degrades more slowly than plain BoVW** — the gap WIDENS | This is the sharpest case. The locked table predicts blur hurts BoVW *twice*: descriptors collapse onto few codewords, **and** there is no layout to fall back on. SPM removes the second half of that mechanism. If the gap does not widen under blur, the "twice" claim was wrong and the damage is entirely in the descriptors. |
+| **Gaussian noise** σ 0→40 | **SPM degrades slightly FASTER — the gap NARROWS** | The opposite direction, and the reason is sparsity, not layout. A 4×4 level gives each cell ~36 descriptors over a 500-word vocabulary, so per-cell histograms are extremely sparse. Noise randomises codeword assignment, and a given *fraction* of misassignments perturbs a sparse histogram proportionally more than a dense pooled one. Layout survives noise fine; the statistics estimated within each cell do not. |
+| **Gamma** γ 0.4↔2.5 | **Near-identical curves — the gap is UNCHANGED** | Deliberately the null row. Gamma is a monotone point transform: it moves no edge and no keypoint, so it cannot touch layout, and SIFT's descriptor normalisation handles the rest. **If these two curves separate under gamma, the reasoning behind the other two rows is suspect** — that is what this row is for. |
+| **Small signs** <32 px | **SPM better than plain BoVW** | Upsampled small signs carry no genuine high-frequency detail, so descriptors degrade toward each other — but the *arrangement* of a sign's parts survives upsampling intact. Same mechanism as the blur row. |
+
+## Headline addendum prediction
+
+> **Layout is worth more when structure is destroyed (blur, small signs) and worth less when
+> assignments are randomised (noise).** So the BoVW→SPM gap should *widen* under blur and
+> *narrow* under noise, crossing nowhere but visibly changing slope.
+
+**If the gap is instead flat across all three stressors**, the honest reading is that SPM is
+simply a strictly better representation and "layout" is not doing anything stressor-specific —
+which would undercut the structural framing of the whole comparison and is the more
+interesting outcome.
+
+## Secondary expectation
+
+**SPM's robustness curves should track HOG's more closely than plain BoVW's do.** Both are now
+rigid grids of local histograms at nearly the same clean accuracy, so if the layout axis is
+real they should also *fail* alike. If SPM keeps behaving like BoVW under stress despite
+having layout, then layout is not what separates BoVW from HOG, and the +10.4 pp has some
+other explanation — most likely the 21× dimensionality.
