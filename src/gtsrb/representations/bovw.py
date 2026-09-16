@@ -57,6 +57,7 @@ applied here, and task 6.4's histogram normalisation is a separate decision.
 
 from __future__ import annotations
 
+import sys
 from functools import lru_cache
 
 import cv2
@@ -156,9 +157,7 @@ class DenseSIFT:
         """
         rows = range(len(images))
         if progress:
-            from tqdm import tqdm
-
-            rows = tqdm(rows, desc="  dense SIFT", unit="img")
+            rows = _progress(rows, "  dense SIFT", "img")
         out = np.empty((len(images), self.n_keypoints, DESCRIPTOR_DIM), dtype=np.float32)
         for i in rows:
             out[i] = self.describe(images[i])
@@ -192,9 +191,7 @@ class DenseSIFT:
         chosen: list[np.ndarray] = []
         rows = range(len(images))
         if progress:
-            from tqdm import tqdm
-
-            rows = tqdm(rows, desc="  dense SIFT (sampling)", unit="img")
+            rows = _progress(rows, "  dense SIFT (sampling)", "img")
         for i in rows:
             descriptors = self.describe(images[i])
             take = rng.choice(self.n_keypoints, size=min(per_image, self.n_keypoints),
@@ -224,6 +221,19 @@ VOCABULARY_SIZES: tuple[int, ...] = (200, 500)
 #: Descriptors drawn to fit the vocabulary. ~200k of the ~2M the training split produces
 #: (31,379 images x 64) -- enough for a stable k-means at k <= 500, and 10x cheaper.
 DEFAULT_VOCAB_SAMPLES = 200_000
+
+
+def _progress(iterable, desc: str, unit: str):
+    """`tqdm`, but silent when stdout is not a terminal.
+
+    These runs are routinely redirected to a log file, where tqdm's carriage-return
+    repainting has nothing to repaint and every refresh becomes a new line -- one training
+    run wrote ~200 progress lines into the log and buried the results. `disable` restores the
+    intent: a progress bar for a human, nothing for a file.
+    """
+    from tqdm import tqdm
+
+    return tqdm(iterable, desc=desc, unit=unit, disable=not sys.stdout.isatty())
 
 
 def chunk_for_budget(n_keypoints: int, n_words: int,
@@ -365,9 +375,7 @@ class BoVWRepresentation:
         out = np.zeros((len(images), self.n_words), dtype=np.float32)
         starts = range(0, len(images), chunk)
         if progress:
-            from tqdm import tqdm
-
-            starts = tqdm(list(starts), desc="  BoVW encode", unit="chunk")
+            starts = _progress(list(starts), "  BoVW encode", "chunk")
         for start in starts:
             block = images[start:start + chunk]
             descriptors = self.extractor.describe_batch(block)
@@ -495,9 +503,7 @@ class BoVWSpatialPyramid(BoVWRepresentation):
 
         starts = range(0, len(images), chunk)
         if progress:
-            from tqdm import tqdm
-
-            starts = tqdm(list(starts), desc="  BoVW-SPM encode", unit="chunk")
+            starts = _progress(list(starts), "  BoVW-SPM encode", "chunk")
         for start in starts:
             block = images[start:start + chunk]
             flat = self.extractor.describe_batch(block).reshape(-1, DESCRIPTOR_DIM)

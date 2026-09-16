@@ -4,10 +4,13 @@
 **the layout measurement (§9), which is the study's central structural claim**; the §11
 jitter extension, whose premise rests on this method's orderlessness.*
 
-Implementation: `src/gtsrb/representations/bovw.py`. Tests: `tests/test_bovw.py` (33).
-**Status:** 6.1–6.4 complete. **6.5 tuned but being re-run on `raw_gray`** (plan change
-2026-09-16) — §7–§9 record the tuning journey on `clahe_gray`; the reported numbers come from
-the re-run. **6.6 open.** §9.4 promotes SPM to a sixth configuration in the comparison.
+Implementation: `src/gtsrb/representations/bovw.py` (`BoVWRepresentation`,
+`BoVWSpatialPyramid`). Tests: `tests/test_bovw.py` (58).
+**Status:** 6.1–6.5 complete; **6.5b implemented**; 6.6 written, not yet run.
+**§11 holds the reported `raw_gray` configuration** — selected size 2 / step 2, k = 1000,
+macro-F1 **0.8801** / accuracy **0.9317**, a **+53.5 pp** recovery from the plan's parameters.
+§7–§9 record the tuning journey on `clahe_gray` and are kept as history, not as results.
+§9.4 promotes SPM to a sixth configuration in the comparison.
 
 ---
 
@@ -452,31 +455,115 @@ environment, per note 06.
 
 ---
 
-## 11. Open for task 6.5 (re-run) and 6.6
+## 11. The reported configuration — `raw_gray` (task 6.5, 2026-09-17)
 
-**Everything in §7–§9 was measured on `clahe_gray` and must be re-run on `raw_gray`**, which
-is now the single fixed preprocessing config for the whole comparison (plan change,
-2026-09-16 — see `PROJECT_TASKS.md` §1). The numbers above are expected to move; they are
-recorded as the tuning *journey*, and the reported figures come from the re-run.
+`results/sweeps/bovw_configs.csv`. 112 grid points, **all converged**. §7–§9 above were
+measured on `clahe_gray` and are kept as the tuning *journey*; **these are the reported
+numbers.**
 
-Also outstanding:
+| size | step | kp/img | k | macro-F1 | accuracy |
+|---|---|---|---|---|---|
+| **12** (the plan's value) | 6 | 64 | 1000 | **0.3455** | 0.4142 |
+| 6 | 3 | 256 | 1000 | 0.5693 | 0.6271 |
+| 6 | 2 | 576 | 1000 | 0.5814 | 0.6450 |
+| 4 | 3 | 256 | 1000 | 0.6862 | 0.7332 |
+| 4 | 2 | 576 | 1000 | 0.7079 | 0.7640 |
+| 3 | 2 | 576 | 1000 | 0.7863 | 0.8457 |
+| **2** | **2** | **576** | **1000** | **0.8801** | **0.9317** |
 
-- **`k` is capped at 1000 by decision, not by measurement** (2026-09-17). `k=2000` at size 2
-  remains untested and is the one demonstrably promising cell left: `k` was worth +6 pp at
-  500 → 1000 and has *not* been shown to plateau. **BoVW's reported number is therefore a
-  lower bound**, and the report must say so in the same breath as PCA's k=256 caveat — both
-  are selections pinned to the edge of a grid that was not widened. The budget goes to the
-  degradation grid instead, which is the project's actual subject, and at size 2 a k=2000
-  vocabulary would put SPM L=2 at ~42,000 dimensions.
-- **The SPM row is L = 2 only** (2026-09-17). L=1 stays here as the intermediate measurement
-  — it is what shows the effect is graded and that layout and descriptor quality are partial
-  substitutes — but it does not get a Table 1 row.
-- **Persist everything.** The size-2 results and every pyramid row above were printed to a
-  terminal and never written to a CSV — they exist only in a session transcript. This is the
-  documentation failure of this task and the reason 6.5 is being re-run rather than
-  transcribed.
-- **6.6 demo.** The centrepiece should be the **permutation test**: shuffle the keypoint
-  positions before pooling and show the histogram is byte-identical. That makes
-  orderlessness a demonstrated property rather than an asserted one, and it is the natural
-  visual companion to §9 — the same figure can show the SPM histogram *changing* under the
-  same shuffle.
+**Selected: size 2 / step 2, k = 1000, C = 1, `class_weight="balanced"`.**
+**A +53.5 pp recovery** from the parameters the plan specified — the largest single effect
+measured anywhere in this project.
+
+`C = 1` wins, not `C = 10` as on `clahe_gray`, so **the selection is no longer pinned to a
+grid edge** — extending the grid to 100 was justified and 100 never wins. That retires the
+caveat `C` carried at 6.5's first pass.
+
+### 11.1 BoVW barely notices CLAHE — and that is a mechanism, not a coincidence
+
+| preproc | best macro-F1 |
+|---|---|
+| `clahe_gray` | 0.8791 |
+| `raw_gray` | **0.8801** |
+
+**0.1 pp apart.** So the fixed-`raw_gray` decision costs BoVW essentially nothing, and the
+reason is the one already on record for HOG and the CNN: **SIFT descriptors arrive from
+OpenCV already L2-normalised** (§3), so contrast enhancement has nothing left to do.
+
+This completes a clean four-way pattern for the 9.7 discussion — *how much preprocessing
+matters is a property of the representation*, specifically of whether it normalises
+internally:
+
+| method | internal normalisation | cost of dropping CLAHE |
+|---|---|---|
+| PCA | **none** | **−2.64 pp** |
+| HOG | block L2-Hys | −0.4 pp (CLAHE *hurts*) |
+| BoVW | SIFT descriptor L2 | **−0.1 pp** |
+| CNN | BatchNorm | −0.16 pp |
+
+PCA is the outlier, and it is the only method without internal normalisation. That is the
+whole finding, and it is now measured on four methods rather than argued.
+
+### 11.2 Scale over density, reproduced on a second preprocessing config
+
+| held fixed | varied | `raw_gray` | (`clahe_gray`) |
+|---|---|---|---|
+| density (256 kp, step 3) | scale 6 → 4 | **+11.7 pp** | +12.3 pp |
+| scale (size 4) | density 256 → 576 kp | **+2.2 pp** | +2.1 pp |
+
+Roughly **5.3×** apart, against ~6× before. An independent replication of §7.2 on different
+pixels, which is worth more than the original single measurement.
+
+### 11.3 The vocabulary gain shrinks as scale improves — the k = 1000 cap is cheaper than feared
+
+500 → 1000 words, by geometry:
+
+| geometry | k=500 | k=1000 | Δ |
+|---|---|---|---|
+| size 6 / step 3 | 0.4910 | 0.5693 | +7.8 pp |
+| size 4 / step 3 | 0.6140 | 0.6862 | +7.2 pp |
+| size 4 / step 2 | 0.6351 | 0.7079 | +7.3 pp |
+| size 3 / step 2 | 0.7302 | 0.7863 | +5.6 pp |
+| **size 2 / step 2** | 0.8434 | **0.8801** | **+3.7 pp** |
+
+**The gain halves as the descriptor gets finer** — +7.3 pp at size 4, +3.7 pp at size 2.
+
+This is the *same substitution pattern* the spatial pyramid shows (§9.2): a better descriptor
+recovers what a larger vocabulary was otherwise supplying, just as it recovers what spatial
+binning was supplying. Three separate parameters — scale, vocabulary size, spatial layout —
+are all partly buying the same thing, which is why their individual effects are not additive
+and why quoting any of them as a constant would be wrong.
+
+**Consequence for the reported caveat.** BoVW's number remains a **lower bound**, since k was
+capped by decision rather than shown to plateau — but the bound is tighter than the earlier
+flat "+6 pp per doubling" reading suggested. The extrapolation to k=2000 at size 2 is
+plausibly ~+2 pp, not +6. State it that way rather than leaving the larger figure standing.
+
+### 11.4 The Q8 guard fired on its first real use
+
+The sweep ran with the pre-Q8 grid (both `class_weight` settings), and its own unconstrained
+best was `class_weight=None` at 0.8808. The policy-compliant selection is **0.8801** — a
+**0.07 pp** difference.
+
+Two things follow. First, `best_from_sweep`'s policy filter did exactly the job it was added
+for: without it, the final model would silently have violated a protocol decision made the
+same day. Second, the size of the difference is itself the argument for §Q8's closing
+sentence — **no class-weighting effect may be claimed anywhere in this report.** At the
+selected configuration the two settings are indistinguishable.
+
+---
+
+## 12. Still open
+
+- **`k = 2000` is untested**, capped by decision (2026-09-17). See §11.3: the extrapolated
+  cost is now ~2 pp rather than ~6.
+- **The SPM row is L = 2 only.** L=1 stays in §9 as the intermediate measurement — it is what
+  shows the effect is graded and that layout and descriptor quality are partial substitutes —
+  but it does not get a Table 1 row.
+- **6.6 demo** — `scripts/demo/bovw_mechanics.py`, written, not yet run. Centrepiece is the
+  permutation test: shuffle the keypoint positions before pooling, and the plain histogram is
+  byte-identical while the pyramid's changes. Four figures are in the report manifest.
+- **A documentation failure worth keeping.** The first size-2 result and every pyramid row in
+  §9 were printed to a terminal and never written to a CSV — they existed only in a session
+  transcript and had to be re-run. Everything in §11 is persisted in
+  `results/sweeps/bovw_configs.csv` and `results.csv`.

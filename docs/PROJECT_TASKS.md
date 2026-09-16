@@ -644,6 +644,12 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       contributing ~nothing net. Second finding: **the pyramid helps less as the base
       representation improves** (+14.1 pp at the poor config, +10.4 pp at the good one) —
       layout and descriptor quality are partial substitutes.
+      **Implemented 2026-09-17**: `gtsrb.representations.bovw.BoVWSpatialPyramid`, a subclass
+      of `BoVWRepresentation` overriding only the pooling — so the two rows share descriptors,
+      vocabulary, normalisation and classifier *by construction*, not by convention. Tests pin
+      the two properties that make the measurement valid: `levels=0` reduces **exactly** to
+      plain BoVW, and permuting keypoint positions leaves the plain histogram byte-identical
+      while changing the pyramid.
       **Decision 2026-09-17: the row is L = 2 only.** L=1 stays in note 14 as the intermediate
       measurement — it is what shows the effect is *graded* rather than a step change, and that
       layout and descriptor quality are partial substitutes — but it does not get a Table 1
@@ -712,16 +718,29 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 >   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
 >   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
+      **Runner written 2026-09-17**: `scripts/evaluate_grid.py`, 13 tests. Not yet run — it
+      needs both BoVW rows to exist first.
       **6 methods × 16 conditions = 96 cells at `raw_gray`**, which is the reported grid.
       Run the other two preprocessing configs as well if the wall-clock allows (it is
       inference-only); they feed 8.2 and the limitations note, and are dropped without loss
       if time is short.
       **The runner pairs each representation with the cache it was fitted from** (Q5, decided
-      at 4.1): a representation is never obtainable without its images, with a test asserting
-      it. A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
+      at 4.1). A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
       shape check fires and the results look plausible. **The guard matters more, not less,
-      now that preprocessing is fixed**: with a single expected config, a stray cache from an
-      earlier per-method run is exactly the mistake that would go unnoticed.
+      now that preprocessing is fixed**: with a single expected config, a stray artifact from
+      an earlier per-method run is exactly the mistake that would go unnoticed.
+      **As implemented:** `preproc` is never a flag — it is read out of each saved artifact,
+      which is why every `train_*.py` stores it beside the weights. A test asserts that a file
+      *named* `..._raw_gray.joblib` whose payload says `clahe_gray` follows the **payload**.
+      Two artifacts matching one method are refused rather than resolved by sort order — this
+      fired immediately on the superseded `clahe_gray` models, which are now in
+      `results/models/superseded/`.
+      **Also pinned:** every degradation's *identity* level is in the grid, because that is the
+      baseline 9.5 normalises against — and gamma's identity is 1.0, in the **middle** of its
+      range, so a `levels[0]` assumption would baseline every gamma curve against γ=0.4.
+      The loop runs (preproc → condition → method) so every method is handed *the same array
+      object*, making "the methods were compared on different pixels" structurally impossible
+      rather than merely prevented by seeding.
 - [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **OPTIONAL — skip if it
       costs real time** (decision 2026-09-16). Preprocessing is now held fixed at `raw_gray`
       (§1), so this task no longer supports a headline claim; it is a robustness footnote.
@@ -898,10 +917,15 @@ Those are what make this a study rather than a tutorial.
 - **Detector SIFT returns zero keypoints** on small crops, silently breaking BoVW. Use dense SIFT.
 - **`SVC(kernel='rbf')`** on 39k samples will run for hours. `LinearSVC`.
 - **Class imbalance** — measured at task 1.1: **10.7×** train (210 for class 0 vs 2,250 for
-  class 2), 12.5× test. Report macro-F1, not just accuracy. **`class_weight` is swept,
-  not assumed** — it is on the `gtsrb.tuning` grid alongside `C` for every method
-  (decided at 4.2). For PCA `balanced` won, but by only 0.55 pp and it *loses* at
-  k=128, so no class-weighting effect should be claimed from it.
+  class 2), 12.5× test. Report macro-F1, not just accuracy.
+  **`class_weight="balanced"` is FIXED for every method** (Q8, decided 2026-09-17). It was
+  swept per method until then, and the methods came out disagreeing — `pca_svm` selected
+  `None` on `raw_gray` while HOG and both CNN rows selected `balanced`. Unlike `C`, which is a
+  regularisation strength, `class_weight` changes **what the loss is**, so per-method settings
+  mean the methods were not trained toward the same objective. `balanced` because macro-F1
+  weights all 43 classes equally, so a class-balanced objective matches the reported metric.
+  **No class-weighting effect may be claimed from this** — it won by 0.55 pp at 4.2 and
+  *lost* at k=128. It is a protocol decision for comparability, not a result.
 - **Two test GT files** — `data/GT-final_test.csv` has `ClassId`;
   `Final_Test/Images/GT-final_test.test.csv` does not. Same row count, so the wrong one
   passes every count check. `config.TEST_GT_CSV` names the right one.
