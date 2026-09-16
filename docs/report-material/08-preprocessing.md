@@ -442,3 +442,29 @@ benefits from contrast normalisation and why — a claim that transfers beyond G
 Those losses are contaminated by the hue-wrap defect documented above: they measure a broken
 encoding of colour, not the value of colour. **The two grayscale columns are the interpretable
 comparison.** Stated wherever the third column is shown.
+
+
+---
+
+## ADDENDUM (2026-09-16) — preprocessing is no longer a per-method choice
+
+**The comparison is now run entirely at `raw_gray`.** See `PROJECT_TASKS.md` §1 and index Q7.
+
+Nothing measured in this note changes. What changes is its *role*: the three configs are no
+longer a selection mechanism, they are a **measured side-effect** reported at 9.7. The
+headline six-row table is one config, so that "razlike u rezultatima mogu pripisati isključivo
+samoj reprezentaciji" (proposal §3) holds literally rather than approximately.
+
+Consequences for this note's content:
+
+- **The hue-wrap finding stands and is still reported** (9.7). It is arguably *more* useful
+  now: it explains why a defective colour encoding costs in proportion to how much a method
+  differentiates (HOG −9.7, PCA −3.0, CNN −2.3 with an early peak), which is a statement about
+  representations, not about preprocessing.
+- **The CLAHE ladder stands** and becomes the limitation: CLAHE helps only the method with no
+  internal contrast normalisation (PCA +2.6 pp), is neutral for the CNN (+0.2) and *hurts* HOG
+  (−0.4). The report notes that CLAHE — with or without the HSV conversion — may improve
+  absolute numbers, and that the reported `raw_gray` figures are therefore conservative for
+  PCA in particular.
+- **8.2 is demoted to optional.** Its ranking-stability job is already answered by the
+  per-method sweeps recorded here.

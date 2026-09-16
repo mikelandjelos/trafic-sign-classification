@@ -353,3 +353,27 @@ distinct thing the `model_size_mb` column measures (note 06): PCA is 96 % learne
 is purely SVM coefficients with nothing learned, and this row is an SVM head plus a shared
 network. **Table 1 must state what each number contains**, or this row will look like the
 cheapest method in the study when it is among the most expensive.
+
+
+---
+
+## ADDENDUM (2026-09-16) — the reported CNN rows move to `raw_gray`
+
+Preprocessing is now fixed across the comparison (`PROJECT_TASKS.md` §1, index Q7).
+
+- **`cnn_e2e`** reports the `raw_gray` run: val macro-F1 **0.9856**, accuracy **0.9865**
+  (checkpoint `results/models/cnn_e2e_raw_gray.pt`, best epoch 18 of 24). The `clahe_gray`
+  run (0.9872 / 0.9902) stays in §5 as the measured preprocessing effect. **The cost is
+  0.16 pp** — negligible, and the reason is BatchNorm: the CNN normalises internally, so it
+  barely cares what CLAHE did.
+- **`cnn_feat_svm` must be re-run** off the `raw_gray` network. The recorded row (0.9797 /
+  0.9889) came from the `clahe_gray` network and is superseded. No retraining is involved —
+  the network exists; only the `LinearSVC` on its penultimate features is refitted.
+
+**This is the cleanest illustration of the point Q7 closes on.** The preprocessing cost ranges
+from 2.64 pp (PCA, no internal normalisation) through 0.4 pp (HOG, block normalisation) to
+0.16 pp (CNN, BatchNorm) — i.e. *how much preprocessing matters is itself a property of the
+representation*. Under the old per-method protocol that variation was silently absorbed into
+the method-vs-method gaps; under the fixed protocol it is visible and reportable.
+
+§1.1's objective-mismatch caveat and §7.3's shared-confusions finding are unaffected.

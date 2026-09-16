@@ -389,3 +389,21 @@ recorded in note 08; `transform_sqrt` remains an untested ablation (§2.4).
 - Expect HOG to need less regularisation headroom than PCA at comparable dimensionality,
   because its features are already block-normalised — but that is a hypothesis, not a reason
   to narrow the grid.
+
+
+---
+
+## ADDENDUM (2026-09-16) — HOG is unaffected by the preprocessing plan change
+
+The comparison is now fixed at `raw_gray` (`PROJECT_TASKS.md` §1, index Q7). **HOG had already
+selected `raw_gray` on its own at 5.2**, so its reported row is unchanged: 6 px cells, 9
+orientations, C=0.01, `balanced`, val macro-F1 **0.9175**, accuracy **0.9298**.
+
+Worth stating in the report rather than passing over: the config chosen for the whole study is
+the one HOG selected independently, which is a point in favour of `raw_gray` as the neutral
+choice rather than an arbitrary one. The mechanism is in §4 — HOG block-normalises internally,
+so CLAHE is redundant for it and very slightly harmful (−0.4 pp).
+
+One consequence to carry into 9.1: **HOG is now the only hand-designed method whose reported
+number required no compromise**, while PCA gives up 2.6 pp. If HOG's margin over PCA is
+discussed, that 2.6 pp belongs in the sentence.

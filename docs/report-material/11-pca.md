@@ -626,3 +626,26 @@ order of variance, not in order of usefulness**, and the discriminative detail �
 which pictogram — lives in components worth under 1 % each. Truncating at any *k* throws away
 precisely the fine detail that separates `Speed limit (100)` from `Speed limit (120)`, which
 is exactly the confusion measured at §8.3.
+
+
+---
+
+## ADDENDUM (2026-09-16) — the reported PCA row moves to `raw_gray`
+
+Preprocessing is now fixed across the whole comparison (`PROJECT_TASKS.md` §1, index Q7), so
+**the Table 1 row for `pca_svm` is the `raw_gray` cell**: k=256, **C=0.10, class_weight=None**,
+val macro-F1 **0.7713**, accuracy **0.8140** — not the `clahe_gray` cell (0.7977 / 0.8442)
+reported in §7–§8 above.
+
+**PCA pays the most for this of any method: −2.64 pp macro-F1.** That is expected and is
+itself the finding — PCA is the only representation with no internal contrast normalisation,
+so it is the one CLAHE was doing real work for. Recorded as a limitation, with the direction
+stated: the reported PCA number is *conservative*, and a contrast-normalised input would
+improve it by about 2.6 pp without changing its rank.
+
+Note the hyperparameters differ between the two cells (C 0.01 → 0.10, `balanced` → `None`),
+which is exactly the transfer effect measured in §7 — so the `raw_gray` row is re-selected
+from the existing sweep, never borrowed from the `clahe_gray` selection.
+
+Everything else in this note is unaffected: the eigensign figure, the PC1-is-brightness
+measurement, the k-sweep shape, the F/C-contiguity fix and the leakage measurement all stand.

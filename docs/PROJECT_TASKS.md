@@ -18,7 +18,7 @@ is the degradation preprocessing *failed to remove*, the residual the representa
 cope with. Capture-time simulation is a separate question, scoped to §12. Pipeline diagram:
 `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`.
 
-**Research question:** the four representations differ along several structural axes at
+**Research question:** the representations differ along several structural axes at
 once. Which one wins is expected to *depend on the stressor* — the contribution is the
 interaction between representation and degradation type, not a leaderboard.
 
@@ -27,13 +27,42 @@ interaction between representation and degradation type, not a leaderboard.
 | PCA | holistic, alignment-critical | global | no |
 | HOG | rigid grid, layout preserved | local | no |
 | BoVW | **orderless**, layout discarded | local | vocabulary only |
+| BoVW + SPM | rigid grid, layout preserved | local | vocabulary only |
 | CNN | hierarchical, pooling-invariant | local | fully |
 
-**Experimental design.** The classifier is held fixed (`LinearSVC`) across all four
+**Experimental design.** The classifier is held fixed (`LinearSVC`) across all
 representations, so any difference is attributable to the representation itself and not
 confounded with the classifier. The CNN therefore appears **twice**: once as a feature
 extractor (penultimate layer → `LinearSVC`, comparable to the others) and once
-end-to-end with its own softmax head. Five rows total.
+end-to-end with its own softmax head. **Six rows total.**
+
+> **Plan change, 2026-09-16 — two decisions, both recorded in `14-bovw.md` §9.4.**
+>
+> **(a) BoVW appears twice, as BoVW and BoVW+SPM.** Spatial Pyramid Matching was originally
+> excluded (correctly, and *before* any SPM number existed) because it moves BoVW onto HOG's
+> position on the layout axis. It is now **added as a sixth configuration, never as a
+> replacement** — plain BoVW remains the only occupant of "layout discarded", which is how the
+> proposal's §4.3 table defines it. Rationale: BoVW vs. BoVW+SPM differs in **exactly one
+> variable** (whether a descriptor's position is recorded), where BoVW vs. HOG confounds six.
+> It is the controlled form of the study's central claim, and it is worth **+10.4 pp macro-F1**
+> — landing within 0.1 pp of HOG, which says the BoVW/HOG gap *is* the layout information.
+> Also gives one method family two opposite predictions: orderlessness should **hurt** under
+> blur and **help** under bbox jitter (§11).
+>
+> **(b) Preprocessing is held FIXED at `raw_gray` for the whole comparison.** Per-method
+> preprocessing selection (decided at 4.2) is withdrawn as the headline protocol. It was a
+> divergence from the proposal, §3: *"sve metode primenjuju na isti skup, uz **isti
+> pretprocesing**, isti klasifikator i istu metodologiju evaluacije, čime se razlike u
+> rezultatima mogu pripisati isključivo samoj reprezentaciji."* With per-method preprocessing,
+> every method-vs-method gap mixed representation with preprocessing; holding it fixed makes
+> that sentence literally true. `raw_gray` is the neutral, unenhanced input, and the config HOG
+> selected on its own. **This project is about representations, not preprocessing** — the
+> ablation is demoted to a noted limitation (8.2, now optional).
+>
+> Cost of (b): PCA loses 2.6 pp (0.7977 `clahe_gray` → 0.7713 `raw_gray`), `cnn_e2e` loses
+> 0.16 pp (0.9872 → 0.9856), HOG is unchanged (already `raw_gray`). All the sweep data already
+> exists; only `cnn_feat_svm` and both BoVW rows need re-running. **The per-method sweeps are
+> kept and reported** — they are what *measures* the preprocessing effect, and 9.7 stands.
 
 ### Explicitly out of scope
 
@@ -379,7 +408,16 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 > nuisance hyperparameter. PCA is the only representation whose features are not internally
 > normalised (HOG block-normalises, BoVW L2-normalises, the CNN has batch norm; PCA's feature
 > σ spans 29×), so a frozen `C` would hand each representation a dial calibrated for another's
-> feature scale. Applies to **4.3, 5.3, 6.5, 7.5** and the grid at **8.1**.
+> feature scale. Applies to **4.3, 5.3, 6.5, 6.5b, 7.5** and the grid at **8.1**.
+>
+> **Still in force after the 2026-09-16 plan change, and note the asymmetry with
+> preprocessing.** `C` stays tuned per method; *preprocessing* is now fixed across methods.
+> These are not in tension: `C` is a nuisance parameter of the **classifier**, which the design
+> holds fixed only in the sense of "same estimator, same protocol", whereas preprocessing is
+> part of the **input** every representation shares. Letting `C` vary removes a confound;
+> letting preprocessing vary introduced one. BoVW's grid additionally extends `C` to 100 —
+> `C`=10 won at the top of `tuning.C_GRID`, and a selection pinned to a grid edge carries the
+> same caveat as PCA's k=256.
 
 - [x] **4.3** `LinearSVC` on PCA features, `C` tuned on val; record cost metrics and `C`
       — `scripts/train_pca.py` → **the first rows in `results/results.csv`** (58 rows, run
@@ -568,29 +606,58 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       accuracy (0.446) — it had subsampled with `iloc[:3000]` on class-ordered annotations and
       contained 3 of 43 classes. A large accuracy/macro-F1 gap is a label-space signature.
 - [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
-      **PARKED until 7.5 is done** (decision 2026-09-15). Current best 0.5248 macro-F1 is not
-      acceptable to report. Plan recorded in `14-bovw.md` §8: **Stage 1** add
-      `(step, keypoint_size)` to the sweep — density is the measured lever (0.3402 → 0.5248),
-      and the literature check says vocabulary size is *not* (a published pLSA system succeeds
-      with 300 words, inside our range). **Stage 2** only if Stage 1 plateaus: multi-scale
-      dense SIFT, soft assignment, or VLAD — all still orderless. **Spatial pyramid matching is
-      excluded**: it is the standard fix but would move BoVW onto HOG's position on the layout
-      axis and void the §11 premise.
-      **OPEN: the plan's sampling density is too coarse.** Measured on the full split, k=500:
-      size12/step6 (the value specified in 6.1) gives macro-F1 **0.3402**; size8/step4 gives
-      0.4583; size6/step3 gives **0.5248**. +18.5 pp from density alone — more than `k` or `C`
-      move anything. Not a bug (vocabulary fully used, ~37 distinct words/img, larger `C`
-      monotonically worse). **Decision needed: add `(step, keypoint_size)` to the sweep?**
-      Separately, BoVW trailing the others is *expected* — spatial pyramid matching exists to
-      fix orderless weakness on aligned objects, and we deliberately omit it because it would
-      collapse BoVW onto HOG's position on the layout axis. See `14-bovw.md` §6.3.
+      **UNPARKED and tuned** — `scripts/sweep_bovw.py`. BoVW went from **0.3492** macro-F1 at
+      the plan's parameters to **0.8791** (accuracy 0.9227), a **+53 pp** recovery, the largest
+      single effect measured anywhere in this project. The method was never broken; it was
+      badly parameterised.
+      **The lever is descriptor *scale*, not sampling density.** `step` fixes the keypoint
+      count independently of `size`, so the two separate: at a fixed 256 kp, scale 6→4 is worth
+      **+12.3 pp**; at a fixed scale, 2.25× the density is worth **+2.1 pp**. ~6× apart. An
+      earlier diagnosis called this "density" and was imprecise — the two had been confounded
+      in every probe that produced the claim.
+      **Vocabulary size *was* a lever after all: +6 pp** at 500→1000, consistently at two
+      geometries. This falsifies the literature-derived claim that 300 words suffice — that
+      published codebook feeds a *pLSA topic model*, not a linear SVM, so the number was
+      transferred across a difference in what sits on top of it.
+      **Also withdrawn: the ~75–82 % accuracy "cap"** extrapolated from Lazebnik's Caltech-101
+      result. Plain BoVW reaches 92.3 %. Had that bound been believed, the search would have
+      stopped ~0.73.
+      **TO DO:** re-run on `raw_gray` (the §1 plan change) with `k=2000` added — `k` had not
+      plateaued — and **persist to `results.csv`**. The size-2 and pyramid numbers above were
+      printed to a terminal and never written to disk; that is the documentation failure of
+      this task. Then train + record both `bovw_svm` and `bovw_spm_svm`.
+      See `14-bovw.md` §7–§8.
+- [ ] **6.5b** **BoVW+SPM as the sixth configuration** (new, 2026-09-16). Move the pooling out
+      of `scripts/experiment_spatial_pyramid.py` into `gtsrb.representations.bovw` as a proper
+      `Representation`, so 8.1 can run it across the degradation grid and results land in
+      `results.csv`. Measured (`clahe_gray`, size 2/step 2, k=500, **not persisted**):
+      L0 0.8143 → L1 0.8973 → L2 **0.9184** macro-F1 / 0.9441 accuracy.
+      **Layout is worth +10.4 pp**, and L=2 lands within 0.1 pp of HOG (0.9175) — the BoVW/HOG
+      gap *is* the layout information, with the other five differences between those methods
+      contributing ~nothing net. Second finding: **the pyramid helps less as the base
+      representation improves** (+14.1 pp at the poor config, +10.4 pp at the good one) —
+      layout and descriptor quality are partial substitutes.
+      Rationale for adding rather than substituting: `14-bovw.md` §9.4.
 - [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
       a sign, codeword assignment as a colour map (which patches share a word), and the
       histogram before/after normalisation. **This is the demo most likely to catch a real
       bug**: 6.2 asserts a constant descriptor count numerically, but a silently degenerate
       vocabulary — most patches collapsing onto one codeword under blur — passes that
       assertion and is obvious on sight.
+      **Centrepiece: the permutation test.** Shuffle the keypoint positions before pooling and
+      show the plain histogram is **byte-identical**, while the SPM histogram changes. That
+      turns orderlessness from an asserted property into a demonstrated one, and puts both
+      sides of the layout axis in a single figure — the visual companion to the +10.4 pp
+      measurement. Candidate for `figures/report/`.
 - [ ] **7.4** Check background run, tune LR/epochs, finalize end-to-end CNN
+      All three preprocessing runs are complete (7.3). Under the §1 plan change the reported
+      run is **`raw_gray`** — macro-F1 0.9856 / accuracy 0.9865, checkpoint
+      `results/models/cnn_e2e_raw_gray.pt`, already trained; the `clahe_gray` run (0.9872)
+      stays in the note as the measured preprocessing effect, not as the headline.
+      Remaining work: confirm the `raw_gray` run is converged rather than patience-limited,
+      and ensure its cost metrics are recorded in one pass on an idle machine at a fixed CPU
+      profile (§10 gotcha — the power profile moved epoch time by ~20 %). **Also re-run 7.5
+      (`cnn_feat_svm`) off the `raw_gray` network**, since the recorded one used `clahe_gray`.
 - [x] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three.
       — `scripts/train_cnn_features.py`, no retraining. **macro-F1 0.9797, accuracy 0.9889**
       (C=0.01, balanced). **All five methods now exist.**
@@ -619,12 +686,21 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 >   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
 >   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
+      **6 methods × 16 conditions = 96 cells at `raw_gray`**, which is the reported grid.
+      Run the other two preprocessing configs as well if the wall-clock allows (it is
+      inference-only); they feed 8.2 and the limitations note, and are dropped without loss
+      if time is short.
       **The runner pairs each representation with the cache it was fitted from** (Q5, decided
       at 4.1): a representation is never obtainable without its images, with a test asserting
       it. A `raw_gray`/`clahe_gray` mix-up is otherwise silent — both are 2304 dims, so no
-      shape check fires and the results look plausible. This is the one place it can happen,
-      because 8.2 loops over all three configs.
-- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs.
+      shape check fires and the results look plausible. **The guard matters more, not less,
+      now that preprocessing is fixed**: with a single expected config, a stray cache from an
+      earlier per-method run is exactly the mistake that would go unnoticed.
+- [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **OPTIONAL — skip if it
+      costs real time** (decision 2026-09-16). Preprocessing is now held fixed at `raw_gray`
+      (§1), so this task no longer supports a headline claim; it is a robustness footnote.
+      Most of its content already exists for free in the per-method sweeps, which are reported
+      at 9.7 regardless. If skipped, say so in the limitations rather than leaving it implied.
       **Largely answered already** (note 08 addendum): all three completed methods swept all
       three configs, and **the ranking is stable — CNN > HOG > PCA under both grayscale
       configs**. The largest preprocessing effect (+3.0 pp, PCA) is smaller than the smallest
@@ -640,10 +716,19 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       seed and no repeats we cannot support "no significant difference". A ranking that does
       flip is a finding and gets reported.
 - [ ] **8.3** Verify results CSV is complete, no NaNs
+      `results.check_complete()` against the 96-cell grid. **This is the review checkpoint**
+      (agreed 2026-09-16): when 8.3 passes, stop and recap everything — the six methods, every
+      finding, every withdrawn claim, the state of all docs and figures — **before** starting
+      the Day 4 analysis and the Day 5 writeup. Nothing enters the report that has not been
+      through that pass.
 
 ### Day 4 — Analysis and figures (~5.5 h)
 
-- [ ] **9.1** Table 1: accuracy, macro-F1, train time, inference ms/img, model size MB, feature dim — one row per method (5 rows) *(task 9 = 2.0 h)*
+- [ ] **9.1** Table 1: accuracy, macro-F1, train time, inference ms/img, model size MB, feature dim — one row per method (**6 rows**) *(task 9 = 2.0 h)*
+      **All six rows at `raw_gray`** (§1). A third caveat joins (a) and (b) below: `bovw_spm`
+      is 10,500 dims at k=500, ~6× HOG and ~20× plain BoVW, so the feature-dimension and
+      model-size columns are not like-for-like across the BoVW pair either — and that is the
+      point, since the extra dimensions *are* the layout information.
       **Two caveats measured at 4.3, both must appear with the table.** (a) Report the
       **single-image** inference figure, or state which is which: batched throughput is 49×
       the per-frame latency for PCA, and the ratio is method-specific. (b) `model_size_mb`
@@ -706,13 +791,19 @@ Models are trained once; only inference varies across the grid. Whole grid runs 
 under an hour.
 
 ```
-methods       = [pca_svm, hog_svm, bovw_svm, cnn_feat_svm, cnn_e2e]   # 5
-degradations  = [clean] + [noise, blur, gamma] x 5 levels             # 16
-preproc       = [raw_gray, clahe_gray, clahe_hsv]                     # ablation, best 2 methods only
+methods       = [pca_svm, hog_svm, bovw_svm, bovw_spm_svm, cnn_feat_svm, cnn_e2e]   # 6
+degradations  = [clean] + [noise, blur, gamma] x 5 levels                           # 16
+preproc       = raw_gray                                    # FIXED -- see the §1 plan change
 ```
 
-Core grid: 5 × 16 = **80** evaluation runs. (Was 105; bbox jitter moved to §11 — no cell in
-the remaining grid is compromised.)
+Core grid: 6 × 16 = **96** evaluation runs, all at `raw_gray`. (Was 80 at 5 methods; before
+that 105, when bbox jitter was still in — no cell in the remaining grid is compromised.)
+
+**The grid may additionally be run at `clahe_gray` and `clahe_hsv` if time allows**, since it
+is inference-only and cheap. Those rows are a ranking-stability check (8.2) and a limitations
+note, *not* the reported result: `raw_gray` is what enters the report regardless, with the
+observation that CLAHE — with or without the HSV conversion — may improve absolute numbers
+for the methods that lack internal contrast normalisation.
 Size-stratified results are free — group the existing clean-test predictions by ROI height.
 
 **No jitter enters training or the core grid.** Models are trained on GTSRB with the
@@ -749,13 +840,24 @@ datasets whose pixels actually exist outside the box.
 
 Cut in this order if you fall behind. The comparison survives all three.
 
-1. **BoVW** (task 6, ~2.5 h) — the fiddliest. Leaves PCA, HOG, and both CNN variants.
-2. **Preprocessing ablation** (8.2) — report one config, note as a limitation.
-3. **Hyperparameter sweeps** (4.2, 5.2, 6.3) — use sensible defaults, note as a limitation.
+**Reordered 2026-09-16.** BoVW was first on this list when it was the fiddliest task and
+scoring 0.52. It is now tuned, and it carries the **layout measurement** (6.5b) — the one
+controlled manipulation of the study's central variable. Cutting it would remove the best
+evidence for the thesis, not the most expendable task.
 
-Never cut: track-disjoint splitting, the cost table, the predictions table, and the
-**measurement** of why jitter cannot be done on GTSRB (§11 — the number is the finding, even
-if the extension itself is never run).
+1. **Preprocessing ablation** (8.2) — report one config, note as a limitation. Already
+   downgraded to optional by the §1 plan change, so this is the cheapest cut by a wide margin.
+2. **The non-`raw_gray` grid runs** (8.1, optional configs) — inference-only, but the first
+   thing to drop if the grid over-runs. `raw_gray` alone is the reported result.
+3. **Hyperparameter sweeps** (4.2, 5.2, 6.3) — use sensible defaults, note as a limitation.
+   Note this is now *more* costly to cut than it was: 6.5 measured a **+53 pp** swing between
+   the plan's parameters and the swept ones, so "sensible defaults" is demonstrably not a safe
+   fallback for BoVW.
+
+Never cut: track-disjoint splitting, the cost table, the predictions table, **the BoVW /
+BoVW+SPM pair** (6.5b — the layout axis is the thesis), and the **measurement** of why jitter
+cannot be done on GTSRB (§11 — the number is the finding, even if the extension itself is
+never run).
 Those are what make this a study rather than a tutorial.
 
 ---
