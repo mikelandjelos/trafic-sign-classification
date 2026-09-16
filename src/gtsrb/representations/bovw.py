@@ -316,7 +316,26 @@ class BoVWRepresentation:
 
     # --- task 6.4: the encoding -------------------------------------------------------
 
-    def transform(self, images: np.ndarray, chunk: int = 2000,
+    def chunk_for(self, budget_bytes: int = 128 * 1024**2) -> int:
+        """How many images to describe at once, so the peak allocation stays under budget.
+
+        **Sized in bytes, not images**, and it must account for *two* growing terms -- the
+        first version of this only handled the first, and was still killed by the OOM reaper:
+
+        1. the **descriptor block**, `chunk x n_keypoints x 128 x 4` bytes. At 576 keypoints
+           a 4,000-image chunk is 1.1 GB.
+        2. the **assignment**, which hands `chunk x n_keypoints` rows to `KMeans.predict`.
+           That computes distances to every centroid, so the working set grows with
+           `n_words` as well: 524,160 rows against 1,000 centroids is 3.9 GB dense, and
+           sklearn only chunks it down to `working_memory` (1 GB by default).
+
+        Both scale with `chunk x n_keypoints`, so one bound covers them if the per-row cost
+        includes an allowance for the distance computation.
+        """
+        per_row = DESCRIPTOR_DIM * 4 + self.n_words * 8
+        return max(1, budget_bytes // (self.extractor.n_keypoints * per_row))
+
+    def transform(self, images: np.ndarray, chunk: int | None = None,
                   progress: bool = False) -> np.ndarray:
         """`(n, H, W[, C])` -> `(n, n_words)` float32 histograms.
 
@@ -324,7 +343,12 @@ class BoVWRepresentation:
         12,630 x 64 = 808k vectors of 128 floats against the centroids, and the distance
         matrix alone would be hundreds of megabytes. Chunking bounds it without changing
         the result -- each descriptor's nearest centroid depends only on that descriptor.
+
+        `chunk` defaults to `chunk_for()`, which sizes it by memory rather than by image
+        count. Passing an explicit value is still honoured, and the tests assert that the
+        choice cannot change the output.
         """
+        chunk = self.chunk_for() if chunk is None else chunk
         kmeans = self._fitted()
         out = np.zeros((len(images), self.n_words), dtype=np.float32)
         starts = range(0, len(images), chunk)
