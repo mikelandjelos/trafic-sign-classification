@@ -366,9 +366,16 @@ Preprocessing is now fixed across the comparison (`PROJECT_TASKS.md` §1, index 
   run (0.9872 / 0.9902) stays in §5 as the measured preprocessing effect. **The cost is
   0.16 pp** — negligible, and the reason is BatchNorm: the CNN normalises internally, so it
   barely cares what CLAHE did.
-- **`cnn_feat_svm` must be re-run** off the `raw_gray` network. The recorded row (0.9797 /
-  0.9889) came from the `clahe_gray` network and is superseded. No retraining is involved —
-  the network exists; only the `LinearSVC` on its penultimate features is refitted.
+- **`cnn_feat_svm` re-run, done** (run `20260916T092421-2dbf5d1`): C=0.01, `balanced`, val
+  macro-F1 **0.9774**, accuracy **0.9860**, against 0.9797 / 0.9889 on the `clahe_gray`
+  network. **−0.23 pp**, i.e. slightly more than `cnn_e2e` gave up (−0.16 pp) — the SVM head
+  is marginally more sensitive to the input contrast than the jointly-trained softmax head,
+  which is consistent with §1.1's objective-mismatch reading. No retraining: the network
+  exists, only the `LinearSVC` on its penultimate features was refitted.
+  `C` again barely matters — all 8 grid points fall within 0.003 macro-F1.
+  **The objective-mismatch gap is stable across preprocessing**: 0.82 pp here
+  (0.9856 → 0.9774) against 0.75 pp on `clahe_gray`. It is a property of the two heads, not
+  an artifact of one input config.
 
 **This is the cleanest illustration of the point Q7 closes on.** The preprocessing cost ranges
 from 2.64 pp (PCA, no internal normalisation) through 0.4 pp (HOG, block normalisation) to

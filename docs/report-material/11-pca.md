@@ -647,5 +647,35 @@ Note the hyperparameters differ between the two cells (C 0.01 → 0.10, `balance
 which is exactly the transfer effect measured in §7 — so the `raw_gray` row is re-selected
 from the existing sweep, never borrowed from the `clahe_gray` selection.
 
+**Confirmed by the re-run** (`20260916T125006-2dbf5d1`): macro-F1 0.7713, accuracy 0.8140,
+exactly reproducing the sweep cell — the same free end-to-end check §8 describes, since the
+script reads hyperparameters from the sweep rather than from literals. Model 2.35 MB,
+batched inference 0.0064 ms/img against 0.3337 single (**52×**).
+
 Everything else in this note is unaffected: the eigensign figure, the PC1-is-brightness
 measurement, the k-sweep shape, the F/C-contiguity fix and the leakage measurement all stand.
+
+### A cross-method finding that needs revising
+
+§9.3 of `PROJECT_TASKS.md` records that PCA and the CNN share their worst classes (the
+end-of-restriction signs) while **HOG's** are the speed limits — the representation × difficulty
+interaction. **On `raw_gray`, PCA fails at both.** Its top five confusions are now:
+
+| pair | rate |
+|---|---|
+| Roundabout mandatory → Priority road | 68.3 % |
+| End of no passing → End of all speed and passing limits | 66.7 % |
+| Speed limit (120) → Speed limit (70) | 14.8 % |
+| Speed limit (100) → Speed limit (120) | 12.7 % |
+| Speed limit (80) → Speed limit (30) | 8.1 % |
+
+So the clean split of "PCA/CNN fail on end-of-restriction, HOG on speed limits" was **partly an
+artifact of CLAHE**: without contrast normalisation PCA also loses the speed-limit digits,
+which are exactly the low-contrast fine strokes CLAHE was recovering. The interaction finding
+survives but weakens — HOG's failures remain *concentrated* on speed limits while PCA's are
+spread across both families.
+
+**Strengthened, though:** `Roundabout mandatory → Priority road` is now the **top confusion for
+both PCA (68.3 %) and `cnn_feat_svm` (30.0 %)** on the same input. Two representations sharing
+nothing structurally, failing hardest on the same pair, at ~2× attenuation — the same signature
+§9.3 reports, on a different pair. That difficulty is intrinsic to the classes.
