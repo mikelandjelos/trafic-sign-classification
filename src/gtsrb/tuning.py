@@ -39,26 +39,35 @@ from gtsrb import config, evaluation
 #: 7830 images could not resolve anyway.
 C_GRID: tuple[float, ...] = (0.01, 0.1, 1.0, 10.0)
 
-#: Whether to reweight classes by inverse frequency. Swept rather than assumed: the
-#: PROJECT_TASKS gotcha list flags it as "consider", and it interacts with macro-F1 exactly
-#: where the imbalance bites.
+#: **FIXED POLICY, decided 2026-09-17 (Q8): every method uses `class_weight="balanced"`.**
 #:
-#: **OPEN (Q8, raised 2026-09-17).** This comment used to read "whatever wins here must then
-#: be applied to ALL five methods -- it is a policy about the imbalance, not a
-#: per-representation nuisance parameter". **The code has never done that**, and the methods
-#: now genuinely disagree: `pca_svm` selects `balanced` on `clahe_gray` but `None` on
-#: `raw_gray`, while HOG and both CNN rows select `balanced`. The comment described an
-#: intention, not the implementation, so it is corrected here to describe what actually
-#: happens -- selection is per (method, preproc), exactly like `C`.
+#: GTSRB is imbalanced 10.7x (210 images in class 0 against 2,250 in class 2), and this knob
+#: decides what the SVM's hinge loss optimises: `None` weights every training *image* equally,
+#: `"balanced"` weights every *class* equally by inverse frequency.
 #:
-#: Whether that is right is a live question, not a settled one. For: every method selects on
-#: the same criterion (validation macro-F1), so `class_weight` is only a means to that
-#: objective and the Q4 argument for per-method `C` applies unchanged. Against: unlike `C`, it
-#: changes what the *fit* optimises, so two methods with different settings are not solving
-#: quite the same problem. Note the effect is small and unstable -- at 4.2 `balanced` won by
-#: 0.55 pp and *lost* at k=128 -- so no class-weighting claim should rest on it either way.
-#: See `00-INDEX.md` Q8.
-CLASS_WEIGHTS: tuple[str | None, ...] = (None, "balanced")
+#: It was previously swept per method alongside `C`, and the methods came out disagreeing --
+#: `pca_svm` selected `None` on `raw_gray` while `hog_svm` and both CNN rows selected
+#: `"balanced"`. That is a different situation from `C`, and the distinction is the reason for
+#: this policy: `C` is a regularisation strength, so two methods with different `C` still
+#: minimise the same loss; `class_weight` changes **what the loss is**. Two methods with
+#: different settings were therefore not trained toward the same objective, which is exactly
+#: what "the classifier is held fixed" is supposed to rule out.
+#:
+#: `"balanced"` rather than `None` because it matches the metric the study selects and reports
+#: on: macro-F1 weights all 43 classes equally regardless of frequency, so a class-balanced
+#: training objective is the one aligned with it. It was also what 3 of the 4 methods chose on
+#: validation when free to choose.
+#:
+#: **The cost is small and must not be overstated.** At 4.2 `balanced` beat `None` by 0.55 pp
+#: and *lost* at k=128, so no class-weighting effect is claimed from this anywhere in the
+#: report -- it is a protocol decision for comparability, not a result.
+CLASS_WEIGHT: str | None = "balanced"
+
+#: What the sweeps actually try. One value, because the policy above is fixed -- this also
+#: halves every remaining sweep. The evidence for the choice is preserved in the sweep CSVs
+#: already written (`pca_components.csv`, `hog_configs.csv`, `bovw_stage1*.csv`), which
+#: contain both settings at every grid point.
+CLASS_WEIGHTS: tuple[str | None, ...] = (CLASS_WEIGHT,)
 
 
 @dataclass(frozen=True)
@@ -196,12 +205,31 @@ def best_from_sweep(csv_path, **filters) -> dict:
     recorded experiment selected.
 
     `filters` restricts before selecting, e.g. `preproc="clahe_gray"`.
+
+    **Rows violating the fixed `class_weight` policy are dropped first** (Q8). Sweeps written
+    before 2026-09-17 contain both settings at every grid point, and their global best is
+    sometimes a `None` row -- selecting it would silently reintroduce the per-method
+    class weighting the policy exists to remove. Pass `class_weight=...` explicitly to
+    override, which is what an ablation would do.
     """
     import pandas as pd
 
     frame = pd.read_csv(csv_path)
+    if "class_weight" in frame.columns and "class_weight" not in filters:
+        wanted = CLASS_WEIGHT
+        kept = frame[frame["class_weight"].isna()] if wanted is None else \
+            frame[frame["class_weight"] == wanted]
+        if kept.empty:
+            raise ValueError(
+                f"{csv_path} has no rows with the fixed class_weight policy "
+                f"({wanted!r}); it predates Q8 and must be re-run, or pass "
+                f"class_weight=... explicitly to override"
+            )
+        frame = kept
     for column, value in filters.items():
-        frame = frame[frame[column] == value]
+        # `== None` never matches a NaN, so an explicit `class_weight=None` filter would
+        # silently select nothing rather than the unweighted rows it is asking for.
+        frame = frame[frame[column].isna()] if value is None else frame[frame[column] == value]
     if frame.empty:
         raise ValueError(f"no rows in {csv_path} matching {filters}")
 

@@ -150,11 +150,17 @@ def sweep_csv(tmp_path):
     return path
 
 
-def test_best_from_sweep_picks_the_highest_macro_f1(sweep_csv) -> None:
+def test_best_from_sweep_picks_the_highest_macro_f1_OBEYING_THE_POLICY(sweep_csv) -> None:
+    """The fixture's global best (0.80) is a `class_weight=None` row, which Q8 excludes.
+
+    So the selection is the best row *among those the policy allows* -- 0.77. A sweep run
+    before 2026-09-17 contains both settings, and picking its global winner would silently
+    reintroduce the per-method class weighting the policy exists to remove.
+    """
     best = tuning.best_from_sweep(sweep_csv)
-    assert best["macro_f1"] == 0.80
-    assert best["n_components"] == 256
-    assert best["preproc"] == "clahe_gray"
+    assert best["class_weight"] == tuning.CLASS_WEIGHT
+    assert best["macro_f1"] == 0.77
+    assert best["preproc"] == "raw_gray"
 
 
 def test_best_from_sweep_filters_first(sweep_csv) -> None:
@@ -164,14 +170,37 @@ def test_best_from_sweep_filters_first(sweep_csv) -> None:
     assert best["macro_f1"] == 0.77
 
 
-def test_best_from_sweep_converts_missing_class_weight_to_none(sweep_csv) -> None:
+def test_the_class_weight_policy_can_be_overridden_for_an_ablation(sweep_csv) -> None:
+    """An explicit `class_weight=` is honoured -- that is what an ablation would pass."""
+    best = tuning.best_from_sweep(sweep_csv, class_weight=None)
+    assert best["macro_f1"] == 0.80
+    assert best["preproc"] == "clahe_gray"
+
+
+def test_a_sweep_with_no_policy_compliant_row_is_refused(tmp_path) -> None:
+    """Silence would mean training at a configuration no recorded experiment selected."""
+    import pandas as pd
+
+    path = tmp_path / "old.csv"
+    pd.DataFrame([{"preproc": "raw_gray", "C": 1.0, "class_weight": None,
+                   "macro_f1": 0.5, "accuracy": 0.6}]).to_csv(path, index=False)
+    with pytest.raises(ValueError, match="fixed class_weight policy"):
+        tuning.best_from_sweep(path)
+
+
+def test_best_from_sweep_converts_missing_class_weight_to_none(tmp_path) -> None:
     """pandas reads an absent class_weight as NaN; LinearSVC needs None.
 
     Left as NaN it is silently truthy, so `LinearSVC(class_weight=nan)` raises deep in the
-    fit rather than where the mistake was made.
+    fit rather than where the mistake was made. Reached here via an explicit override, since
+    the default policy now excludes `None` rows.
     """
-    assert tuning.best_from_sweep(sweep_csv)["class_weight"] is None
-    assert tuning.best_from_sweep(sweep_csv, preproc="raw_gray")["class_weight"] == "balanced"
+    import pandas as pd
+
+    path = tmp_path / "s.csv"
+    pd.DataFrame([{"preproc": "raw_gray", "C": 1.0, "class_weight": None,
+                   "macro_f1": 0.5, "accuracy": 0.6}]).to_csv(path, index=False)
+    assert tuning.best_from_sweep(path, class_weight=None)["class_weight"] is None
 
 
 def test_best_from_sweep_rejects_a_filter_matching_nothing(sweep_csv) -> None:
