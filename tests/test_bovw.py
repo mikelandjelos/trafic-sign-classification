@@ -16,7 +16,9 @@ from gtsrb.representations import Representation
 from gtsrb.representations.bovw import (
     DESCRIPTOR_DIM,
     BoVWRepresentation,
+    BoVWSpatialPyramid,
     DenseSIFT,
+    chunk_for_budget,
     normalise_histograms,
 )
 
@@ -357,3 +359,114 @@ def test_too_few_words_raises() -> None:
 def test_histograms_are_unit_norm_under_the_default(bovw, images) -> None:
     norms = np.linalg.norm(bovw.transform(images), axis=1)
     np.testing.assert_allclose(norms, 1.0, atol=1e-5)
+
+
+# --- task 6.5b: the spatial pyramid -------------------------------------------------------
+#
+# The SPM row exists to measure ONE thing: what discarding layout costs. These tests pin the
+# properties that make that measurement valid -- shared vocabulary, exact reduction to plain
+# BoVW at levels=0, and the permutation asymmetry that IS the layout axis.
+
+
+@pytest.fixture(scope="module")
+def fitted_pair(images: np.ndarray):
+    """A plain and a pyramid representation sharing one vocabulary."""
+    plain = BoVWRepresentation(n_words=12, n_vocab_samples=2000).fit(images)
+    spm = BoVWSpatialPyramid(n_words=12, n_vocab_samples=2000, levels=2)
+    # Share the FITTED vocabulary, exactly as the comparison requires.
+    spm._kmeans = plain._kmeans
+    return plain, spm
+
+
+def test_levels_zero_reduces_exactly_to_plain_bovw(images: np.ndarray) -> None:
+    """The identity that makes the pyramid a controlled manipulation, not another method."""
+    plain = BoVWRepresentation(n_words=12, n_vocab_samples=2000).fit(images)
+    spm = BoVWSpatialPyramid(n_words=12, n_vocab_samples=2000, levels=0)
+    spm._kmeans = plain._kmeans
+    np.testing.assert_allclose(spm.transform(images), plain.transform(images), rtol=1e-6)
+
+
+def test_feature_dimensionality_matches_the_cell_count() -> None:
+    for levels, cells in ((0, 1), (1, 5), (2, 21)):
+        spm = BoVWSpatialPyramid(n_words=100, levels=levels)
+        assert spm.n_cells == cells
+        assert spm.n_features == 100 * cells
+
+
+def test_cell_weights_follow_lazebnik() -> None:
+    spm = BoVWSpatialPyramid(n_words=2, levels=2)
+    weights = spm.cell_weights
+    assert len(weights) == 21
+    # level 0 shares level 1's weight; finer levels count for more
+    assert weights[0] == pytest.approx(0.25)
+    assert np.all(weights[1:5] == pytest.approx(0.25))
+    assert np.all(weights[5:] == pytest.approx(0.5))
+
+
+def test_shuffling_keypoint_positions_leaves_plain_bovw_identical(fitted_pair, images):
+    """Orderlessness, demonstrated rather than asserted -- the centrepiece of the 6.6 demo.
+
+    Permuting which grid position each descriptor came from cannot change a bag of words. It
+    changes the pyramid, because the pyramid records position. That asymmetry IS the layout
+    axis the study measures.
+    """
+    plain, spm = fitted_pair
+    rng = np.random.default_rng(0)
+    rows, cols = plain.extractor.grid_shape
+    order = rng.permutation(rows * cols)
+
+    def pooled(rep, permute: bool):
+        kmeans = rep._fitted()
+        out = []
+        for image in images[:8]:
+            words = kmeans.predict(rep.extractor.describe(image))
+            if permute:
+                words = words[order]
+            grid = words.reshape(rows, cols)
+            if isinstance(rep, BoVWSpatialPyramid):
+                pieces = []
+                for c in rep._cells:
+                    rb = np.minimum((np.arange(rows) * c) // rows, c - 1)
+                    cb = np.minimum((np.arange(cols) * c) // cols, c - 1)
+                    for a in range(c):
+                        for b in range(c):
+                            sub = grid[np.ix_(rb == a, cb == b)]
+                            pieces.append(np.bincount(sub.ravel(), minlength=rep.n_words))
+                vec = np.concatenate(pieces) * np.repeat(rep.cell_weights, rep.n_words)
+            else:
+                vec = np.bincount(words, minlength=rep.n_words)
+            out.append(vec)
+        return normalise_histograms(np.asarray(out, np.float32), rep.normalisation)
+
+    # Plain BoVW: byte-identical under the permutation.
+    np.testing.assert_array_equal(pooled(plain, False), pooled(plain, True))
+    # The pyramid: genuinely different.
+    assert not np.allclose(pooled(spm, False), pooled(spm, True))
+
+
+def test_chunking_cannot_change_the_pyramid_result(fitted_pair, images) -> None:
+    _, spm = fitted_pair
+    np.testing.assert_array_equal(spm.transform(images, chunk=3),
+                                  spm.transform(images, chunk=1000))
+
+
+def test_pyramid_satisfies_the_representation_protocol(fitted_pair) -> None:
+    _, spm = fitted_pair
+    assert isinstance(spm, Representation)
+    assert spm.name == "bovw_spm"
+
+
+def test_negative_levels_rejected() -> None:
+    with pytest.raises(ValueError, match="levels must be >= 0"):
+        BoVWSpatialPyramid(levels=-1)
+
+
+def test_chunk_budget_accounts_for_the_vocabulary_size() -> None:
+    """The regression guard for the OOM that recurred in three files.
+
+    Sizing on the descriptor block alone makes the chunk independent of `n_words`, which is
+    exactly the bug: the k-means assignment grows with the vocabulary too.
+    """
+    assert chunk_for_budget(576, 1000) < chunk_for_budget(576, 500)
+    assert chunk_for_budget(576, 500) < chunk_for_budget(64, 500)
+    assert chunk_for_budget(10_000, 10_000) >= 1

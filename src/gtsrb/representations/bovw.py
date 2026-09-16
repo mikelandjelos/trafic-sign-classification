@@ -402,3 +402,123 @@ class BoVWRepresentation:
             f"BoVWRepresentation(n_words={self.n_words}, "
             f"normalisation={self.normalisation!r}, preproc={self.preproc!r}, {state})"
         )
+
+
+class BoVWSpatialPyramid(BoVWRepresentation):
+    """Dense SIFT -> the same vocabulary -> histograms pooled over a spatial pyramid.
+
+    **The sixth configuration in the comparison, and the study's cleanest experiment.**
+
+    Subclasses `BoVWRepresentation` and overrides only the pooling, which is deliberate:
+    the two rows in the results table must share their descriptors, their vocabulary, their
+    normalisation and their classifier, so that **the single difference between them is
+    whether a descriptor's position is recorded**. Inheriting `fit` guarantees that by
+    construction rather than by convention -- there is no second vocabulary to drift.
+
+    Where BoVW vs HOG confounds six differences at once (descriptor, pooling, quantisation,
+    normalisation, dimensionality, layout), BoVW vs BoVW+SPM differs in exactly one. That is
+    what makes the gap between them attributable to layout, which is the claim the project
+    exists to test. Measured at +10.4 pp macro-F1 on `clahe_gray`; see `14-bovw.md` section 9.
+
+    Why this is ADDED rather than substituted for BoVW
+    --------------------------------------------------
+    Plain BoVW is the only method on the "layout discarded" side of the proposal's section 4.3
+    axis. Replacing it would leave that axis with no occupant -- HOG is a rigid grid of local
+    histograms and so is this -- and would make the blur prediction untestable, since that
+    prediction turns on there being no layout to fall back on. See `00-INDEX.md` Q6.
+
+    How the pooling works
+    ---------------------
+    Level `l` partitions the image into a 2^l x 2^l grid, a histogram is built per cell, and
+    all levels are concatenated. Weights follow Lazebnik: level `l` gets 1/2^(L-l), and level
+    0 shares level 1's weight, so finer levels count for more.
+
+    **No extra bookkeeping is needed to know where a descriptor came from.** The keypoints
+    lie on a regular grid, so a descriptor's cell follows from its index alone -- which is
+    precisely why the position information was available to plain BoVW all along, and simply
+    thrown away.
+    """
+
+    name = "bovw_spm"
+
+    def __init__(self, *args, levels: int = 2, **kwargs) -> None:
+        if levels < 0:
+            raise ValueError(f"levels must be >= 0, got {levels}")
+        super().__init__(*args, **kwargs)
+        self.levels = int(levels)
+
+    @property
+    def _cells(self) -> list[int]:
+        """Grid subdivision per level: [1, 2, 4, ...] for levels 0, 1, 2."""
+        return [2 ** level for level in range(self.levels + 1)]
+
+    @property
+    def n_cells(self) -> int:
+        return sum(c * c for c in self._cells)
+
+    @property
+    def n_features(self) -> int:
+        return self.n_words * self.n_cells
+
+    @property
+    def cell_weights(self) -> np.ndarray:
+        """Lazebnik's weights, one per spatial cell, in concatenation order."""
+        weights: list[float] = []
+        for level, c in enumerate(self._cells):
+            w = (1.0 / (2 ** self.levels) if level == 0
+                 else 1.0 / (2 ** (self.levels - level + 1)))
+            weights.extend([w] * (c * c))
+        return np.asarray(weights, dtype=np.float32)
+
+    def chunk_for(self, budget_bytes: int = 128 * 1024**2) -> int:
+        return chunk_for_budget(self.extractor.n_keypoints, self.n_words, budget_bytes)
+
+    def transform(self, images: np.ndarray, chunk: int | None = None,
+                  progress: bool = False) -> np.ndarray:
+        """`(n, H, W[, C])` -> `(n, n_words * n_cells)` float32 histograms.
+
+        `levels=0` reduces exactly to `BoVWRepresentation.transform` -- asserted by a test,
+        because that identity is what makes the pyramid a controlled manipulation rather
+        than a different method.
+        """
+        chunk = self.chunk_for() if chunk is None else chunk
+        kmeans = self._fitted()
+        rows, cols = self.extractor.grid_shape
+        out = np.zeros((len(images), self.n_features), dtype=np.float32)
+
+        # Precomputed once: which spatial cell each grid position falls into, per level.
+        binning = [
+            (np.minimum((np.arange(rows) * c) // rows, c - 1),
+             np.minimum((np.arange(cols) * c) // cols, c - 1), c)
+            for c in self._cells
+        ]
+
+        starts = range(0, len(images), chunk)
+        if progress:
+            from tqdm import tqdm
+
+            starts = tqdm(list(starts), desc="  BoVW-SPM encode", unit="chunk")
+        for start in starts:
+            block = images[start:start + chunk]
+            flat = self.extractor.describe_batch(block).reshape(-1, DESCRIPTOR_DIM)
+            words = kmeans.predict(flat).reshape(len(block), rows, cols)
+            for i, grid in enumerate(words):
+                pieces = []
+                for row_bin, col_bin, c in binning:
+                    for rb in range(c):
+                        for cb in range(c):
+                            sub = grid[np.ix_(row_bin == rb, col_bin == cb)]
+                            pieces.append(np.bincount(sub.ravel(), minlength=self.n_words))
+                out[start + i] = np.concatenate(pieces)
+
+        # Weight the cells BEFORE normalising, so the normalisation sees the weighted vector.
+        out *= np.repeat(self.cell_weights, self.n_words)
+        return normalise_histograms(out, self.normalisation)
+
+    def __repr__(self) -> str:
+        state = "fitted" if self._kmeans is not None else "unfitted"
+        return (
+            f"BoVWSpatialPyramid(n_words={self.n_words}, levels={self.levels}, "
+            f"n_cells={self.n_cells}, n_features={self.n_features}, "
+            f"normalisation={self.normalisation!r}, preproc={self.preproc!r}, {state})"
+        )
