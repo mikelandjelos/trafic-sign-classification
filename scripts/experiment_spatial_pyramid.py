@@ -48,6 +48,7 @@ from gtsrb import cache, config, data, tuning
 from gtsrb.representations.bovw import (
     DESCRIPTOR_DIM,
     DenseSIFT,
+    chunk_for_budget,
     normalise_histograms,
 )
 
@@ -71,12 +72,9 @@ def pyramid_encode(extractor: DenseSIFT, kmeans, images: np.ndarray, levels: int
         w = 1.0 / (2 ** levels) if level == 0 else 1.0 / (2 ** (levels - level + 1))
         weights.extend([w] * (r * c))
 
-    # Must account for the ASSIGNMENT as well as the descriptor block: `kmeans.predict`
-    # gets chunk x n_keypoints rows and computes distances to every centroid, so the working
-    # set grows with k too. Sizing on the descriptor block alone left 524k rows going into
-    # predict at k=500, which is what killed an earlier run of this script.
-    chunk = max(1, budget_bytes // (extractor.n_keypoints *
-                                    (DESCRIPTOR_DIM * 4 + kmeans.n_clusters * 8)))
+    # Sizing delegates to `bovw.chunk_for_budget` -- this had its own copy of the formula,
+    # which is how it kept the pre-fix version after sweep_bovw.py was corrected.
+    chunk = chunk_for_budget(extractor.n_keypoints, kmeans.n_clusters, budget_bytes)
     out = np.zeros((len(images), width), dtype=np.float32)
 
     for start in range(0, len(images), chunk):

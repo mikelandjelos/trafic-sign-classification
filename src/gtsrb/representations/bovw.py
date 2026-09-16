@@ -226,6 +226,33 @@ VOCABULARY_SIZES: tuple[int, ...] = (200, 500)
 DEFAULT_VOCAB_SAMPLES = 200_000
 
 
+def chunk_for_budget(n_keypoints: int, n_words: int,
+                     budget_bytes: int = 128 * 1024**2) -> int:
+    """How many images to encode at once, so the peak allocation stays under budget.
+
+    **Sized in bytes, not images**, and it must account for *two* growing terms. Getting only
+    the first is what the OOM reaper kept killing:
+
+    1. the **descriptor block**, `chunk x n_keypoints x 128 x 4` bytes. At 576 keypoints a
+       4,000-image chunk is 1.1 GB.
+    2. the **assignment**, which hands `chunk x n_keypoints` rows to `KMeans.predict`. That
+       computes distances to every centroid, so the working set grows with `n_words` too:
+       524,160 rows against 1,000 centroids is 3.9 GB dense, and sklearn only chunks it down
+       to `working_memory` (1 GB by default).
+
+    Both scale with `chunk x n_keypoints`, so one bound covers them if the per-row cost
+    includes an allowance for the distance computation.
+
+    **This lives at module level because it was got wrong three times in three files.** The
+    fix was applied to whichever file was open, without grepping for the pattern; the same
+    stale formula then sat in `scripts/experiment_spatial_pyramid.py` and again in
+    `scripts/sweep_bovw.py`, each rediscovered only by being killed. Anything that encodes in
+    chunks calls this -- there is no second copy to go stale.
+    """
+    per_row = DESCRIPTOR_DIM * 4 + n_words * 8
+    return max(1, budget_bytes // (n_keypoints * per_row))
+
+
 def normalise_histograms(histograms: np.ndarray, scheme: str = "power_l2") -> np.ndarray:
     """Normalise count histograms, row-wise.
 
@@ -317,23 +344,8 @@ class BoVWRepresentation:
     # --- task 6.4: the encoding -------------------------------------------------------
 
     def chunk_for(self, budget_bytes: int = 128 * 1024**2) -> int:
-        """How many images to describe at once, so the peak allocation stays under budget.
-
-        **Sized in bytes, not images**, and it must account for *two* growing terms -- the
-        first version of this only handled the first, and was still killed by the OOM reaper:
-
-        1. the **descriptor block**, `chunk x n_keypoints x 128 x 4` bytes. At 576 keypoints
-           a 4,000-image chunk is 1.1 GB.
-        2. the **assignment**, which hands `chunk x n_keypoints` rows to `KMeans.predict`.
-           That computes distances to every centroid, so the working set grows with
-           `n_words` as well: 524,160 rows against 1,000 centroids is 3.9 GB dense, and
-           sklearn only chunks it down to `working_memory` (1 GB by default).
-
-        Both scale with `chunk x n_keypoints`, so one bound covers them if the per-row cost
-        includes an allowance for the distance computation.
-        """
-        per_row = DESCRIPTOR_DIM * 4 + self.n_words * 8
-        return max(1, budget_bytes // (self.extractor.n_keypoints * per_row))
+        """How many images to describe at once, so the peak allocation stays under budget."""
+        return chunk_for_budget(self.extractor.n_keypoints, self.n_words, budget_bytes)
 
     def transform(self, images: np.ndarray, chunk: int | None = None,
                   progress: bool = False) -> np.ndarray:

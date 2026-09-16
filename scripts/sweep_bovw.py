@@ -9,8 +9,8 @@ macro-F1 -- the same protocol as `sweep_pca.py` and `sweep_hog.py`, through `gts
 Why geometry is on the grid at all
 ----------------------------------
 The plan (task 6.1) specified `step=6, keypoint_size=12`. Those values cost a great deal:
-measured on the full split at k=500, they give macro-F1 **0.3402**, where `size=6, step=3`
-gives **0.5248**. Sampling density moved the result by 18.5 pp, far more than `k` or `C` moved
+measured on the full split at k=500, they give macro-F1 **0.3492**, where `size=2, step=2`
+reaches **0.8791**. The geometry moved the result by ~53 pp, far more than `k` or `C` moved
 anything, so it belongs in the sweep rather than being fixed by the plan.
 
 `size` and `step` are also **decoupled** here, which no earlier probe did -- they were always
@@ -52,12 +52,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.cluster import MiniBatchKMeans
 
 from gtsrb import cache, config, data, preprocessing, tuning
 from gtsrb.representations.bovw import (
     DESCRIPTOR_DIM,
     DenseSIFT,
+    chunk_for_budget,
     normalise_histograms,
 )
 
@@ -95,15 +97,15 @@ def label(size: int, step: int) -> str:
 
 
 def encode(extractor: DenseSIFT, kmeans, images: np.ndarray,
-           budget_bytes: int = 256 * 1024**2) -> np.ndarray:
+           budget_bytes: int = 128 * 1024**2) -> np.ndarray:
     """Encode a split, with the chunk sized by MEMORY rather than by image count.
 
-    A fixed image count is a trap here: the descriptor block is
-    `chunk x n_keypoints x 128 x 4` bytes, so a 4,000-image chunk costs 0.12 GB at 64
-    keypoints and **1.10 GB** at 576. The first version of this script used 4,000 flat and
-    was killed by the OOM reaper on the finest geometry.
+    Sizing delegates to `bovw.chunk_for_budget`. This function previously carried its own
+    copy of the formula that accounted for the descriptor block but NOT the k-means
+    assignment -- at 576 keypoints and k=1000 that let 524k rows into `predict`, ~4.2 GB of
+    distances, which is what the OOM reaper kept killing. Do not re-inline it.
     """
-    chunk = max(1, budget_bytes // (extractor.n_keypoints * DESCRIPTOR_DIM * 4))
+    chunk = chunk_for_budget(extractor.n_keypoints, kmeans.n_clusters, budget_bytes)
     out = np.zeros((len(images), kmeans.n_clusters), dtype=np.float32)
     for start in range(0, len(images), chunk):
         block = images[start:start + chunk]
@@ -237,6 +239,10 @@ def main() -> int:
     args = parser.parse_args()
 
     config.set_seeds()
+    # Bound sklearn's own pairwise-distance chunking. `chunk_for_budget` bounds what WE hand
+    # to `predict`; this bounds what sklearn then allocates internally, where the default is
+    # 1 GB. Both are needed -- the OOM kills happened with only one of them in place.
+    sklearn.set_config(working_memory=128)
     config.ensure_dirs()
     args.out.mkdir(parents=True, exist_ok=True)
     csv_path = args.out / args.csv_name
