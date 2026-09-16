@@ -33,7 +33,7 @@ from pathlib import Path
 import joblib
 from sklearn.svm import LinearSVC
 
-from gtsrb import cache, config, data, evaluation, results, timing, tuning
+from gtsrb import cache, config, data, evaluation, preprocessing, results, timing, tuning
 from gtsrb.representations.pca import PCARepresentation
 
 METHOD = "pca_svm"
@@ -47,6 +47,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Train final PCA + LinearSVC (task 4.3).")
     parser.add_argument("--sweep", type=Path,
                         default=config.RESULTS_DIR / "sweeps" / "pca_components.csv")
+    parser.add_argument("--preproc", default=preprocessing.DEFAULT_PREPROC,
+                        choices=list(preprocessing.PREPROC_CONFIGS),
+                        help="preprocessing is FIXED across the comparison (plan change "
+                             "2026-09-16); the sweep is re-selected WITHIN this config, "
+                             "never borrowed from another's winning cell")
     parser.add_argument("--dry-run", action="store_true",
                         help="train and print, but write nothing to results.csv")
     args = parser.parse_args()
@@ -54,12 +59,15 @@ def main() -> int:
     config.set_seeds()
     config.ensure_dirs()
 
-    selected = tuning.best_from_sweep(args.sweep)
+    # Selecting the sweep's GLOBAL best would return the `clahe_gray` cell regardless of
+    # --preproc, and the 4.2 measurement is precisely that borrowing another config's
+    # hyperparameters costs ~1 pp -- about 39 % of the preprocessing effect itself.
+    selected = tuning.best_from_sweep(args.sweep, preproc=args.preproc)
     preproc = str(selected["preproc"])
     k = int(selected["n_components"])
     C = float(selected["C"])
     class_weight = selected["class_weight"]
-    print(f"selected at 4.2: preproc={preproc} k={k} C={C:g} class_weight={class_weight}")
+    print(f"selected at 4.2 within {preproc}: k={k} C={C:g} class_weight={class_weight}")
 
     train, val = data.train_val_split()
     train_images = cache.load_images(train, preproc)

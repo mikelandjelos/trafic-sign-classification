@@ -70,12 +70,14 @@ def main() -> int:
     config.ensure_dirs()
     torch.set_num_threads(args.threads)
 
-    # Default to the preproc the end-to-end runs chose, so the two CNN rows share a network.
+    # Preprocessing is FIXED across the comparison (plan change 2026-09-16, PROJECT_TASKS.md
+    # section 1), so this defaults to that config rather than to whichever preproc scored
+    # best at 7.3. Selecting the best-scoring one -- which is what this did -- would silently
+    # hand back `clahe_gray` and reintroduce the per-method preprocessing the comparison no
+    # longer uses, with nothing in the output to say so.
     if args.preproc is None:
-        table = results.load()
-        cnn_rows = table[(table.method == "cnn_e2e") & (table.metric == "val_macro_f1")]
-        args.preproc = str(cnn_rows.loc[cnn_rows.value.idxmax(), "preproc"])
-    print(f"preproc={args.preproc} (selected by task 7.3), threads={args.threads}")
+        args.preproc = config.DEFAULT_PREPROC
+    print(f"preproc={args.preproc} (fixed for the comparison), threads={args.threads}")
 
     model = load_trained(args.preproc)
     train, val = data.train_val_split()

@@ -197,11 +197,22 @@ PREPROC_CONFIGS: dict[str, PreprocConfig] = {
     ),
 }
 
-#: The headline preprocessing config. **Measured, not assumed** (task 4.2): each of the
-#: three was swept independently over k x C x class_weight, and clahe_gray won on validation
-#: macro-F1 -- 0.7977 against 0.7713 (raw_gray) and 0.7674 (clahe_hsv). Was previously a bare
-#: default with no justification. See docs/report-material/11-pca.md section 7.
-DEFAULT_PREPROC = "clahe_gray"
+#: The preprocessing config for the whole comparison. **Fixed across every method**
+#: (plan change 2026-09-16, PROJECT_TASKS.md section 1), not selected per method.
+#:
+#: This was `clahe_gray`, chosen because it won PCA's task-4.2 sweep (0.7977 against 0.7713
+#: raw_gray and 0.7674 clahe_hsv). Selecting per method made every method-vs-method gap a
+#: mixture of representation and preprocessing, which is a confound the proposal explicitly
+#: rules out: "sve metode primenjuju na isti skup, uz *isti pretprocesing*, isti klasifikator
+#: i istu metodologiju evaluacije, cime se razlike u rezultatima mogu pripisati iskljucivo
+#: samoj reprezentaciji" (predlog_projekta.tex section 3).
+#:
+#: `raw_gray` is the neutral, unenhanced input, and the config HOG selected on its own at 5.2.
+#: It costs PCA 2.64 pp and cnn_e2e 0.16 pp of absolute macro-F1 -- a spread which is itself a
+#: reported finding, since it tracks how much internal normalisation each representation has.
+#: The per-method sweeps are kept and reported at 9.7; they measure the preprocessing effect.
+#: See docs/report-material/08-preprocessing.md addendum and 00-INDEX.md Q7.
+DEFAULT_PREPROC = "raw_gray"
 
 
 def get_config(name: str) -> PreprocConfig:
