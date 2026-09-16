@@ -1,10 +1,13 @@
-# 14 — BoVW: the orderless representation (tasks 6.1–6.4)
+# 14 — BoVW and BoVW+SPM: the layout axis (tasks 6.1–6.6)
 
 *Feeds: Methodology → representations; Table 1 (9.1); BoVW demo (6.6); the blur panel (9.5);
-the §11 jitter extension, whose premise rests on this method's orderlessness.*
+**the layout measurement (§9), which is the study's central structural claim**; the §11
+jitter extension, whose premise rests on this method's orderlessness.*
 
 Implementation: `src/gtsrb/representations/bovw.py`. Tests: `tests/test_bovw.py` (33).
-**Status:** complete (tasks 6.1–6.4). **6.5 parked** — the current score is not acceptable and the plan to fix it is §8. Resumes after task 7.5.
+**Status:** 6.1–6.4 complete. **6.5 tuned but being re-run on `raw_gray`** (plan change
+2026-09-16) — §7–§9 record the tuning journey on `clahe_gray`; the reported numbers come from
+the re-run. **6.6 open.** §9.4 promotes SPM to a sixth configuration in the comparison.
 
 ---
 
@@ -195,123 +198,277 @@ the signature of a label-space problem**, not of a weak model — the same reaso
 
 ---
 
-## 6.3 OPEN ISSUE — the planned sampling density is too coarse
+## 6.3 RESOLVED — the planned sampling geometry was far too coarse
 
-Measured on the full training split, k=500, best of C ∈ {0.1, 1}:
+The plan's `step=6, keypoint_size=12` (task 6.1) turned out to be the single largest thing
+wrong with this method. Measured on the full training split, k=500:
 
 | keypoint size | step | keypoints/img | macro-F1 | accuracy |
 |---|---|---|---|---|
-| **12** (the plan's value) | 6 | 64 | **0.3402** | 0.4162 |
+| **12** (the plan's value) | 6 | 64 | **0.3492** | 0.4317 |
 | 8 | 4 | 144 | 0.4583 | 0.5295 |
 | **6** | 3 | 256 | **0.5248** | 0.5936 |
 
-**+18.5 pp macro-F1 from sampling density alone**, which is far more than `k` or `C` moved
-anything. The cause is visible in the descriptors: at size 12 a keypoint covers a quarter of
-a 48×48 crop, so the 64 patches overlap heavily and describe nearly the same content. Mean
+The cause is visible in the descriptors: at size 12 a keypoint covers a quarter of a 48×48
+crop, so the 64 patches overlap heavily and describe nearly the same content. Mean
 within-image descriptor correlation:
 
 | size | 6 | 8 | 12 | 16 |
 |---|---|---|---|---|
 | mean within-image corr | +0.077 | +0.119 | **+0.228** | +0.362 |
 
-**The implementation is not broken**, which was checked before concluding: the vocabulary is
+**The implementation was not broken**, which was checked before concluding: the vocabulary is
 fully used (200/200 words), each image spreads its 64 descriptors over ~36–39 distinct words,
-and larger `C` is monotonically *worse* (1 → 1000 falls 0.3402 → 0.3131), so the grid is not
-mis-centred either.
+and larger `C` is monotonically *worse* (1 → 1000 falls 0.3402 → 0.3131), so the grid was not
+mis-centred either. The parameters were simply wrong for 48×48 input.
 
-**Two things are being conflated and must stay separate in the report:**
-
-1. **The parameters are badly chosen.** `step=6, size=12` come from `PROJECT_TASKS` 6.1 and
-   are too coarse for 48×48 input. This is fixable and should be swept at 6.5.
-2. **Orderless encoding is genuinely weak on aligned rigid objects**, and always will be.
-   What separates "30" from "50" is *where* strokes sit; a bag of patches cannot see that.
-   **Spatial Pyramid Matching exists precisely to fix this** — 2×2 and 4×4 spatial bins were
-   introduced because pure orderless BoVW underperforms on exactly this kind of task.
-
-   We deliberately do **not** add a spatial pyramid. It would re-introduce layout and collapse
-   BoVW onto HOG's position on the layout axis — the axis this study exists to measure. So
-   BoVW is expected to trail the others, and that is a *result*, not a defect. The report must
-   say so explicitly, or a reader will read a weak BoVW row as a bad implementation.
-
-**Decision needed before 6.5:** whether to add `(step, keypoint_size)` to the sweep. The
-evidence says it is the higher-leverage parameter — more than `k` — but it deviates from the
-plan's "sweep k ∈ {200, 500}" and multiplies the grid. Parked pending that decision.
+This is the finding that motivated putting `(step, keypoint_size)` on the 6.5 sweep. See §8
+for what the sweep then showed, including two claims made here that it falsified.
 
 ---
 
-## 7. Open for task 6.5
+## 7. Task 6.5 — the configuration sweep
 
-- Sweep k ∈ {200, 500} jointly with `C` and `class_weight`, across all three preprocessing
-  configs — the 4.2 protocol. Vocabulary size changes the feature dimensionality (200 vs
-  500), and the best `C` tracked dimensionality closely for PCA.
-- Cost: the vocabulary and encoding are cheap (~5 s and ~4 s per 3,000 images in the probe);
-  as with HOG, the grid is dominated by the `LinearSVC` fits — but at 200–500 dimensions
-  those are far cheaper than HOG's 900–2,352.
+`scripts/sweep_bovw.py`. Sweeps `(keypoint_size, step) × k × C × class_weight`, selecting on
+validation macro-F1 through `gtsrb.tuning` — the same protocol as `sweep_pca.py` and
+`sweep_hog.py`.
 
+**Geometry is on the grid, and `size` and `step` are decoupled.** Every earlier probe varied
+them *together*, so it was not known whether the gain came from finer **spacing** (more
+descriptors) or finer **scale** (each descriptor covering less of the sign). The grid
+deliberately includes cells that hold one fixed while moving the other.
 
----
+Descriptors are extracted **once per geometry** and reused across every `k` — they do not
+depend on the vocabulary, and this is the only reason the full grid is affordable
+(extraction is 80–120 s per pass and dominates everything else).
 
-## 8. PARKED — the plan to make BoVW acceptable
+### 7.1 Results — `clahe_gray`, `results/sweeps/bovw_stage1{,b}.csv`
 
-**Decision (2026-09-15): BoVW is parked until `cnn_feat_svm` (7.5) is done.** The current
-number — **0.5248 macro-F1 / 0.5936 accuracy** at the best configuration tried — is not
-acceptable to report, and finishing the fifth method first gives the complete picture before
-more time is spent here.
+| size | step | kp/img | k | macro-F1 | accuracy |
+|---|---|---|---|---|---|
+| 12 | 6 | 64 | 500 | 0.3492 | 0.4317 |
+| 6 | 3 | 256 | 500 | 0.5285 | 0.5969 |
+| 6 | 2 | 576 | 500 | 0.5611 | 0.6243 |
+| 4 | 3 | 256 | 500 | 0.6511 | 0.7074 |
+| 4 | 2 | 576 | 500 | 0.6723 | 0.7370 |
+| 4 | 2 | 576 | 1000 | 0.7322 | 0.7782 |
+| 3 | 2 | 576 | 500 | 0.7347 | 0.7946 |
+| **3** | **2** | **576** | **1000** | **0.7939** | **0.8573** |
 
-### 8.1 What the literature says, and what it does not
+`C = 10` wins almost everywhere — at the **top** of `tuning.C_GRID`, so the grid had to be
+extended for this method. Recorded as a fourth instance of the dimensionality/`C` coupling
+seen for PCA and HOG, pointing the other way: BoVW's features are the lowest-dimensional and
+want the *largest* `C`.
 
-Checked against published GTSRB work. Two things came out of it, and the second corrects an
-assumption:
+### 7.2 The decoupling result: it is **scale**, not density
 
-**There is no published plain-BoVW, 43-way, linear-SVM number to compare against.** The
-closest work is a pLSA system using **BoVW + SIFT with a 300-word k-means codebook** — very
-close to our setup — but it adds a probabilistic topic model on top of the histogram, and it
-reports **per sign-category** accuracies (Speed limits 98.82, Prohibitions 98.27,
-Derestriction 97.93, Mandatory 96.86, Danger 96.95, Unique 100.00). Each column is a
-sub-problem of roughly 6–12 classes. **Those are not comparable with our 43-way number.** A
-second system reaching 98.76 % overall is hierarchical, and its headline 99.79 % is its
-*coarse*, category-level stage.
+Because `step` fixes the keypoint count independently of `size`, the two effects separate
+cleanly:
 
-> **A claim I made and had to withdraw:** a search summary attributed "dense SIFT + HOG + LBP
-> + **spatial pyramid matching** → 99.67 %" to this literature. Both papers were downloaded
-> and checked: **neither mentions spatial pyramid matching at all.** The figure was the search
-> engine's synthesis, not a finding. Recorded because it nearly became a citation.
-
-**The useful consequence: vocabulary size is probably not the missing ingredient.** The pLSA
-work succeeds with 300 words, squarely inside our 200–500 range. That makes the planned
-k ∈ {500, 1000, 2000} sweep *less* promising than it looked, and moves sampling density to
-the front.
-
-### 8.2 The plan, in order of expected value
-
-**Stage 1 — sampling density (measured, not speculative).**
-Already demonstrated: `size=12,step=6` → 0.3402, `size=8,step=4` → 0.4583,
-`size=6,step=3` → **0.5248**. The curve has not flattened. Test `size=4,step=2` (576 kp/img)
-and take the best. Add `(step, keypoint_size)` to the 6.5 sweep. ~10 min per geometry.
-
-**Stage 2 — richer encoding, still orderless.** Only if Stage 1 plateaus below something
-defensible. In rough order of expected gain per unit of work:
-
-| option | keeps orderlessness? | note |
+| held fixed | varied | effect |
 |---|---|---|
-| **multi-scale dense SIFT** (descriptors at several sizes per location, concatenated) | yes | standard dense-SIFT practice; needs a small `DenseSIFT` change |
-| **soft / kernel codebook assignment** | yes | a descriptor votes for several nearby words instead of one |
-| **VLAD encoding** (residuals to the nearest centroid, not counts) | yes | usually a large gain over count histograms; would make the method "VLAD", which is a naming and scope question worth raising before adopting |
+| density (256 kp, step 3) | scale 6 → 4 | **+12.3 pp** (0.5285 → 0.6511) |
+| scale (size 4) | density 256 → 576 kp (2.25×) | **+2.1 pp** (0.6511 → 0.6723) |
 
-**Explicitly excluded: spatial pyramid matching.** It is the standard fix and we will not use
-it. Adding 2×2 and 4×4 spatial bins re-introduces layout, which would move BoVW onto HOG's
-position on the layout axis — the axis this study exists to measure — and would also
-invalidate the §11 jitter premise. **If BoVW ends up weak because it is orderless, that is the
-finding.** What must not happen is BoVW ending up weak because of lazy parameters.
+**Scale outweighs density by roughly 6×.** What matters is not how many patches there are but
+how much of the sign each one covers: a 12 px patch on a 48 px crop is summarising a quarter
+of the object, which is not a *local* descriptor in any useful sense. Shrinking it to 3–4 px
+is what turns dense SIFT into a local feature here.
 
-### 8.3 Stopping rule, agreed in advance
+> **Correction.** §6.3 above, `PROJECT_TASKS.md` 6.5 and the first version of
+> `sweep_bovw.py` all called this "sampling density" and the sweep figure was titled *"Density
+> is the lever"*. That was imprecise — the two were confounded in every probe that produced
+> it, and when separated, density is the minor term. The report says **scale**.
 
-Stage 1 is cheap and clearly warranted. Stage 2 is a real time investment, and
-`PROJECT_TASKS.md` §9 lists **BoVW as the first thing to cut** if the schedule slips. So:
+### 7.3 Vocabulary size *was* a lever
 
-- run Stage 1;
-- if BoVW is then in a range that can be reported honestly alongside the other four, stop and
-  report it, **however low**, with the orderlessness explanation;
-- only escalate to Stage 2 if the number is so low that it would read as a bug rather than as
-  a property — and record which option was used, since it changes what "BoVW" means in the
-  comparison.
+500 → 1000 words is worth a consistent **+6 pp macro-F1**, at both geometries where both were
+run:
+
+| geometry | k=500 | k=1000 | Δ |
+|---|---|---|---|
+| size 4 / step 2 | 0.6723 | 0.7322 | **+6.0 pp** |
+| size 3 / step 2 | 0.7347 | 0.7939 | **+5.9 pp** |
+
+> **Correction, and the more instructive of the two.** The previous revision of this note
+> (§8.1, committed 2026-09-15) concluded from a literature check that "vocabulary size is
+> probably not the missing ingredient", because a published
+> pLSA system succeeds with a 300-word codebook. That inference was wrong, and wrong in a way
+> worth recording: **that system's 300 words feed a probabilistic topic model, not a linear
+> SVM.** A topic model can recover structure from a coarse codebook that a linear classifier
+> on raw counts cannot. The codebook size was transferred across a difference in what sits on
+> top of it, which is exactly the kind of transfer the 4.2 hyperparameter measurement had
+> already shown to be unsafe within this project. Reasoning from one number in one paper,
+> without the surrounding architecture, cost ~6 pp of accuracy and nearly closed off the
+> search.
+
+---
+
+## 8. The recovery, and three claims that had to be withdrawn
+
+BoVW went from **0.3492** macro-F1 at the plan's parameters to **0.8791** — a gain of
+**+53 pp**, larger than any other effect measured anywhere in this project. The method was
+never broken; it was badly parameterised, and the parameter that mattered was not the one the
+plan swept (`k`) nor the one the first diagnosis named (density), but **descriptor scale**.
+
+### 8.1 Withdrawn: the estimated performance cap
+
+An earlier note estimated a ceiling of "~75–82 % accuracy" for orderless BoVW on this task,
+extrapolating from Lazebnik's 72.2 % on Caltech-101. **Plain BoVW reaches 92.3 % accuracy
+here.** The extrapolation crossed a different task, different descriptors, different sampling
+and a different number of classes, and it should not have been offered as a bound.
+
+Recorded because it had a real effect on the work: a cap in that range makes further tuning
+look pointless, and had it been believed, the search would have stopped around 0.73.
+
+### 8.2 Withdrawn: the literature-derived SPM claim
+
+A search summary attributed "dense SIFT + HOG + LBP + **spatial pyramid matching** → 99.67 %"
+to two GTSRB papers. Both were downloaded and read: **neither mentions spatial pyramid
+matching at all.** The figure was the search engine's synthesis. Recorded because it nearly
+became a citation.
+
+### 8.3 Withdrawn: two of four OOM diagnoses
+
+Four runs were killed by the OOM reaper. The first was genuinely ours — `encode()` used a
+flat 4,000-image chunk, which costs 0.12 GB at 64 keypoints and **1.10 GB** at 576, so the
+finest geometry blew up. Chunks are now sized by *bytes*, accounting for both the descriptor
+block and the k-means assignment (`n_keypoints × (128×4 + k×8)`).
+
+Peak RSS was then instrumented at **~1.2 GB** against 11.5 GB free, so the two later kills
+were environmental (a background memory policy), not ours — running in the foreground avoided
+them. Two diagnoses were therefore withdrawn.
+
+**But one was real and had been missed:** `experiment_spatial_pyramid.py` still carried the
+*old* chunking after `sweep_bovw.py` was fixed. The fix was applied to the file in front of
+me without grepping for the pattern elsewhere. That is the propagation failure to remember —
+the environmental explanation was partly covering for a genuine un-propagated bug.
+
+---
+
+## 9. What orderlessness costs — measured (`scripts/experiment_spatial_pyramid.py`)
+
+This is the most directly useful measurement the method produced, and it is the study's
+central structural claim reduced to a single controlled manipulation.
+
+**Spatial Pyramid Matching** (Lazebnik) partitions the image into increasingly fine grids —
+level 0 is the whole image (= plain BoVW), level 1 is 2×2, level 2 is 4×4 — builds a histogram
+per cell and concatenates them, weighted 1/2^(L−l). The keypoints lie on a regular grid, so
+which cell a descriptor belongs to is known **from its index alone**: the position information
+was available all along and plain BoVW simply throws it away.
+
+All three rows below share **one vocabulary, one set of descriptors, one classifier and one
+protocol**. The only difference is whether position is recorded.
+
+At `size 2 / step 2`, k=500, `clahe_gray`:
+
+| levels | cells | dims | macro-F1 | accuracy |
+|---|---|---|---|---|
+| 0 — plain BoVW | 1 | 500 | 0.8143 | 0.8793 |
+| 1 — 2×2 | 5 | 2,500 | 0.8973 | 0.9295 |
+| **2 — 4×4** | 21 | 10,500 | **0.9184** | **0.9441** |
+
+**Layout is worth +10.4 pp macro-F1 / +6.5 pp accuracy** on this task.
+
+### 9.1 Why this is a better experiment than BoVW vs. HOG
+
+The report's structural claim — that discarding spatial arrangement is expensive on rigid,
+aligned objects — was going to be argued from the BoVW/HOG gap. But those two differ in six
+ways at once: descriptor, pooling, quantisation, normalisation, dimensionality *and* layout.
+BoVW vs. BoVW+SPM differs in **exactly one**. It is the controlled version of the same claim.
+
+And it lands almost exactly on HOG (0.9184 vs **0.9175** macro-F1), which says the BoVW/HOG
+gap *is* the layout information, with the other five differences contributing ~nothing net.
+
+### 9.2 The pyramid helps less as the base representation improves
+
+Run earlier at the poor configuration (k=200, size 4): L0 **0.5276** → L1 0.6315 → L2
+**0.6686**, a gain of **+14.1 pp**. At the good configuration the same manipulation is worth
+**+10.4 pp**. Layout and descriptor quality are **partial substitutes**: a finer-scale
+descriptor with a larger vocabulary already recovers some of what spatial binning was
+supplying. Worth stating, because it means "SPM is worth +X pp" is not a constant.
+
+### 9.3 Internal consistency check
+
+SPM L=0 at k=500 is by construction plain BoVW, and scores 0.8143. Plain BoVW at the same
+geometry with k=1000 scores 0.8791 — a +6.5 pp vocabulary effect, matching the independent
++6.0/+5.9 pp measured at two other geometries in §7.3. Two separately-run experiments agree
+on a parameter effect neither was designed to measure.
+
+### 9.4 DECISION (2026-09-16): SPM becomes a sixth configuration, not a replacement
+
+**Both go in the comparison.** Plain BoVW stays the method the proposal defines; SPM is added
+alongside it as `bovw_spm_svm`.
+
+**Why SPM does not simply replace BoVW.** The proposal's §4.3 table defines BoVW as *"bez
+rasporeda, raspored odbačen"* — without layout, layout discarded — and it is the only method
+on that side of the axis. Substituting SPM would leave the layout axis with no occupant: HOG
+is a rigid grid of local histograms and so is SPM L=2. Two rows at the same point, and the
+contrast the study exists to measure disappears. It would also make the blur prediction
+untestable, since that prediction turns on there being *no layout to fall back on*.
+
+Note the exclusion was decided and written down **before** any of these numbers existed
+(§8.2 of the previous revision, committed 2026-09-15), and it passes the neutrality test in
+`CLAUDE.md`: had SPM come out *worse*, the structural reason to keep BoVW orderless would be
+unchanged. It is not protecting a result.
+
+**Why it is nonetheless added.** Reporting BoVW at 0.88 when the standard deployed form of the
+method reaches 0.92 understates it, and a report that omits SPM silently looks like it
+handicapped the method that lost. Adding a row costs 16 inference-only grid cells and buys:
+
+- the controlled layout measurement of §9.1, in the results table rather than a footnote;
+- a directly falsifiable pair of opposite predictions — orderlessness should **hurt** under
+  blur (nothing to fall back on) and **help** under bbox jitter (§11, nothing to misalign).
+  One method family, two settings, opposite directions. That is the sharpest claim available.
+
+**Costs, recorded honestly:** the comparison grows to six rows; SPM's 10,500 dims at k=500 is
+6× HOG's, so the Table 1 feature-dimension and model-size columns need the same "not
+like-for-like" caveat PCA already carries; and it **diverges from the proposal's "pet
+konfiguracija"** (five configurations, §4.3). Per `CLAUDE.md` the proposal is not edited — the
+divergence is recorded here and was raised with the author, who approved it.
+
+---
+
+## 10. Cost, and whether any of this is usable in real time
+
+Measured at `size 2 / step 2`, k=1000 — the slowest configuration of the five methods:
+
+| stage | cost |
+|---|---|
+| dense SIFT extraction | ~1.9 ms/img |
+| vocabulary assignment + histogram | ~0.5 ms/img |
+| **total** | **~2.4 ms/sign (~420 signs/s)** |
+
+**Slowest of the five methods, and still not the binding constraint.** At 30 fps a frame
+budget is 33 ms, so classification takes ~7 % of it. SPM adds only the pooling, which is
+negligible next to extraction — the descriptors are already computed — so it is in the same
+range.
+
+The honest framing for the report: for this module, *all* the candidate representations run in
+real time on a laptop CPU, and the representation choice should be made on robustness, not
+on speed. The cost that would actually dominate a deployed system is detection (M1), which
+this project explicitly does not implement. Timings remain relative costs in one recorded
+environment, per note 06.
+
+---
+
+## 11. Open for task 6.5 (re-run) and 6.6
+
+**Everything in §7–§9 was measured on `clahe_gray` and must be re-run on `raw_gray`**, which
+is now the single fixed preprocessing config for the whole comparison (plan change,
+2026-09-16 — see `PROJECT_TASKS.md` §1). The numbers above are expected to move; they are
+recorded as the tuning *journey*, and the reported figures come from the re-run.
+
+Also outstanding:
+
+- **`k = 2000` at size 2 is untested** and is the one remaining promising cell: `k` was worth
+  +6 pp at 500 → 1000 and has not been shown to plateau.
+- **Persist everything.** The size-2 results and every pyramid row above were printed to a
+  terminal and never written to a CSV — they exist only in a session transcript. This is the
+  documentation failure of this task and the reason 6.5 is being re-run rather than
+  transcribed.
+- **6.6 demo.** The centrepiece should be the **permutation test**: shuffle the keypoint
+  positions before pooling and show the histogram is byte-identical. That makes
+  orderlessness a demonstrated property rather than an asserted one, and it is the natural
+  visual companion to §9 — the same figure can show the SPM histogram *changing* under the
+  same shuffle.
