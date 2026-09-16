@@ -41,8 +41,23 @@ C_GRID: tuple[float, ...] = (0.01, 0.1, 1.0, 10.0)
 
 #: Whether to reweight classes by inverse frequency. Swept rather than assumed: the
 #: PROJECT_TASKS gotcha list flags it as "consider", and it interacts with macro-F1 exactly
-#: where the imbalance bites. Whatever wins here must then be applied to ALL five methods --
-#: it is a policy about the imbalance, not a per-representation nuisance parameter.
+#: where the imbalance bites.
+#:
+#: **OPEN (Q8, raised 2026-09-17).** This comment used to read "whatever wins here must then
+#: be applied to ALL five methods -- it is a policy about the imbalance, not a
+#: per-representation nuisance parameter". **The code has never done that**, and the methods
+#: now genuinely disagree: `pca_svm` selects `balanced` on `clahe_gray` but `None` on
+#: `raw_gray`, while HOG and both CNN rows select `balanced`. The comment described an
+#: intention, not the implementation, so it is corrected here to describe what actually
+#: happens -- selection is per (method, preproc), exactly like `C`.
+#:
+#: Whether that is right is a live question, not a settled one. For: every method selects on
+#: the same criterion (validation macro-F1), so `class_weight` is only a means to that
+#: objective and the Q4 argument for per-method `C` applies unchanged. Against: unlike `C`, it
+#: changes what the *fit* optimises, so two methods with different settings are not solving
+#: quite the same problem. Note the effect is small and unstable -- at 4.2 `balanced` won by
+#: 0.55 pp and *lost* at k=128 -- so no class-weighting claim should rest on it either way.
+#: See `00-INDEX.md` Q8.
 CLASS_WEIGHTS: tuple[str | None, ...] = (None, "balanced")
 
 
