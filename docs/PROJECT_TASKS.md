@@ -662,17 +662,28 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       This is reported as a **diagnostic in the discussion**, not a Table 1 row.
       `BoVWSpatialPyramid` and its 9 tests stay in the codebase so the number is reproducible;
       `scripts/experiment_spatial_pyramid.py` is what produced it.
-- [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
-      a sign, codeword assignment as a colour map (which patches share a word), and the
-      histogram before/after normalisation. **This is the demo most likely to catch a real
-      bug**: 6.2 asserts a constant descriptor count numerically, but a silently degenerate
-      vocabulary — most patches collapsing onto one codeword under blur — passes that
-      assertion and is obvious on sight.
-      **Centrepiece: the permutation test.** Shuffle the keypoint positions before pooling and
-      show the plain histogram is **byte-identical**, while the SPM histogram changes. That
-      turns orderlessness from an asserted property into a demonstrated one, and puts both
-      sides of the layout axis in a single figure — the visual companion to the +10.4 pp
-      measurement. Candidate for `figures/report/`.
+- [x] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) → `figures/demo/bovw/`, 4 figures,
+      all four committed to `figures/report/`.
+      **Permutation test — orderlessness demonstrated, not asserted.** Shuffle the keypoint
+      positions and re-pool: plain BoVW's histogram is **max |Δ| = 0.000e+00**, the same vector
+      bit for bit, while BoVW+SPM's changes by 0.0833. The codeword map makes it visible — the
+      original shows the sign's circular structure, the shuffled panel is noise, and the plain
+      histogram does not notice. Clearest single statement of the study's axis.
+      **The failure test falsified the prediction it was written to illustrate.**
+      `predictions.md` expects blur to make descriptors "collapse onto a few codewords".
+      Measured at the tuned config: distinct words per image **231.4 → 188.9 (−18 %)** from
+      blur 0 to 15, and between-class cosine similarity **0.232 → 0.244**, i.e. essentially
+      flat. **No collapse.** Likely mechanism: SIFT descriptors are L2-normalised, so blur
+      cuts gradient *magnitude* while the descriptor *direction* still varies, and k-means
+      assigns by direction — the same normalisation behind BoVW's gamma robustness.
+      **Caveat: this measures the representation, not accuracy.** It rules out one mechanism;
+      8.1 decides whether blur actually hurts BoVW. The blur prediction's *second* mechanism
+      (no layout to fall back on) is untouched and is supported by §9's +10.4 pp — so if blur
+      does hurt BoVW, the reading is "layout is missing", not "codewords collapsed".
+      **Caption bug caught by looking at the figure:** the panels originally read "Vocabulary
+      usage collapses" and "different signs start to look alike", written from the prediction
+      before the data existed. Both were wrong; both now describe the measurement.
+      See `14-bovw.md` §13. **Task 6 complete.**
 - [x] **7.4** Check background run, ~~tune LR/epochs~~, finalize end-to-end CNN
       Reported run is **`raw_gray`**: macro-F1 **0.9856** / accuracy 0.9865, best epoch 18 of
       24, checkpoint `results/models/cnn_e2e_raw_gray.pt`. The `clahe_gray` run (0.9872) stays

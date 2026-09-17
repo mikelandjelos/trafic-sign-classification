@@ -23,17 +23,28 @@ while the spatial pyramid, built from the very same descriptors and vocabulary, 
 That single panel is the layout axis the whole project measures, and it is the visual
 companion to the +10.4 pp that section 9 of note 14 records.
 
-Why the blur figure is the failure test
----------------------------------------
-Task 6.2 asserts a constant descriptor count numerically, and that assertion passes even when
-the encoding has silently degenerated: under heavy blur local patches flatten, descriptors
-collapse onto a handful of codewords, and every image's histogram starts to look alike. No
-test catches that. Counting **distinct words per image** and **histogram similarity between
-different classes** does, and both are plotted against blur strength.
+Why the blur figure is the failure test -- and what it actually found
+---------------------------------------------------------------------
+It was written to visualise the locked blur prediction: heavy blur flattens local patches,
+descriptors collapse onto a handful of codewords, and every image's histogram starts to look
+alike. Task 6.2's constant-descriptor-count assertion passes straight through that, so the
+figure counts **distinct words per image** and **between-class histogram similarity** instead.
 
-The correcting quantity is in the same figure on purpose: a falling word count could be read
-as "the representation is becoming robustly compact". The between-class similarity rising at
-the same time is what shows it is collapse, not compression.
+**Measured, at the tuned configuration, it does not happen.** Distinct words fall only
+231.4 -> 188.9 (-18 %) from blur 0 to 15, and between-class cosine similarity is essentially
+flat (0.232 -> 0.244). The predicted collapse is absent.
+
+Likely mechanism, and it is one the project has already leaned on elsewhere: SIFT descriptors
+are **L2-normalised** (section 3 of note 14). Blur cuts gradient *magnitude*, but the
+descriptor *direction* still varies from patch to patch, and k-means assigns by direction. The
+same normalisation that gives BoVW its gamma robustness also stops the codewords collapsing.
+
+**Caveat, and it matters:** this measures the *representation*, not accuracy. Histograms can
+stay mutually distant and still stop being discriminative in the way the classifier needs.
+Task 8.1 is what decides whether blur hurts BoVW; this figure only rules out one proposed
+mechanism for it. Sample is ~22 images, one per two classes.
+
+This is the demo rule working as intended: the figure was able to fail, and it did.
 """
 
 from __future__ import annotations
@@ -184,8 +195,10 @@ def figure_permutation(phi: BoVWRepresentation, spm: BoVWSpatialPyramid, frame,
         f"Layout was never encoded, so destroying it costs nothing.\n"
         f"BoVW + SPM: max |Δ| = {d_pyr:.4f}  →  genuinely different, because the pyramid "
         f"records WHERE each word occurred.\n"
-        "That asymmetry is the layout axis this study measures — and the reason the two are "
-        "separate rows rather than one method.",
+        "That asymmetry IS the layout axis this study measures: BoVW discards position, HOG "
+        "and the pyramid keep it.\n"
+        "The pyramid is reported as a diagnostic, not as a method — it is what puts a number "
+        "on the cost of orderlessness (+10.4 pp).",
         fontsize=10.5, y=1.0,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.85))
@@ -257,26 +270,31 @@ def figure_blur_collapse(phi: BoVWRepresentation, frame, images: np.ndarray,
     left.plot(levels, distinct, "o-", lw=2, color="#2b6cb0", ms=7)
     left.set_xlabel("motion blur kernel (px)")
     left.set_ylabel("mean distinct words per image")
-    left.set_title("Vocabulary usage collapses as blur rises", fontsize=10)
+    left.set_title("Vocabulary usage barely narrows", fontsize=10)
     left.grid(alpha=0.3)
     left.set_ylim(0, max(distinct) * 1.15)
 
     right.plot(levels, similarity, "o-", lw=2, color="#c05621", ms=7)
     right.set_xlabel("motion blur kernel (px)")
     right.set_ylabel("mean cosine similarity, different classes")
-    right.set_title("...and different signs start to look alike", fontsize=10)
+    right.set_title("...and different signs do NOT converge", fontsize=10)
     right.grid(alpha=0.3)
     right.set_ylim(0, 1.0)
 
     fig.suptitle(
-        "The failure test — a degenerate vocabulary passes every numeric check task 6.2 makes\n"
-        f"Distinct words per image: {distinct[0]:.1f} → {distinct[-1]:.1f}. "
-        f"Between-class similarity: {similarity[0]:.3f} → {similarity[-1]:.3f}.\n"
-        "The right panel is the CORRECTING quantity: a falling word count alone could be read "
-        "as the representation becoming compact.\n"
-        "Rising between-class similarity is what shows it is collapse — the histograms are "
-        "converging on each other, which is exactly the blur prediction's mechanism.",
-        fontsize=10.5, y=1.02,
+        "The failure test — and it falsified the prediction it was written to illustrate\n"
+        f"Distinct words per image: {distinct[0]:.1f} → {distinct[-1]:.1f} "
+        f"({(distinct[-1]/distinct[0]-1)*100:+.0f} %). Between-class cosine similarity: "
+        f"{similarity[0]:.3f} → {similarity[-1]:.3f} ({similarity[-1]-similarity[0]:+.3f}).\n"
+        "predictions.md expects blur to make descriptors 'collapse onto a few codewords'. "
+        "At the tuned configuration they do NOT: usage narrows only mildly and the histograms "
+        "of different classes stay as far apart as they were.\n"
+        "Likely mechanism — SIFT descriptors are L2-normalised, so blur cuts gradient "
+        "MAGNITUDE while the descriptor's DIRECTION still varies patch to patch, and k-means "
+        "assigns by direction.\n"
+        "Caveat: this measures the REPRESENTATION, not accuracy. Histograms can stay distinct "
+        "and still stop being discriminative — task 8.1 decides that.",
+        fontsize=10, y=1.04,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.82))
     path = out_dir / "bovw_blur_collapse.png"

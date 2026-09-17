@@ -592,3 +592,73 @@ selected configuration the two settings are indistinguishable.
   §9 were printed to a terminal and never written to a CSV — they existed only in a session
   transcript and had to be re-run. Everything in §11 is persisted in
   `results/sweeps/bovw_configs.csv` and `results.csv`.
+
+---
+
+## 13. Task 6.6 — the demo, and the prediction it falsified
+
+`scripts/demo/bovw_mechanics.py` → `figures/demo/bovw/` (4 figures, all four in the report
+manifest). Built entirely from `gtsrb.representations.bovw` and `gtsrb.degradations`; nothing
+here re-derives the encoding.
+
+### 13.1 Orderlessness, demonstrated rather than asserted
+
+`bovw_permutation.png`. Shuffle which grid position each descriptor came from, re-pool, and
+compare — same descriptors, same vocabulary, only the positions permuted:
+
+| | max abs difference |
+|---|---|
+| **plain BoVW** | **0.000e+00** — the same vector, bit for bit |
+| BoVW + SPM (L=2) | 0.0833 |
+
+The codeword map makes it visible: the original shows the sign's circular structure, the
+shuffled panel is pure noise — and the plain histogram *does not notice*. Everywhere else in
+this project "orderless" is an assertion about the design; here it is a measurement, and it is
+the clearest single statement of the axis the study is about.
+
+### 13.2 The failure test falsified the prediction it was written to illustrate
+
+`bovw_blur_collapse.png`. `predictions.md` says blur should hurt BoVW **twice**: descriptors
+collapse onto a few codewords, *and* there is no layout to fall back on. The first half is
+testable at the representation level, so the demo tested it.
+
+| blur kernel | 0 | 15 | change |
+|---|---|---|---|
+| distinct words per image | 231.4 | 188.9 | **−18 %** |
+| between-class cosine similarity | 0.232 | 0.244 | **+0.012** |
+
+**The predicted collapse does not happen.** Vocabulary usage narrows only mildly, and the
+histograms of different classes stay as far apart as they started.
+
+**Likely mechanism, and the project already relies on it elsewhere:** SIFT descriptors are
+**L2-normalised** (§3). Blur cuts gradient *magnitude*, but the descriptor *direction* still
+varies from patch to patch, and k-means assigns by direction. The same normalisation that
+gives BoVW its gamma robustness also prevents codeword collapse. That is a satisfying
+consistency — one property explaining behaviour under two different stressors — but it was
+**not** anticipated in the locked prediction.
+
+**What this does and does not license.** It rules out *one proposed mechanism* for a blur
+effect; it does **not** say blur is harmless to BoVW. This measures the representation, not
+accuracy: histograms can remain mutually distant and still stop being discriminative in the
+way the classifier needs. **Task 8.1 decides whether blur hurts BoVW.** Sample here is ~22
+images, one per two classes.
+
+**For 9.6:** the blur row's *second* mechanism (no layout to fall back on) is untouched by
+this and remains live — and §9's +10.4 pp is direct evidence for it. So if blur does hurt
+BoVW at 8.1, the reading should be "because layout is missing", not "because the codewords
+collapsed". That is a sharper claim than the prediction made, and it was reached by the
+prediction being half wrong.
+
+### 13.3 The other two figures
+
+`bovw_grid_and_words.png` — the dense grid on four sign shapes and the codeword map, the
+methodology section's explanatory figure. `bovw_normalisation.png` — `power_l2` against
+`l1`/`l2`/`none` on a real histogram, showing that only the square root changes the ratio
+between bins (§6.1's argument, on real data rather than a toy vector).
+
+**A caption bug caught on the first run, worth recording.** The blur figure's panel titles
+originally read *"Vocabulary usage collapses as blur rises"* and *"…and different signs start
+to look alike"* — written from the prediction, before the data existed. The measurement says
+neither. They now describe what was measured. This is exactly the failure mode `CLAUDE.md`
+warns about: a figure that asserts the expected result rather than the observed one, and it
+survived until the figure was actually looked at.
