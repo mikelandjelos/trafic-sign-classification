@@ -1,16 +1,17 @@
 % =====================================================================================
-% Uporedna analiza reprezentacija pri simuliranim degradacijama slike
-% primenjena na zadatak klasifikacije saobraćajnih znakova
+% Uporedna analiza reprezentacija slike primenjenih na klasifikaciju saobraćajnih znakova
+% pri kontrolisanim degradacijama ulaza -- ZAVRŠNI IZVEŠTAJ
 %
-% SKELET. Sadržaj se popunjava iz docs/report-material/*.md -- svaka sekcija ispod nosi
-% komentar sa izvorom (nota + zadatak) i imenom slike iz figures/report/.
+% Formatiranje je namerno identično predlogu projekta (docs/proposition/predlog_projekta.tex):
+% isti documentclass i margine, isti stil naslovne strane, \section* sa ručnim brojem,
+% obična bibtex bibliografija sa stilom unsrt, isti blok za uklanjanje naslova "References".
 %
-% Formatiranje je namerno identično predlogu projekta
-% (docs/proposition/predlog_projekta.tex): isti documentclass, iste margine, isti stil
-% sekcija (\section* sa ručnim brojem), obična bibtex bibliografija, isti blok za uklanjanje
-% naslova "References". Bez babel paketa -- predlog ga ne koristi, a utf8 + T1 + lmodern je
-% dovoljno za srpsku latinicu i izbegava zavisnost od serbian.ldf, koji na ovoj mašini nije
-% instaliran (i koji po podrazumevanim podešavanjima daje ĆIRILICU).
+% BEZ babel paketa -- predlog ga ne koristi, utf8 + T1 + lmodern je dovoljno za srpsku
+% latinicu, a babel-ov `serbian` po podrazumevanim podešavanjima daje ĆIRILICU i zahteva
+% serbian.ldf, koji na ovoj mašini nije instaliran.
+%
+% Svi brojevi u ovom dokumentu dolaze iz results/results.csv i docs/report-material/*.md;
+% nijedan nije prepisan iz sećanja. Komentar iznad svake sekcije imenuje izvor.
 % =====================================================================================
 
 \documentclass[11pt,a4paper]{article}
@@ -30,7 +31,6 @@
 \usepackage{booktabs}
 \usepackage{float}
 \usepackage{caption}
-\usepackage{subcaption}
 
 \geometry{margin=2.2cm}
 \hypersetup{
@@ -44,22 +44,14 @@
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{6pt}
 \renewcommand{\arraystretch}{1.2}
-
-\renewcommand*\figurename{Slika}
-\renewcommand*\tablename{Tabela}
-\captionsetup[figure]{labelfont={bf},name={Slika},labelsep=colon}
-\captionsetup[table]{labelfont={bf},name={Tabela},labelsep=colon}
-
 \graphicspath{{../../figures/report/}}
+\captionsetup{font=small,labelfont=bf,justification=justified}
 
-% Skraćenice za imena metoda, da ostanu dosledna kroz ceo rad.
-\newcommand{\pcasvm}{\texttt{pca\_svm}}
-\newcommand{\hogsvm}{\texttt{hog\_svm}}
-\newcommand{\bovwsvm}{\texttt{bovw\_svm}}
-\newcommand{\cnnfeat}{\texttt{cnn\_feat\_svm}}
-\newcommand{\cnne}{\texttt{cnn\_e2e}}
+% Iste boje kao u predlogu: zeleno = minimalni skup rezultata, narandžasto = prošireni.
+\newcommand{\mvp}[1]{{\setulcolor{ForestGreen}\ul{#1}}}
+\newcommand{\str}[1]{{\setulcolor{BurntOrange}\ul{#1}}}
 
-% Ukloni automatski naslov ("References") iz thebibliography okruženja -- isto kao u predlogu.
+% Ukloni automatski naslov ("References") iz thebibliography okruženja
 \makeatletter
 \renewenvironment{thebibliography}[1]
      {\list{\@biblabel{\@arabic\c@enumiv}}%
@@ -82,215 +74,773 @@
 
 \begin{document}
 
+% --- Naslovna strana: identična strukturi i veličinama iz predloga ---------------------
 \begin{center}
 {\Large Univerzitet u Nišu\\Elektronski fakultet}\\[1.2cm]
+
 {\LARGE \textbf{Projekat iz predmeta Računarski vid}}\\[0.6cm]
-{\Large \textbf{Uporedna analiza reprezentacija pri simuliranim degradacijama slike primenjena na zadatak klasifikacije saobraćajnih znakova}}\\[1.2cm]
+
+{\Large \textbf{Uporedna analiza reprezentacija slike primenjenih na klasifikaciju saobraćajnih znakova pri kontrolisanim degradacijama ulaza}}\\[1.2cm]
+
 {\large Student: Mihajlo Madić, broj indeksa 2119}\\[0.3cm]
 {\large Niš, 2026.}
 \end{center}
 
 \vspace{0.6cm}
 
-% =====================================================================================
+% --- Sažetak: izvor 15-results.md §3, §10, §12 ----------------------------------------
 \section*{Sažetak}
-% Izvor: README.md + PROJECT_TASKS.md §1 i §2. ~200 reči.
-% Mora da sadrži: (1) GTSRB je zasićen benchmark, pa pitanje nije "koja reprezentacija je
-% najtačnija" nego "koja otkazuje pod kojim uslovima"; (2) četiri reprezentacije, fiksiran
-% linearni klasifikator, pet konfiguracija; (3) tri degradacije x pet nivoa; (4) glavni
-% nalaz -- popuniti iz zadatka 9.8.
 
-\noindent\textbf{Ključne reči:} računarski vid, klasifikacija saobraćajnih znakova, GTSRB,
+Upoređeno je pet konfiguracija klasifikacije saobraćajnih znakova nad GTSRB skupom
+podataka~\cite{gtsrb}, zasnovanih na četiri različite reprezentacije slike: PCA (isti princip
+kao Eigenfaces~\cite{eigenfaces}), HOG deskriptor~\cite{hog}, metod vreća vizuelnih reči nad
+gustim SIFT deskriptorima~\cite{sift, bovw}, i konvoluciona neuronska mreža -- koja se
+pojavljuje dvaput, kao ekstraktor obeležja i \textit{end-to-end}. Klasifikator (linearni SVM),
+pretprocesiranje i protokol evaluacije su fiksirani, pa su razlike u rezultatima pripisive
+isključivo reprezentaciji.
+
+Nad test skupom je izvršena mreža od \textbf{80 evaluacija} -- pet metoda pri šesnaest uslova
+(čist ulaz i po pet nivoa Gausovog šuma, zamućenja usled kretanja i gama korekcije).
+\textbf{Glavni rezultat je da se redosled uspešnosti metoda invertuje pod šumom}: PCA je
+poslednja na čistom ulazu (makro-F1 $0{,}7312$), a pri $\sigma=40$ zadržava $76{,}7\%$
+sopstvene čiste vrednosti, dok HOG -- treći na čistom ulazu -- zadržava svega $14{,}8\%$.
+Spearman-ova korelacija sa čistim poretkom iznosi $-0{,}60$. Pod zamućenjem i gama korekcijom
+inverzije nema ($+0{,}70$ i $+0{,}90$), pa je interakcija stvarna ali \emph{vezana za vrstu
+degradacije}, a ne opšta.
+
+Od deset unapred zapisanih očekivanja o robusnosti, osam se obistinilo. Dva promašaja su
+detaljno analizirana, jer oba upućuju na isti mehanizam: presudno nije da li je metoda
+zasnovana na gradijentima, već \textbf{da li reprezentacija interno normalizuje} -- i kog je
+tipa ta normalizacija.
+
+\textbf{Ključne reči:} računarski vid, klasifikacija saobraćajnih znakova, GTSRB,
 reprezentacije slike, PCA, HOG, vreća vizuelnih reči, konvolucione neuronske mreže, robusnost.
-
-% =====================================================================================
-\section*{1. Uvod}
-% Izvor: predlog §4.1-4.2, README.md.
-
-\subsection*{1.1 Kontekst -- mesto modula u širem sistemu}
-% Izvor: predlog §4.1. Ceo lanac: detekcija -> klasifikacija -> praćenje -> procena
-% udaljenosti. Eksplicitno označiti koji JEDAN modul ovaj rad isporučuje.
-
-\subsection*{1.2 Formulacija problema}
-% Izvor: predlog §4.2. Ulaz: RGB isečak 15x15 do 250x250 sa tačno jednim znakom.
-% Izlaz: jedna od 43 klase.
-
-\subsection*{1.3 Istraživačko pitanje i doprinos}
-% Izvor: PROJECT_TASKS §1. Doprinos NIJE rang-lista nego INTERAKCIJA reprezentacija x
-% degradacija. Navesti falsifikabilnu tvrdnju iz §2 (ukrštanje PCA/HOG pod šumom i gamom).
-
-\subsection*{1.4 Struktura rada}
-
-% =====================================================================================
-\section*{2. Reprezentacije slike}
-% Izvor: note 11, 12, 13, 14 -- svaka ima sekciju "What the representation is".
-
-\subsection*{2.1 Strukturne ose poređenja}
-% Izvor: PROJECT_TASKS §1 tabela. OKOSNICA CELOG RADA -- tabela sa 4 reda (prostorna
-% struktura / lokalnost / da li uči) mora doći rano, jer sva predviđanja i cela diskusija
-% referišu na nju.
-
-\subsection*{2.2 Analiza glavnih komponenti (PCA)}
-% Izvor: note 11 §1-§2. Eigenfaces~\cite{eigenfaces}. Holistička, kritična na poravnanje.
-% Odluka whiten=False i obrazloženje (note 11 §2.1).
-
-\subsection*{2.3 Histogrami orijentisanih gradijenata (HOG)}
-% Izvor: note 12 §1-§2. \cite{hog}. Kruta rešetka; blokovska L2-Hys normalizacija je
-% mehanizam na kome počiva predviđanje o gami.
-
-\subsection*{2.4 Vreća vizuelnih reči (BoVW)}
-% Izvor: note 14 §1-§2. \cite{bovw,sift}. JEDINA reprezentacija bez prostornog rasporeda.
-% Gusti SIFT umesto detektora i zašto (detektor vraća promenljiv broj tačaka po slici).
-
-\subsection*{2.5 Konvoluciona neuronska mreža (CNN)}
-% Izvor: note 13 §1-§2. \cite{ciresan}. Jedna mreža -> dve metode (\cnne{} i \cnnfeat{}).
-% Slika: cnn_architecture.png. Zašto \cnnfeat{} uopšte postoji (note 13 §1).
-
-% =====================================================================================
-\section*{3. Skup podataka}
-
-\subsection*{3.1 GTSRB}
-% \cite{gtsrb}. 43 klase, 39.209 / 12.630 isečaka.
-
-\subsection*{3.2 Struktura traka i podela na skupove}
-% Izvor: note 04 -- NAJVAŽNIJA METODOLOŠKA SEKCIJA.
-% Ključ je (class_id, track_id), NE sirovi TTTTT prefiks (75 naspram 1307).
-% Izmereno: korelacija 0,61 unutar trake naspram 0,17 između traka iste klase.
-% Slike: split_leakage.png, split_similarity.png.
-
-\subsection*{3.3 Neuravnoteženost klasa}
-% Izvor: note 02. 10,7x (2250 naspram 210) -- razlog zašto se izveštava makro-F1.
-
-% =====================================================================================
-\section*{4. Metodologija}
-
-\subsection*{4.1 Pretprocesiranje}
-% Izvor: note 08. Tri konfiguracije kao lestvica; svaka dodaje tačno jedan faktor.
-% Slika: preprocessing_configs.png.
-
-\subsection*{4.2 Kontrolisane degradacije}
-% Izvor: note 10. Tri stresora x pet nivoa.
-% Slike: degradation_contact_sheet.png, pipeline.png.
-% KLJUČNO: degradacija se primenjuje POSLE pretprocesiranja -- ubacuje se rezidual koji
-% pretprocesiranje nije uklonilo. Obrazloženje izbora baš ova tri stresora.
-
-\subsection*{4.3 Fiksiran klasifikator i protokol izbora hiperparametara}
-% Izvor: note 11 §6.2 i §7.4 (pitanje Q4).
-% "Fiksiran klasifikator" = isti estimator i isti protokol izbora, NE isti hiperparametri.
-% C i class_weight se biraju po metodi, na validaciji, po makro-F1.
-
-\subsection*{4.4 Metrike}
-% Izvor: note 05. labels=range(43). Makro-F1 je i kriterijum IZBORA, ne samo izveštavanja.
-
-\subsection*{4.5 Merenje cene}
-% Izvor: note 06. DVA broja za inferenciju (paketna i pojedinačna): PCA 49x, HOG 1,3x,
-% CNN 0,87x. Veličina modela ne meri istu stvar za sve metode (PCA je 96% baza, HOG nema
-% naučenu komponentu). Vremena su relativne cene u jednom okruženju.
-
-\subsection*{4.6 Reproducibilnost}
-% Izvor: note 03, note 07. Jedan seed, pinovanje niti, sadržajno izvedeni seedovi za
-% degradacije, results.csv sa run_id. Granice tvrdnje (float32, raspored u memoriji, EPP).
-
-% =====================================================================================
-\section*{5. Implementacija}
-% Izvor: note 01, 07, 08. Onoliko koliko treba da rezultat bude ponovljiv, ne više.
-
-\subsection*{5.1 Organizacija koda i tok izvršavanja}
-% Slika: pipeline.png.
-
-\subsection*{5.2 Keširanje pretprocesiranih slika}
-% Izvor: note 08. 83x ubrzanje; keš se proverava bit-po-bit prema referentnoj implementaciji.
-
-% =====================================================================================
-\section*{6. Eksperimentalna postavka}
-% Izvor: PROJECT_TASKS §7. Mreža 5 metoda x 16 uslova = 80 evaluacija.
-% Obuka je uvek na čistim podacima -- bez augmentacije i bez degradacija.
-
-\subsection*{6.1 Predviđanja zabeležena pre eksperimenata}
-% Izvor: predictions.md, datirano 13.09.2026, pre bilo kakvog modela.
-% Tabela ide OVDE, a ne u diskusiju -- poenta je da su zapisana unapred.
-
-% =====================================================================================
-\section*{7. Rezultati}
-
-\subsection*{7.1 Uporedna tabela metoda}
-% Izvor: zadatak 9.1, results.csv. Pet redova.
-% UPOZORENJE (note 06): kolona "veličina modela" ne meri istu stvar za sve metode.
-
-\subsection*{7.2 Matrice konfuzije}
-% Izvor: zadatak 9.2. Slika: confusion_best_worst.png.
-% NAPOMENA: prikazati VIŠE od najbolje i najgore metode -- PCA i CNN dele iste najteže
-% klase, a HOG ima potpuno druge (note 12 §5.2).
-
-\subsection*{7.3 Najčešće zamene klasa}
-% Izvor: zadatak 9.3, note 12 §5.2, note 13 §7.3.
-% PCA i CNN: znaci prestanka zabrane (60,0% i 15,0%). HOG: ograničenja brzine (80->50, 16,9%).
-
-\subsection*{7.4 Tačnost u funkciji veličine znaka}
-% Izvor: zadatak 9.4. Slika: accuracy_by_size.png. 47,6% slika je ispod 32 px.
-
-\subsection*{7.5 Krive robusnosti}
-% Izvor: zadatak 9.5. Slika: robustness_curves.png -- GLAVNA SLIKA RADA.
-% Relativno u odnosu na sopstvenu čistu osnovu svake metode.
-
-\subsection*{7.6 Ablacija pretprocesiranja}
-% Izvor: zadatak 9.7, note 08 dodatak. Izveštava se kao STABILNOST RANGIRANJA.
-% Mora nositi nalaz o obavijanju nijanse (hue wrap) -- videti 8.5.
-
-% =====================================================================================
-\section*{8. Diskusija}
-
-\subsection*{8.1 Predviđanja naspram ishoda}
-% Izvor: zadatak 9.6 -- JEZGRO DISKUSIJE. Red koji kaže "pogrešno, jer..." vredi više.
-
-\subsection*{8.2 Zašto reprezentacije otkazuju onako kako otkazuju}
-% Izvor: note 11 §3.1 (PC1 je osvetljenje, 52,3%), §9.2 (PC2 je oblik), note 12 §3.1-3.2
-% (linearni kontrast se poništava TAČNO, gama samo delimično).
-% Slike: pca_eigensigns.png, pca_reconstruction.png, pca_pc1_brightness.png,
-% hog_visualization.png.
-
-\subsection*{8.3 Curenje podataka kroz trake -- izmereno, ne tvrđeno}
-% Izvor: note 04, zadatak 4.5. Slika: split_leakage_measured.png.
-% +5,08 p.p. tačnosti i +9,58 p.p. makro-F1. Makro-F1 se naduvava DVOSTRUKO.
-
-\subsection*{8.4 Objašnjena varijansa nije diskriminativnost}
-% Izvor: note 11 §3.2, §7.1c, §7.3. Slika: pca_component_sweep.png. Tri nezavisna slučaja.
-
-\subsection*{8.5 Defekt u konfiguraciji clahe\_hsv -- nijansa se obavija}
-% Izvor: note 08 dodatak. Crvena boja je na tački obavijanja (0/179): Stop ima 56,5%
-% zasićenih piksela pri nijansi <10 i 4,4% pri >169. 3,98% susednih gradijenata nijanse
-% prelazi 90. Cena raste sa oslanjanjem na izvode: HOG -9,7 p.p., CNN -2,3 p.p. (i vrhunac
-% u epohi 5 umesto 18), PCA -3,0 p.p. NE sme se izvestiti kao "boja ne pomaže".
-
-\subsection*{8.6 Ograničenja}
-% Izvor: note 03 (jedan seed), note 06 (nema GPU; EPP menja vremena za 20%), note 09
-% (zašto jitter nije moguć na GTSRB), note 11 §2.1 (nebeljena PCA), note 13 §1.1 (obeležja
-% CNN-a optimizovana za softmax glavu), note 13 §2.2 (glava mreže manja zbog uporedivosti),
-% note 14 §6.3 (BoVW bez prostorne piramide -- namerno).
-
-% =====================================================================================
-\section*{9. Zaključak}
-% Izvor: zadatak 9.8 (pet konkretnih nalaza). Odgovoriti EKSPLICITNO na pitanje iz §1.3:
-% da li se rangiranje menja između stresora. Oba ishoda su rezultat.
-
-\subsection*{9.1 Pravci daljeg rada}
-% Izvor: PROJECT_TASKS §11 (GTSDB, jitter) i §12 (degradacija u trenutku snimanja,
-% složeni scenariji). Plus: ispravka clahe_hsv (nijansa kao cos/sin ili CIELab).
-
-% =====================================================================================
-\section*{10. Literatura}
-
-\bibliographystyle{unsrt}
-\nocite{szeliski, milosavljevic, laganiere}
-\bibliography{references}
 
 \newpage
 
-\subsection*{Dodatak A -- Tabela akronima}
-% Preneti iz predloga (Dodatak B) i dopuniti: GTSDB, CLAHE, SIFT, BoVW, HOG, PCA, SVM,
-% CNN, ROI, BLAS, SMT, EPP.
+% --- 1. Uvod: izvor predlog §1, PROJECT_TASKS §1 ---------------------------------------
+\section*{1. Uvod i postavka problema}
 
-\subsection*{Dodatak B -- Okruženje i verzije biblioteka}
-% Izvor: note 01 + results/platform_<run_id>.json. Tačne verzije, broj niti, commit.
+Cilj projekta je sistematsko poređenje četiri reprezentacije~\cite{repr-learning} slike
+saobraćajnog znaka, od kojih su tri dobijene ,,klasičnim'' metodima, a jedna je naučena.
+Ulaz sistema je isečak slike dimenzija između $15\times15$ i $250\times250$ piksela, koji
+sadrži tačno jedan saobraćajni znak, a izlaz je jedna od 43 klase.
+
+Suština projekta nije u postizanju najviše moguće tačnosti: GTSRB je zasićen skup na kome
+savremene konvolucione mreže prelaze $99\%$~\cite{ciresan}. Suština je u \textbf{analizi pod
+kojim uslovima je koja reprezentacija primenljiva}. Posmatrane reprezentacije se razlikuju po
+više strukturnih osobina istovremeno, pa se očekivalo da redosled uspešnosti zavisi od vrste
+degradacije ulazne slike. Upravo ta \textit{interakcija} između reprezentacije i tipa
+degradacije predstavlja glavni rezultat.
+
+Postavka je relevantna zato što daje informaciju pri odabiru reprezentacije u realnom sistemu.
+U realnim okolnostima odabir mora biti donesen u skladu sa nedostacima sistema u okviru koga
+se klasifikator koristi, a u toj odluci je najrelevantnija otpornost na onu vrstu degradacije
+koja u datoj primeni dominira -- zamućenje usled kretanja, šum pri slabom osvetljenju ili
+nepreciznost izlaza detektora.
+
+\subsection*{1.1 Mesto projekta u širem sistemu}
+
+Kompletan sistem za prepoznavanje saobraćajne signalizacije iz video snimka standardno se
+razlaže na fazu detekcije i fazu klasifikacije~\cite{tsr-survey, gtsdb}. Ovaj projekat
+isporučuje \textbf{isključivo modul klasifikacije}: ulaz je već isečen isečak, izlaz je klasa.
+Detekcija na punim kadrovima, praćenje, kalibracija kamere i procena rastojanja su eksplicitno
+van opsega.
+
+Ta granica ima jednu merljivu posledicu koja je i sama rezultat, i o njoj je reč u odeljku
+6.3: perturbacija graničnog okvira -- degradacija koja bi najdirektnije povezala ovaj modul sa
+detektorom -- \textbf{nije izvodljiva nad GTSRB skupom na pošten način}, i to je izmereno, a
+ne pretpostavljeno.
+
+\subsection*{1.2 Posmatrane reprezentacije}
+
+Reprezentacije se razlikuju po strukturnim osobinama navedenim u tabeli, i upravo se od tih
+razlika očekivalo različito ponašanje pod različitim degradacijama.
+
+\begin{center}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{3.0cm}|>{\raggedright\arraybackslash}p{5.2cm}|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{2.6cm}|}
+\hline
+\textbf{Reprezentacija} & \textbf{Prostorni raspored} & \textbf{Domet} & \textbf{Učena?} \\
+\hline
+PCA & holistička, kritična na poravnanje & globalni & ne \\
+\hline
+HOG & kruta mreža, raspored očuvan & lokalni & ne \\
+\hline
+BoVW & \textbf{bez rasporeda}, raspored odbačen & lokalni & samo rečnik \\
+\hline
+CNN & hijerarhijska, invarijantna na sažimanje & lokalni & potpuno \\
+\hline
+\end{tabular}
+\end{center}
+
+\textbf{Ključna metodološka odluka:} klasifikator se drži \emph{fiksnim} (linearni SVM) za sve
+četiri reprezentacije, kako bi razlike bile pripisive reprezentaciji, a ne klasifikatoru. Zbog
+toga se konvoluciona mreža evaluira u dve varijante: (a) kao ekstraktor obeležja, gde se izlaz
+pretposlednjeg sloja prosleđuje istom linearnom SVM klasifikatoru, čime postaje direktno
+uporediva sa ostale tri metode; i (b) \textit{end-to-end}, sa sopstvenim softmax slojem.
+Ukupno se poredi \textbf{pet konfiguracija}.
+
+
+\newpage
+
+% --- 2. Metodologija: izvor 02, 04, 05, 08, 10 -----------------------------------------
+\section*{2. Eksperimentalni protokol}
+
+\subsection*{2.1 Skup podataka i podela na skupove}
+
+GTSRB sadrži 39.209 slika za treniranje i 12.630 za testiranje, u 43 klase. Skup je
+\textbf{neuravnotežen $10{,}7\times$} (210 slika za klasu 0 naspram 2.250 za klasu 2 u skupu
+za treniranje; $12{,}5\times$ u test skupu), zbog čega se kao glavna metrika izveštava
+\textbf{makro-F1}, a ne tačnost: tačnost je dominirana velikim klasama, dok makro-F1 sve klase
+tretira jednako.
+
+\textbf{Podela na trening i validaciju mora biti po sekvencama, nikako po slikama.} Slike u
+GTSRB skupu grupisane su u sekvence od po 30 kadrova istog fizičkog znaka. Nasumična podela po
+slikama razdvaja skoro identične kadrove na obe strane i naduvava validacionu tačnost.
+
+Ova tvrdnja je \textbf{izmerena, a ne samo navedena}. Isti model je treniran dvaput -- jednom
+sa podelom po sekvencama, jednom sa nasumičnom podelom po slikama (prosek tri semena):
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+& \textbf{podela po sekvencama} & \textbf{nasumična po slikama} \\
+\midrule
+validaciona tačnost & 0,8442 & 0,8950 \quad(\textbf{+5,08 pp}) \\
+validacioni makro-F1 & 0,7977 & 0,8936 \quad(\textbf{+9,58 pp}) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Uzrok je izmeren nad istim podelama: 1.305--1.306 od 1.307 sekvenci završi na obe strane, a
+\textbf{100\% validacionih slika zadrži srodni kadar u trening skupu}. Drugi nalaz je
+suptilniji i važniji: \textbf{makro-F1 se naduvava dvostruko više od tačnosti}, jer curenje
+najviše pogoduje \emph{retkim} klasama -- klasa sa sedam sekvenci nema raznovrsnosti preko
+koje bi generalizovala, pa njeni izdvojeni kadrovi postaju gotovo pretraga u tabeli. Metrika
+izabrana \emph{zbog} neuravnoteženosti je ona koju curenje najviše kvari.
+
+Praktična zamka vredna beleženja: prefiks \texttt{TTTTT} u imenu datoteke \textbf{nije} globalni
+identifikator sekvence -- numeracija se restartuje unutar svakog direktorijuma klase. 39.209
+slika daje samo 75 različitih sirovih prefiksa, ali \textbf{1.307} različitih parova
+(klasa, sekvenca). Ključ mora biti taj par; upotreba sirovog prefiksa tiho sažima 1.307
+sekvenci u 75 grupa.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.86\textwidth]{split_leakage.png}
+\caption{Trideset kadrova jedne sekvence i raspored koji im dodeljuje svako od dva pravila
+podele. Niz je uređen po rednom broju kadra, pa se čita kao približavanje vozila: kadrovi jesu
+\emph{skoro} duplikati, a ne identični, što je razlog zašto ih nijedna provera duplikata ne bi
+uhvatila. Medijalna korelacija piksela između dva kadra iste sekvence je \textbf{0,61}, naspram
+\textbf{0,17} između dve slike iz \emph{različitih} sekvenci iste klase.}
+\end{figure}
+
+\subsection*{2.2 Pretprocesiranje}
+
+Svaki isečak se skalira na $48\times48$ piksela. Definisane su tri konfiguracije:
+\texttt{raw\_gray} (sivo), \texttt{clahe\_gray} (sivo + CLAHE) i \texttt{clahe\_hsv} (HSV +
+CLAHE nad V kanalom).
+
+\textbf{Pretprocesiranje je fiksirano na \texttt{raw\_gray} za celo poređenje.} Ranija verzija
+protokola je dozvoljavala da svaka metoda bira sopstvenu konfiguraciju, ali to čini svaku
+razliku između metoda mešavinom reprezentacije \emph{i} pretprocesiranja -- što je upravo
+konfuzija koju postavka isključuje. \texttt{raw\_gray} je neutralan, neobrađen ulaz, i
+konfiguracija koju je HOG i sam izabrao.
+
+Jedan detalj implementacije je merljivo bitan: \textbf{interpolacija pri skaliranju bira se po
+slici} (39,2\% isečaka se smanjuje, 60,8\% uvećava). Fiksni izbor ubacuje artefakt od oko
+četiri nivoa sivog, koreliran sa veličinom znaka -- što je uporedivo sa šumom $\sigma=5$ --
+direktno u sliku 4 (tačnost po veličini znaka).
+
+\subsection*{2.3 Kontrolisane degradacije}
+
+Tri degradacije, svaka po pet nivoa. Izabrane su tako da napadaju \emph{različita} svojstva:
+šum \textbf{dodaje} visokofrekventnu energiju, zamućenje je \textbf{uklanja} (suprotne
+operacije nad istom osom), a gama korekcija je \textbf{ortogonalna} -- geometrija ostaje
+netaknuta, menja se samo intenzitet.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{degradacija} & \textbf{nivoi} & \textbf{identitet} \\
+\midrule
+Gausov šum & $\sigma \in \{0, 5, 10, 20, 40\}$ & $\sigma = 0$ \\
+Zamućenje usled kretanja & $k \in \{0, 3, 5, 9, 15\}$ px, nasumičan ugao & $k = 0$ \\
+Gama korekcija & $\gamma \in \{0{,}4;\ 0{,}7;\ 1{,}0;\ 1{,}5;\ 2{,}5\}$ & $\gamma = 1{,}0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Identitet gama korekcije je \textbf{u sredini opsega}, a ne na kraju. Pretpostavka da je prvi
+nivo referentan tiho bi normalizovala sve gama krive u odnosu na $\gamma=0{,}4$; registar
+degradacija zato eksplicitno deklariše identitet po degradaciji.
+
+\textbf{Degradacije se primenjuju na pretprocesiran ulaz modela $48\times48$}, a ne na izvornu
+rezoluciju. Time je ono što se ubacuje po konstrukciji \emph{ostatak koji pretprocesiranje
+nije uklonilo} -- veličina koju poređenje zaista meri, i za koju nije potrebna nijedna tvrdnja
+o kamerama. Takođe održava značenje nivoa jednoznačnim: degradacija na izvoru bi učinila da
+$\sigma=20$ obuhvata izmereni opseg efektivnih jačina od $2{,}4\times$ u zavisnosti od
+veličine znaka, čime bi se slika 3 pomešala sa slikom 4.
+
+Svaka slika se degradira sa semenom izvedenim iz njene \emph{putanje}, a ne iz pozicije u
+nizu, pa svih pet metoda vidi bit-identične degradirane piksele bez obzira na redosled
+izvršavanja.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{degradation_contact_sheet.png}
+\caption{Svaka degradacija na svakom nivou, nad istim uzorkom. Prikazan je stvarni ulaz modela
+$48\times48$; nivo identiteta je uokviren, a kod gama korekcije se nalazi u sredini reda.}
+\end{figure}
+
+\subsection*{2.4 Izbor hiperparametara i protokol evaluacije}
+
+Sve odluke o hiperparametrima donose se \textbf{isključivo nad validacionim skupom}, po
+makro-F1 meri. \textbf{Test skup je dodirnut tačno jednom}, pri finalnoj mreži evaluacije.
+
+Parametar regularizacije $C$ linearnog SVM-a \textbf{podešava se po metodi}. ,,Fiksan
+klasifikator'' znači isti estimator i isti protokol izbora, a \emph{ne} istu vrednost pomoćnog
+parametra: PCA je jedina reprezentacija koja nije interno normalizovana (raspon standardnih
+devijacija obeležja je $87\times$), pa bi zamrznuta vrednost $C$ svakoj metodi dala dugme
+kalibrisano za tuđu skalu obeležja.
+
+Nasuprot tome, \texttt{class\_weight} je \textbf{fiksiran na ,,balanced'' za sve metode}.
+Razlika je suštinska: $C$ je jačina regularizacije, pa dve metode sa različitim $C$ i dalje
+minimizuju istu funkciju gubitka, dok \texttt{class\_weight} menja \emph{šta je} funkcija
+gubitka. Vrednost ,,balanced'' je izabrana jer makro-F1 sve klase tretira jednako, pa joj
+odgovara i klasno uravnotežen cilj treniranja.
+
+\textbf{Nijedna tvrdnja o efektu klasnog ponderisanja se ne izvodi iz ovoga}: razlika je mala i
+nestabilna (0,55 pp u korist ,,balanced'' pri jednoj konfiguraciji, a gubitak pri drugoj), i za
+PCA je ,,balanced'' čak \emph{lošiji} izbor. Reč je o odluci radi uporedivosti, ne o rezultatu.
+
+Sve metode treniraju se \textbf{samo nad trening podskupom} (31.379 slika), nikada nad
+trening+validacija, jer konvolucionoj mreži validacija treba za rano zaustavljanje; davanje
+ostalim metodama 25\% više podataka pomešalo bi poređenje.
+
+
+\newpage
+
+% --- 3. Reprezentacije: izvor 11, 12, 13, 14 -------------------------------------------
+\section*{3. Reprezentacije i implementacione odluke}
+
+\subsection*{3.1 PCA -- holistička reprezentacija}
+
+Konstrukcija Eigenfaces~\cite{eigenfaces} primenjena na saobraćajne znake: svaka slika
+$48\times48$ je tačka u $\mathbb{R}^{2304}$, a reprezentacija su koordinate u bazi vodećih
+$k$ sopstvenih vektora. Izabrano $k = 256$ nad validacijom.
+
+\textbf{Whitening se ne koristi}, iz razloga vernosti konstrukciji: ,,PCA reprezentacija'' u
+Eigenfaces smislu je ortogonalna projekcija, a whitening je komponuje sa dijagonalnim
+skaliranjem, pa koordinate koje klasifikator vidi više ne bi bile projekcije koje slika 6
+prikazuje.
+
+Dva merenja koja objašnjavaju kasnije ponašanje pod gama korekcijom. \textbf{Prva glavna
+komponenta je osvetljenost}: nosi $52{,}3\%$ varijanse i korelira $+0{,}9975$ sa srednjom
+intenzitetom slike -- dakle preko polovine varijanse koju PCA modeluje jeste smetnja bez
+ikakve informacije o klasi. I drugo, \textbf{pri $k=2$ se svaki znak, uključujući trouglaste,
+rekonstruiše ka okruglom disku ograničenja brzine}: vodeće komponente kodiraju modalni oblik
+skupa, što čini svojstvo ,,holistička, bez pojma o delu'' vidljivim.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.74\textwidth]{pca_eigensigns.png}
+\caption{Prvih 16 sopstvenih vektora kao slike (,,sopstveni znakovi''), sa udelom varijanse.
+PC1 je osvetljenost ($39{,}8\%$ posle CLAHE), PC2 razlikuje okruglo od trouglastog
+($12{,}7\%$) -- najgrublja klasna razlika. \textbf{Diskriminativni detalj, koja cifra i koji
+piktogram, živi ispod $1\%$ po komponenti}: PCA troši kapacitet po redosledu varijanse, ne po
+korisnosti.}
+\end{figure}
+
+\subsection*{3.2 HOG -- kruta mreža, raspored očuvan}
+
+Histogrami orijentacija gradijenata~\cite{hog} preko \texttt{scikit-image}~\cite{skimage}.
+Izabrano nad validacijom: ćelije $6\times6$ px, 9 orijentacija, blok-normalizacija L2-Hys,
+1764 dimenzije.
+
+\textbf{HOG ništa ne uči} -- njegova faza treniranja je samo prilagođavanje SVM-a, a njegov
+,,model'' su isključivo koeficijenti SVM-a. To je fiksirano testom koji zahteva da deskriptori
+dobijeni nad dve disjunktne polovine skupa budu bit-identični.
+
+Izmereno: \textbf{linearna promena kontrasta se poništava tačno} (srednja promena deskriptora
+$0{,}0000$), dok se \textbf{gama korekcija poništava samo delimično} ($0{,}0339$). Ta razlika
+je mehanizam koji objašnjava ponašanje HOG-a pod gama korekcijom u odeljku 4.
+
+\textbf{Veličina ćelije dominira nad brojem orijentacija}: prelazak sa 8 px na 6 px vredi oko
+$3{,}5$ pp, dok prelazak sa 9 na 12 orijentacija ne vredi ništa. Na ulazu $48\times48$
+ograničenje je prostorna, a ne ugaona rezolucija.
+
+\subsection*{3.3 BoVW -- reprezentacija bez prostornog rasporeda}
+
+Gusti SIFT~\cite{sift} na fiksnoj mreži, rečnik vizuelnih reči dobijen k-sredinama, pa
+histogram učestanosti reči~\cite{bovw}. \textbf{Detektor se ne koristi}: na isečcima ove
+veličine detektor vraća promenljiv broj ključnih tačaka po slici, pa histogrami ne bi bili
+uporedivi, a u graničnom slučaju vraća nula tačaka i tiho proizvodi nulti histogram.
+
+\textbf{Parametri koje je plan predvideo bili su ubedljivo najveća greška u projektu.}
+Vrednosti \texttt{step}$=6$, \texttt{keypoint\_size}$=12$ daju makro-F1 $0{,}3455$; podešavanje
+geometrije nad validacijom dovelo je metodu na $0{,}8808$ -- \textbf{poboljšanje od 53,5 pp},
+veće od bilo koje razlike između metoda izmerene u ovom radu.
+
+Presudna veličina je \textbf{razmera deskriptora, a ne gustina uzorkovanja}. Pošto
+\texttt{step} fiksira broj ključnih tačaka nezavisno od \texttt{keypoint\_size}, ta dva efekta
+se razdvajaju: pri fiksnih 256 tačaka, promena razmere sa 6 na 4 px vredi $+12{,}3$ pp, dok
+pri fiksnoj razmeri $2{,}25\times$ veća gustina vredi $+2{,}2$ pp -- oko $5{,}3\times$ manje.
+Deskriptor od 12 px na isečku od 48 px opisuje četvrtinu objekta i nije lokalan ni u kom
+korisnom smislu.
+
+\subsection*{3.4 Konvoluciona mreža -- naučena reprezentacija}
+
+Tri bloka (konvolucija, batch normalizacija, ReLU) $\times 2$, širine $32 \to 64 \to 128$, pa
+potpuno povezana glava. Ukupno \textbf{882.379 parametara}, ispod zadatog budžeta od milion.
+
+\textbf{Globalno usrednjavanje je odbačeno iz strukturnog, a ne iz razloga performansi.} Ono
+bi reprezentaciju učinilo \emph{bez prostornog rasporeda} -- što je upravo definišuće svojstvo
+BoVW metode -- pa bi dve od četiri reprezentacije zauzele istu tačku na osi rasporeda i ta osa
+bi prestala da bude merljiva. Zabeleženo kao ograničenje: glava mreže je manja nego što bi
+slobodan izbor dao, radi uporedivosti.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.80\textwidth]{cnn_architecture.png}
+\caption{Dva izlaza jedne mreže: softmax glava daje \texttt{cnn\_e2e}, a pretposlednji sloj se
+grana u zajednički linearni SVM i daje \texttt{cnn\_feat\_svm}. \textbf{U celom projektu postoji
+tačno jedno treniranje mreže} -- \texttt{cnn\_feat\_svm} ne trenira ništa novo.}
+\end{figure}
+
+Uz to ide obavezna ograda: obeležja su optimizovana za \emph{softmax} glavu, pa ako
+\texttt{cnn\_feat\_svm} zaostaje za \texttt{cnn\_e2e}, deo te razlike je neslaganje ciljeva, a
+ne svojstvo reprezentacije. PCA, HOG i BoVW nikada nisu optimizovani ni za jedan klasifikator,
+pa je ta asimetrija svojstvena samo mreži.
+
+\newpage
+
+% --- 4. Rezultati: izvor 15-results.md -------------------------------------------------
+\section*{4. Rezultati}
+
+\subsection*{4.1 Tabela 1 -- poređenje na čistom test skupu}
+
+\begin{center}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Metoda} & \textbf{Tačnost} & \textbf{makro-F1} & \textbf{Dim.} & \textbf{Trening (s)} & \textbf{1 slika (ms)} & \textbf{Model (MB)} \\
+\midrule
+CNN \textit{end-to-end}      & 0,9785 & \textbf{0,9684} & 128  & 2595,9 & 1,400 & 3,38 \\
+CNN obeležja + SVM           & \textbf{0,9804} & 0,9651 & 128  & 1,1$^\dagger$ & 2,037 & 0,04$^\dagger$ \\
+HOG + SVM                    & 0,9238 & 0,9062 & 1764 & 81,5   & 0,983 & 0,58 \\
+BoVW + SVM                   & 0,9141 & 0,8596 & 1000 & 89,9   & 2,792 & 1,59 \\
+PCA + SVM                    & 0,7932 & 0,7312 & 256  & 33,3   & 0,327 & 2,35 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Tri ograde idu uz ovu tabelu i bez njih je pogrešno čitati.}
+
+$^\dagger$ \textbf{Kolone za \texttt{cnn\_feat\_svm} nisu uporedive sa ostalima.} Vrednost
+$1{,}1$ s je vreme prilagođavanja \emph{samo} SVM glave, što bi ovu metodu prikazalo kao
+najjeftiniju za treniranje u celom radu; ona ne može postojati bez mreže od 2596 s koju čita,
+pa je pošteno vreme $\approx 2597$ s. Isto važi za veličinu modela: $0{,}04$ MB je samo glava,
+a poštena vrednost je $3{,}42$ MB.
+
+\textbf{Vremena su indikativna, a ne poređenje.} Svaka metoda je merena u sopstvenom
+izvršavanju, drugog dana, pri različitom opterećenju sistema -- jednominutno prosečno
+opterećenje kretalo se od $1{,}27$ do $13{,}12$ na mašini sa 16 niti. Uz to, promena profila
+napajanja procesora sama po sebi menja vremena za oko $20\%$, a na \texttt{amd-pstate}
+platformi ta promena nije vidljiva u \texttt{scaling\_governor} vrednosti.
+
+\textbf{Veličina modela nije uporediva ni između ostalih redova}: $96\%$ od $2{,}35$ MB kod
+PCA je naučena \emph{baza}, dok HOG nema nijednu prilagođenu fazu, pa je njegovih $0{,}58$ MB
+u celosti SVM. Tabela inače čitaocu sugeriše da je ,,PCA četiri puta veći od HOG-a'', dok je
+stvarna razlika naučen rečnik naspram nijednog.
+
+Konačno, \textbf{odnos paketne i pojedinačne inferencije je specifičan za metodu}: PCA
+$52\times$, BoVW $2{,}0\times$, HOG $1{,}3\times$, CNN $1{,}4\times$. Kamera daje jedan kadar
+u jednom trenutku, pa je pojedinačna kolona ona koju sme koristiti bilo kakva tvrdnja o
+kašnjenju -- i u njoj se ogromna prednost PCA metode svodi sa $200\times$ na $8{,}5\times$.
+
+\subsection*{4.2 Krive robusnosti -- glavni rezultat}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{robustness_curves.png}
+\caption{Makro-F1 zadržan u odnosu na sopstvenu čistu vrednost svake metode. Normalizacija je
+namerna: apsolutne krive su dominirane time \emph{odakle} svaka metoda kreće, a pitanje ovde
+nije ko je najbolji -- to govori Tabela 1 -- već \textbf{koliko brzo svaka opada}.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{zadržano (\%)} & \textbf{PCA} & \textbf{HOG} & \textbf{BoVW} & \textbf{CNN obel.} & \textbf{CNN e2e} \\
+\midrule
+šum $\sigma=10$      & 97,4 & 61,9 & 93,5 & 89,2 & 89,2 \\
+šum $\sigma=20$      & 89,8 & 37,0 & 82,8 & 71,8 & 71,4 \\
+\textbf{šum $\sigma=40$} & \textbf{76,7} & \textbf{14,8} & 65,6 & 44,3 & 43,8 \\
+\midrule
+zamućenje $k=9$      & 80,0 & 53,7 & 61,4 & 71,6 & 73,8 \\
+\textbf{zamućenje $k=15$} & \textbf{45,1} & 23,9 & \textbf{20,7} & 36,8 & 39,6 \\
+\midrule
+gama $0{,}4$         & 79,9 & 99,9 & 98,9 & 99,0 & 98,4 \\
+\textbf{gama $2{,}5$} & \textbf{70,1} & 89,2 & \textbf{95,3} & 86,2 & 86,1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Redosled uspešnosti se invertuje pod šumom.} Na čistom ulazu poredak je
+CNN $>$ CNN-obeležja $>$ HOG $>$ BoVW $>$ PCA; pri $\sigma=40$ poredak je
+BoVW $>$ PCA $>$ CNN-obeležja $>$ CNN $>$ HOG. Spearman-ova korelacija sa čistim poretkom je
+$\mathbf{-0{,}60}$.
+
+Dve tvrdnje se moraju držati odvojeno. \textbf{Po zadržanoj vrednosti} -- što je mera
+robusnosti i ono što slika prikazuje -- PCA je ubedljivo najbolja pri $\sigma=40$: $76{,}7\%$
+naspram $65{,}6\%$ za BoVW, $\approx 44\%$ za mreže i $14{,}8\%$ za HOG. \textbf{Po apsolutnom
+makro-F1} PCA i BoVW su izjednačeni ($0{,}5606$ i $0{,}5639$; razlika od $0{,}33$ pp je unutar
+razlučivosti ovog rada), ali su \emph{obe} daleko ispred obe mreže ($\approx 0{,}425$) i HOG-a
+($0{,}1341$).
+
+Tvrdnja koja preživljava i koja je bitna: \textbf{pod jakim šumom dve metode koje su na čistim
+podacima poslednja i četvrta postaju dve najbolje, i obe nadmašuju konvolucionu mrežu na istim
+pikselima.} To je slučaj u kome je uobičajen odgovor -- ,,koristi mrežu'' -- merljivo pogrešan
+za navedeni uslov.
+
+\textbf{Inverzija je specifična za degradaciju, a ne opšta.} Pod zamućenjem i gama korekcijom
+Spearman-ova korelacija sa čistim poretkom je $+0{,}70$ i $+0{,}90$, dakle poredak uglavnom
+prati čistu uspešnost. Premisa se potvrđuje, ali je nosi jedna od tri degradacije, i izveštaj
+to mora reći umesto da sugeriše opštu nestabilnost poretka.
+
+\subsection*{4.3 Greške na čistom ulazu -- metode ne greše na istim mestima}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{confusion_best_worst.png}
+\caption{Matrice konfuzije, najbolja i najlošija metoda. Normalizovano po redovima, jer se
+test klase razlikuju $12{,}5\times$ po učestanosti, pa bi sirovi brojevi velike klase prikazali
+lošijim samo zato što su velike.}
+\end{figure}
+
+Preklapanje deset najčešćih parova zamene, po metodama:
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+& \textbf{PCA} & \textbf{HOG} & \textbf{BoVW} & \textbf{CNN obel.} & \textbf{CNN e2e} \\
+\midrule
+\textbf{PCA}        & 10 & 4 & 2 & \textbf{0} & 1 \\
+\textbf{HOG}        & 4 & 10 & 4 & \textbf{0} & 1 \\
+\textbf{BoVW}       & 2 & 4 & 10 & 1 & 2 \\
+\textbf{CNN obel.}  & 0 & 0 & 1 & 10 & \textbf{6} \\
+\textbf{CNN e2e}    & 1 & 1 & 2 & 6 & 10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Nijedna klasa nije među pet najlošijih kod svih metoda, i nijedan par nije među deset
+najčešćih kod svih metoda.} Umesto toga postoje dve grupe: tri ručno projektovane metode dele
+greške međusobno, dok dva reda konvolucione mreže dele šest parova međusobno i \textbf{nula do
+dva sa bilo čim ručno projektovanim} -- \texttt{cnn\_feat\_svm} deli \emph{nijedan} od svojih
+deset parova sa PCA i \emph{nijedan} sa HOG-om.
+
+Dakle mreža nije ,,isto to, samo bolje'' -- ona \textbf{greši drugačije}. To je jača formulacija
+interakcije između reprezentacije i težine klase nego što je daje mreža robusnosti, jer važi na
+\emph{čistim} podacima, gde svih pet metoda radi dobro.
+
+\subsection*{4.4 Tačnost po veličini znaka}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{accuracy_by_size.png}
+\caption{Iste predikcije nad čistim test skupom, grupisane po visini graničnog okvira.
+Najmanji opseg nije rep raspodele: $47{,}6\%$ trening slika je ispod 32 px, pa je to
+\emph{modalni} slučaj, a raspodele veličina u trening i test skupu se poklapaju na $0{,}1$ pp.}
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Metoda} & \textbf{[0,32)} & \textbf{[32,48)} & \textbf{[48,72)} & \textbf{[72,$\infty$)} & \textbf{pad} \\
+\midrule
+PCA        & 0,740 & 0,854 & 0,853 & 0,775 & $+3{,}5$ pp \\
+HOG        & 0,885 & 0,957 & 0,959 & 0,966 & $\mathbf{+8{,}1}$ pp \\
+BoVW       & \textbf{0,892} & 0,946 & 0,930 & 0,902 & $\mathbf{+1{,}0}$ pp \\
+CNN obel.  & \textbf{0,975} & 0,993 & 0,984 & 0,960 & $-1{,}5$ pp \\
+CNN e2e    & 0,969 & 0,989 & 0,986 & 0,984 & $+1{,}5$ pp \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+PCA je \textbf{nemonotona}, sa maksimumom u srednjim opsezima. Veliki znaci se pri skaliranju
+na $48\times48$ smanjuju, a mali uvećavaju, i PCA je jedina metoda bez interne normalizacije
+koja bi razliku u efektivnoj oštrini apsorbovala. Navedeno kao hipoteza, ne kao nalaz.
+
+
+\newpage
+
+% --- 5. Diskusija: izvor 15-results.md §10, §11, §12 -----------------------------------
+\section*{5. Diskusija}
+
+\subsection*{5.1 Očekivanja naspram ishoda}
+
+Očekivanja su zapisana \textbf{13.\,09.\,2026, pre nego što je ijedan model postojao} i nisu
+naknadno menjana. Od deset iskaza o robusnosti, \textbf{osam se obistinilo}.
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{10.5cm}>{\raggedright\arraybackslash}p{4.6cm}c}
+\toprule
+\textbf{Očekivanje (13.\,09.\,2026)} & \textbf{Ishod} & \\
+\midrule
+Šum: PCA najrobusnija & $76{,}7\%$, prva & da \\
+Šum: HOG najmanje robusna & $14{,}8\%$, poslednja & da \\
+Šum: BoVW između PCA i HOG & $65{,}6\%$, druga & da \\
+Zamućenje: PCA najrobusnija & $45{,}1\%$, prva & da \\
+Zamućenje: BoVW najmanje robusna & $20{,}7\%$, poslednja & da \\
+Zamućenje: HOG ispred BoVW (revidirano) & $23{,}9\%$ vs $20{,}7\%$ & da \\
+Gama: PCA najmanje robusna & $70{,}1\%$, poslednja & da \\
+\textbf{Gama: HOG najrobusnija} & \textbf{BoVW $95{,}3\% >$ HOG $89{,}2\%$} & \textbf{ne} \\
+Mali znaci: CNN najrobusnija & $0{,}975$ ispod 32 px & da \\
+\textbf{Mali znaci: BoVW najmanje robusna} & \textbf{BoVW najstabilnija; PCA najlošija} & \textbf{ne} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Glavno očekivanje je potvrđeno u oba smera}: PCA najbolja pod šumom i najlošija pod
+gama korekcijom, HOG najlošiji pod šumom. Osmi red nije pao zato što je HOG bio loš -- on je i
+dalje drugi po gama robusnosti -- već zato što ga je \emph{treća} metoda nadmašila.
+
+\subsection*{5.2 Prvi promašaj: tip normalizacije, a ne njeno postojanje}
+
+Očekivanje je glasilo da SIFT-ova normalizacija deskriptora daje BoVW metodi ,,sličnu (nešto
+slabiju)'' zaštitu od HOG-ove. Izmereno, ta zaštita je \textbf{najjača u celom radu}.
+
+Razlog je što su dve normalizacije pogrešno tretirane kao ista stvar različite jačine:
+
+\begin{itemize}
+\item \textbf{HOG-ov L2-Hys} normalizuje nad \emph{blokom} od $2\times2$ ćelije -- oblast od
+oko $12\times12$ px -- i \textbf{linearan} je.
+\item \textbf{SIFT} normalizuje po \emph{pojedinačnom deskriptoru} od 128 dimenzija, i uz to
+\textbf{odseca svaku komponentu na $0{,}2$ pa ponovo normalizuje}~\cite{sift}. To odsecanje je
+\textbf{nelinearnost}, i ono potiskuje upravo one velike gradijentne komponente koje gama kriva
+uvećava.
+\end{itemize}
+
+Linearni normalizator poništava linearnu promenu kontrasta tačno ($0{,}0000$ izmereno kod
+HOG-a), ali gama korekciju samo delimično ($0{,}0339$); odsecanje se gracioznije ponaša u oba
+slučaja.
+
+\textbf{Isto svojstvo objašnjava i drugi neočekivan nalaz.} Zamućenje \emph{ne} urušava rečnik
+vizuelnih reči, suprotno očekivanju: broj različitih reči po slici pada samo sa $231{,}4$ na
+$188{,}9$ ($-18\%$) između $k=0$ i $k=15$, a sličnost histograma različitih klasa ostaje ravna
+($0{,}232 \to 0{,}244$). Zamućenje smanjuje \emph{intenzitet} gradijenata, ali \emph{pravac}
+deskriptora i dalje varira, a k-sredine dodeljuju po pravcu. \textbf{Jedan detalj deskriptora,
+dva nepredviđena ishoda.}
+
+To ujedno objašnjava zašto je red o zamućenju ipak tačan, ali iz \emph{drugog} razloga nego što
+je navedeno: BoVW je najlošija pod zamućenjem ne zato što joj se deskriptori urušavaju, već
+zato što nema prostorni raspored na koji bi se oslonila kada zamućenje spoji ivice.
+
+\subsection*{5.3 Drugi promašaj: podešavanje je zamenilo metodu o kojoj je očekivanje govorilo}
+
+Navedeni mehanizam za male znake -- ,,gusti SIFT ima premalo lokalne podrške'' -- bio je
+\textbf{ispravan za metodu koju je plan specificirao}, sa ključnim tačkama od 12 px. Podešavanje
+je razmeru promenilo na \textbf{2 px}, a deskriptor od 2 px gotovo da i ne traži lokalnu podršku.
+
+Dakle promena parametra od $+53{,}5$ pp nije samo popravila BoVW, već je \textbf{promenila na
+koje je degradacije metoda osetljiva} -- dok je zamućenje ostavila netaknutim, jer tamo
+nedostaje \emph{raspored}, a njega podešavanje ne isporučuje. Uopštenije: \textbf{navedena
+slabost metode je tvrdnja o konfiguraciji, a ne o metodi}.
+
+\subsection*{5.4 Koliko vredi odbacivanje prostornog rasporeda}
+
+Pošto ključne tačke leže na pravilnoj mreži, pripadnost prostornoj ćeliji poznata je već iz
+indeksa -- informacija o položaju je bila \emph{dostupna} sve vreme i BoVW je jednostavno
+odbacuje. To dopušta kontrolisan eksperiment: isti deskriptori, isti rečnik, isti klasifikator,
+a jedina razlika je da li se položaj beleži.
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{nivoi piramide} & \textbf{ćelija} & \textbf{dimenzija} & \textbf{makro-F1} \\
+\midrule
+0 -- obična BoVW & 1 & 500 & 0,8143 \\
+1 -- $2\times2$ & 5 & 2.500 & 0,8973 \\
+\textbf{2 -- $4\times4$} & 21 & 10.500 & \textbf{0,9184} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Prostorni raspored vredi $+10{,}4$ pp makro-F1}, a nivo 2 pada na $0{,}1$ pp od HOG-a
+($0{,}9175$). Dakle razlika između BoVW i HOG-a \emph{jeste} informacija o rasporedu, dok
+preostalih pet razlika između te dve metode zajedno ne doprinose gotovo ništa.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{bovw_permutation.png}
+\caption{Šta ,,bez prostornog rasporeda'' zaista znači. Isti deskriptori, ponovo sažeti nakon
+nasumične permutacije njihovih položaja. \textbf{Obična BoVW: maksimalna razlika $0{,}0$ --
+to je isti vektor, bit za bitom.} Sa piramidom: $0{,}0833$. Karta kodnih reči levo pokazuje da
+je struktura znaka zaista uništena, a histogram to \emph{ne primećuje}.}
+\end{figure}
+
+\textbf{Prostorna piramida se izveštava kao dijagnostika, a ne kao šesta metoda.} Razlog je
+strukturni: BoVW je jedina metoda na strani ,,raspored odbačen'' u tabeli iz odeljka 1.2, pa bi
+zamena ostavila tu osu bez ijedne metode -- i HOG i piramida su krute mreže lokalnih histograma.
+Postojao je i praktičan razlog: pri izabranom rečniku od 1000 reči, nivo 2 ima 21.000 dimenzija
+i zahteva oko 6 GB radne memorije pri treniranju, što prevazilazi mogućnosti korišćene mašine.
+
+\subsection*{5.5 Pretprocesiranje: presudna je interna normalizacija}
+
+\begin{center}
+\begin{tabular}{lrrrl}
+\toprule
+\textbf{Metoda} & \texttt{raw\_gray} & \texttt{clahe\_gray} & \texttt{clahe\_hsv} & \textbf{interna normalizacija} \\
+\midrule
+PCA      & 0,7713 & \textbf{0,7977} & 0,7674 & \textbf{nema} \\
+HOG      & \textbf{0,9175} & 0,9138 & 0,8205 & blok L2-Hys \\
+BoVW     & \textbf{0,8808} & 0,8791 & --- & SIFT po deskriptoru + odsecanje \\
+CNN e2e  & 0,9856 & \textbf{0,9872} & 0,9642 & batch normalizacija \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Nalaz je redosled poslednje kolone.} Koliko pretprocesiranje utiče nije svojstvo toga
+da li je metoda ,,zasnovana na gradijentima'' -- što je očekivanje pretpostavljalo -- već
+\textbf{da li reprezentacija interno normalizuje}. PCA, koja ne normalizuje, jedina ima korist
+od CLAHE, i to najveću ($+2{,}64$ pp). HOG, BoVW i mreža sve normalizuju interno i praktično su
+ravnodušne ($-0{,}37$ do $+0{,}16$ pp).
+
+To ujedno opravdava fiksiranje pretprocesiranja: \textbf{najveći efekat pretprocesiranja
+($2{,}64$ pp) manji je od najmanje razlike između metoda na čistom test skupu ($12{,}8$ pp)},
+pa fiksiranje ne može promeniti poredak.
+
+\textbf{Konfiguracija \texttt{clahe\_hsv} gubi kod svake metode, ali to se ne sme čitati kao
+,,boja nije informativna''.} Reč je o \textbf{defektnom kodiranju boje}: u OpenCV HSV prostoru
+nijansa se obmotava na 0/179, a crvena -- najčešća boja znakova -- leži tačno na toj granici.
+Znak \textit{Stop} ima $56{,}5\%$ zasićenih piksela na nijansi ispod 10 i $4{,}4\%$ iznad 169;
+\textbf{$3{,}98\%$ gradijenata nijanse između susednih piksela prelazi 90}, a srednji gradijenti
+nijanse dostižu nivo gradijenata intenziteta, pa pobeđuju pri svakom izboru kanala po
+maksimalnom intenzitetu gradijenta.
+
+Cena raste sa time koliko metoda diferencira: \textbf{HOG $-9{,}70$ pp} (bira gradijent najveće
+magnitude \emph{preko kanala}, pa aktivno uzima pokvareni), mreža $-2{,}14$ pp \textbf{uz
+maksimum u epohi 5 umesto 18} (uči rani lažni signal koji ne generalizuje), PCA $-0{,}39$ pp
+(nikada ne diferencira). Ispravka je poznata (nijansa kao par $\cos/\sin$, ili CIELab prostor) i
+namerno nije primenjena, jer su sva podešavanja izvršena nad postojećom konfiguracijom.
+
+\newpage
+
+% --- 6. Ograničenja: izvor 15-results.md §7, 09-jitter, 13-cnn --------------------------
+\section*{6. Ograničenja}
+
+\subsection*{6.1 Statistička}
+
+\textbf{Jedno seme, bez ponavljanja.} Razlike od nekoliko desetih delova procentnog poena nisu
+interpretabilne, pa su tvrdnje gde god je moguće iskazane \emph{ordinalno}. Projekat sadrži
+konkretan primer te granice: BoVW je imao veću validacionu tačnost od HOG-a ($0{,}9330$ naspram
+$0{,}9298$), a na test skupu HOG vodi ($0{,}9238$ naspram $0{,}9141$) -- prednost od $0{,}3$ pp
+nije preživela. Njihov poredak po makro-F1, gde je razlika $4{,}7$ pp, stabilan je nad obema
+podelama.
+
+\subsection*{6.2 Metodološka}
+
+\textbf{Jedna konfiguracija pretprocesiranja} u finalnoj mreži (\texttt{raw\_gray}); stabilnost
+poretka kroz pretprocesiranje se \emph{argumentuje} iz podešavanja po metodama, a ne meri nad
+test mrežom.
+
+\textbf{Dve metode su izveštane kao donje granice.} Rečnik BoVW metode je ograničen na 1000
+reči odlukom, a ne merenjem -- prelazak sa 500 na 1000 i dalje je vredeo $+3{,}7$ pp pri
+izabranoj razmeri, pa veći rečnik verovatno donosi još oko 2 pp. \textbf{Stopa učenja
+konvolucione mreže nikada nije podešavana}: sva tri treniranja koristila su podrazumevanu
+vrednost $10^{-3}$, pa je mreža jedina metoda čiji glavni optimizacioni hiperparametar nije
+biran nad validacijom. Smer te pristrasnosti je poznat -- podešavanje bi moglo samo pomoći --
+pa je metoda koja već pobeđuje ujedno i ona koja je najmanje podešena.
+
+\textbf{Treniranje mreže je zaustavljeno pravilom ranog zaustavljanja, a ne potvrđenom
+konvergencijom.} Zaustavljeno je u epohi 24, nakon što je poslednje poboljšanje zabeleženo u
+epohi 18 -- to jest, isteklo je strpljenje od šest epoha. Izveštaj koristi formulaciju
+,,zaustavljeno'', nikada ,,konvergiralo''.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{cnn_training_curves.png}
+\caption{Levo: osenčen pojas je prozor strpljenja. Vraćanje \emph{poslednje} epohe umesto
+najbolje koštalo bi $0{,}63$ pp makro-F1. Desno: gubitak nad trening skupom pada oko
+$1000\times$ dok je validacioni makro-F1 ravan posle epohe 18 -- posle te tačke mreža pamti, a
+ne generalizuje.}
+\end{figure}
+
+\subsection*{6.3 Perturbacija graničnog okvira nije izvodljiva nad GTSRB skupom}
+
+Prvobitno je planirana i četvrta degradacija -- perturbacija graničnog okvira, koja bi
+najdirektnije povezala ovaj modul sa detektorom. \textbf{Analiza skupa je pokazala da ona nad
+GTSRB skupom nije izvodljiva na pošten način, i to merenje je samo po sebi rezultat.}
+
+GTSRB slike su \emph{već isečene} oko znaka, sa medijanom margine od svega $16{,}7\%$; sve izvan
+te margine odbačeno je pri formiranju skupa i ne postoji ni u jednoj datoteci. Medijalna
+rezerva za širenje okvira je $1{,}30\times$, pa je \textbf{proširenje od $+40\%$ nemoguće za
+$72\%$ slika} (28.166 isečaka bi izašlo izvan granica datoteke). Jedini način da se takav pomeraj
+ipak proizvede jeste veštačko dopunjavanje ivica, čime bi se merio postupak dopunjavanja, a ne
+reprezentacija.
+
+Ispravan instrument je skup punih saobraćajnih scena (GTSDB~\cite{gtsdb}), što je ostavljeno kao
+proširenje. Vredi zabeležiti da rezultat iz odeljka 5.4 daje direktnu i proverljivu hipotezu za
+to proširenje: metoda bez prostornog rasporeda trebalo bi da bude \emph{najotpornija} na pomeraj
+okvira, iz istog razloga iz kog je najlošija pod zamućenjem.
+
+\newpage
+
+% --- 7. Zaključak: izvor 15-results.md §12 ---------------------------------------------
+\section*{7. Zaključak}
+
+Pet konfiguracija klasifikacije upoređeno je nad jedinstvenim protokolom: ista podela po
+sekvencama, isto pretprocesiranje, isti klasifikator, ista metodologija evaluacije. Nad test
+skupom izvršeno je 80 evaluacija bez ijednog nedostajućeg polja.
+
+\textbf{Pet nalaza:}
+
+\begin{enumerate}
+\item \textbf{Redosled uspešnosti se invertuje pod šumom, i tamo je uobičajen odgovor pogrešan.}
+PCA je poslednja na čistom test skupu ($0{,}7312$) i zadržava $76{,}7\%$ pri $\sigma=40$, gde HOG
+zadržava $14{,}8\%$ -- razlika od $5{,}2\times$, Spearman $-0{,}60$ u odnosu na čist poredak. I
+PCA i BoVW nadmašuju obe mreže po apsolutnom makro-F1 na tom nivou. \textbf{Ali inverzija je
+vezana za vrstu degradacije}: zamućenje i gama korekcija koreliraju \emph{pozitivno} sa čistom
+uspešnošću ($+0{,}70$ i $+0{,}90$).
+
+\item \textbf{Naučena obeležja nisu automatski i robusna obeležja.} Mreže vode na čistom ulazu
+za oko 6 pp, a pod šumom su u sredini tabele i gube od linearne projekcije u 256 dimenzija.
+Trenirane su isključivo na čistim podacima i ništa u njihovom cilju nije nagrađivalo otpornost
+na šum -- što i jeste poenta: kapacitet i čista tačnost ne impliciraju robusnost, pa praktičar
+koji bira za poznat uslov ne može robusnost pročitati sa rang-liste.
+
+\item \textbf{Otpornost na promene intenziteta kupuje interna normalizacija -- i njen \emph{tip}
+je bitan.} Metode koje normalizuju interno gotovo su ravnodušne na CLAHE i preživljavaju gama
+korekciju; PCA, koja ne normalizuje, najlošija je u oba slučaja. Uz to, \textbf{nelinearna
+normalizacija nadmašuje linearnu}: SIFT-ovo odsecanje i ponovna normalizacija po deskriptoru
+zadržava $95{,}3\%$ pri $\gamma=2{,}5$, naspram $89{,}2\%$ za HOG-ov blok-L2.
+
+\item \textbf{Odbacivanje prostornog rasporeda je skupo, i ta cena je merljiva izolovano.}
+Dodavanje prostornih ćelija BoVW metodi -- uz iste deskriptore, isti rečnik i isti klasifikator,
+gde je jedina promena da li se položaj beleži -- vredi $+10{,}4$ pp makro-F1 i dovodi metodu na
+$0{,}1$ pp od HOG-a. Test permutacijom to čini egzaktnim: mešanje položaja ključnih tačaka
+ostavlja običan histogram \textbf{bit-identičnim}.
+
+\item \textbf{Parametri su dominirali nad metodom.} Ponovno podešavanje geometrije deskriptora
+kod BoVW metode pomerilo ju je za \textbf{$+53{,}5$ pp} ($0{,}3455 \to 0{,}8808$), više nego bilo
+koja razlika između metoda u ovom radu, i \textbf{promenilo na koje je degradacije osetljiva}.
+Navedena slabost metode je tvrdnja o konfiguraciji, a ne o metodi -- i sopstveno unapred
+zapisano očekivanje ovog rada o malim znacima poništeno je sopstvenim podešavanjem.
+\end{enumerate}
+
+\textbf{Praktična preporuka} koja sledi iz postavke iz odeljka 1: reprezentaciju treba birati
+prema degradaciji koja u datoj primeni dominira, a ne prema tačnosti na čistim podacima. Za
+scenario u kome dominira šum pri slabom osvetljenju, PCA ili BoVW su merljivo bolji izbor od
+konvolucione mreže na istom ulazu -- uprkos tome što su na čistim podacima poslednji i četvrti.
+
+% --- 8. Literatura ---------------------------------------------------------------------
+\section*{8. Literatura}
+
+\bibliographystyle{unsrt}
+\bibliography{references}
 
 \end{document}
+
+
+

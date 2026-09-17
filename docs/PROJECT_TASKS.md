@@ -951,7 +951,26 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       to **Cyrillic** captions, so `import=sr-Latn` is required or the build dies on a machine
       without Cyrillic fonts. `references.bib` seeded with the proposal's 18 entries
       (copied — the proposal itself was not modified).
-- [ ] Write up, has same formatting as the proposal, but needs to be created based on this research and the implementation:
+- [x] **Write up** — same formatting as the proposal, built from this research.
+      **REBUILT FROM SCRATCH 2026-09-17.** The scaffold compiled but its title page had lost
+      the proposal's sizing and the body was hollow; rewritten rather than patched.
+      `docs/report/main.tex` → **19 pages, 0 errors, 0 undefined citations, 0 overfull boxes.**
+      **Formatting is byte-for-byte the proposal's conventions:** same `documentclass`, same
+      `geometry{margin=2.2cm}`, same title-page sizes (`\Large`/`\LARGE` with the same
+      spacing), `\section*{N. Naslov}` with manual numbers, `bibtex` + `unsrt`, and the same
+      `thebibliography` override that removes the "References" heading.
+      **No babel** — the proposal does not use it, `utf8`+`T1`+`lmodern` renders Serbian Latin
+      correctly, and babel's `serbian` both defaults to **Cyrillic** and needs `serbian.ldf`,
+      which is not installed here.
+      Structure: Sažetak · 1 Uvod · 2 Eksperimentalni protokol · 3 Reprezentacije ·
+      4 Rezultati · 5 Diskusija · 6 Ograničenja · 7 Zaključak · 8 Literatura.
+      Every number is traced to `results.csv` or a `report-material` note; each section
+      carries a comment naming its source. 11 of the 27 report figures are embedded — the rest
+      remain available for an appendix.
+      **The limitations section is not decorative**: it carries the single-seed caveat with a
+      concrete in-project instance (BoVW's 0.3 pp validation lead over HOG did not survive to
+      test), both lower-bound methods, the untuned learning rate, and the patience-limited stop
+      stated as "stopped", never "converged".
 
 ---
 
