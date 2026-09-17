@@ -168,7 +168,7 @@ HOG & kruta mreža, raspored očuvan & lokalni & ne \\
 \hline
 BoVW & \textbf{bez rasporeda}, raspored odbačen & lokalni & samo rečnik \\
 \hline
-CNN & hijerarhijska, invarijantna na sažimanje & lokalni & potpuno \\
+CNN & hijerarhijska, invarijantna na \textit{pooling} & lokalni & potpuno \\
 \hline
 \end{tabular}
 \end{center}
@@ -199,7 +199,7 @@ GTSRB skupu grupisane su u sekvence od po 30 kadrova istog fizičkog znaka. Nasu
 slikama razdvaja skoro identične kadrove na obe strane i naduvava validacionu tačnost.
 
 Ova tvrdnja je \textbf{izmerena, a ne samo navedena}. Isti model je treniran dvaput -- jednom
-sa podelom po sekvencama, jednom sa nasumičnom podelom po slikama (prosek tri semena):
+sa podelom po sekvencama, jednom sa nasumičnom podelom po slikama (prosek tri \textit{seed}-a):
 
 \begin{center}
 \begin{tabular}{lrr}
@@ -282,7 +282,7 @@ o kamerama. Takođe održava značenje nivoa jednoznačnim: degradacija na izvor
 $\sigma=20$ obuhvata izmereni opseg efektivnih jačina od $2{,}4\times$ u zavisnosti od
 veličine znaka, čime bi se slika 3 pomešala sa slikom 4.
 
-Svaka slika se degradira sa semenom izvedenim iz njene \emph{putanje}, a ne iz pozicije u
+Svaka slika se degradira \textit{seed}-om izvedenim iz njene \emph{putanje}, a ne iz pozicije u
 nizu, pa svih pet metoda vidi bit-identične degradirane piksele bez obzira na redosled
 izvršavanja.
 
@@ -315,7 +315,7 @@ nestabilna (0,55 pp u korist ,,balanced'' pri jednoj konfiguraciji, a gubitak pr
 PCA je ,,balanced'' čak \emph{lošiji} izbor. Reč je o odluci radi uporedivosti, ne o rezultatu.
 
 Sve metode treniraju se \textbf{samo nad trening podskupom} (31.379 slika), nikada nad
-trening+validacija, jer konvolucionoj mreži validacija treba za rano zaustavljanje; davanje
+trening+validacija, jer konvolucionoj mreži validacija treba za \textit{early stopping}; davanje
 ostalim metodama 25\% više podataka pomešalo bi poređenje.
 
 
@@ -358,7 +358,7 @@ Histogrami orijentacija gradijenata~\cite{hog} preko \texttt{scikit-image}~\cite
 Izabrano nad validacijom: ćelije $6\times6$ px, 9 orijentacija, blok-normalizacija L2-Hys,
 1764 dimenzije.
 
-\textbf{HOG ništa ne uči} -- njegova faza treniranja je samo prilagođavanje SVM-a, a njegov
+\textbf{HOG ništa ne uči} -- njegova faza treniranja je samo \textit{fit} SVM-a, a njegov
 ,,model'' su isključivo koeficijenti SVM-a. To je fiksirano testom koji zahteva da deskriptori
 dobijeni nad dve disjunktne polovine skupa budu bit-identični.
 
@@ -374,7 +374,7 @@ ograničenje je prostorna, a ne ugaona rezolucija.
 
 Gusti SIFT~\cite{sift} na fiksnoj mreži, rečnik vizuelnih reči dobijen k-sredinama, pa
 histogram učestanosti reči~\cite{bovw}. \textbf{Detektor se ne koristi}: na isečcima ove
-veličine detektor vraća promenljiv broj ključnih tačaka po slici, pa histogrami ne bi bili
+veličine detektor vraća promenljiv broj \textit{keypoint}-a po slici, pa histogrami ne bi bili
 uporedivi, a u graničnom slučaju vraća nula tačaka i tiho proizvodi nulti histogram.
 
 \textbf{Parametri koje je plan predvideo bili su ubedljivo najveća greška u projektu.}
@@ -383,7 +383,7 @@ geometrije nad validacijom dovelo je metodu na $0{,}8808$ -- \textbf{poboljšanj
 veće od bilo koje razlike između metoda izmerene u ovom radu.
 
 Presudna veličina je \textbf{razmera deskriptora, a ne gustina uzorkovanja}. Pošto
-\texttt{step} fiksira broj ključnih tačaka nezavisno od \texttt{keypoint\_size}, ta dva efekta
+\texttt{step} fiksira broj \textit{keypoint}-a nezavisno od \texttt{keypoint\_size}, ta dva efekta
 se razdvajaju: pri fiksnih 256 tačaka, promena razmere sa 6 na 4 px vredi $+12{,}3$ pp, dok
 pri fiksnoj razmeri $2{,}25\times$ veća gustina vredi $+2{,}2$ pp -- oko $5{,}3\times$ manje.
 Deskriptor od 12 px na isečku od 48 px opisuje četvrtinu objekta i nije lokalan ni u kom
@@ -437,23 +437,23 @@ PCA + SVM                    & 0,7932 & 0,7312 & 256  & 33,3   & 0,327 & 2,35 \\
 \textbf{Tri ograde idu uz ovu tabelu i bez njih je pogrešno čitati.}
 
 $^\dagger$ \textbf{Kolone za \texttt{cnn\_feat\_svm} nisu uporedive sa ostalima.} Vrednost
-$1{,}1$ s je vreme prilagođavanja \emph{samo} SVM glave, što bi ovu metodu prikazalo kao
+$1{,}1$ s je vreme \textit{fit}-ovanja \emph{samo} SVM glave, što bi ovu metodu prikazalo kao
 najjeftiniju za treniranje u celom radu; ona ne može postojati bez mreže od 2596 s koju čita,
 pa je pošteno vreme $\approx 2597$ s. Isto važi za veličinu modela: $0{,}04$ MB je samo glava,
 a poštena vrednost je $3{,}42$ MB.
 
 \textbf{Vremena su indikativna, a ne poređenje.} Svaka metoda je merena u sopstvenom
-izvršavanju, drugog dana, pri različitom opterećenju sistema -- jednominutno prosečno
-opterećenje kretalo se od $1{,}27$ do $13{,}12$ na mašini sa 16 niti. Uz to, promena profila
+izvršavanju, drugog dana, pri različitom opterećenju sistema -- jednominutni \textit{load
+average} kretao se od $1{,}27$ do $13{,}12$ na mašini sa 16 niti. Uz to, promena profila
 napajanja procesora sama po sebi menja vremena za oko $20\%$, a na \texttt{amd-pstate}
 platformi ta promena nije vidljiva u \texttt{scaling\_governor} vrednosti.
 
 \textbf{Veličina modela nije uporediva ni između ostalih redova}: $96\%$ od $2{,}35$ MB kod
-PCA je naučena \emph{baza}, dok HOG nema nijednu prilagođenu fazu, pa je njegovih $0{,}58$ MB
+PCA je naučena \emph{baza}, dok HOG nema nijednu \textit{fit}-ovanu fazu, pa je njegovih $0{,}58$ MB
 u celosti SVM. Tabela inače čitaocu sugeriše da je ,,PCA četiri puta veći od HOG-a'', dok je
 stvarna razlika naučen rečnik naspram nijednog.
 
-Konačno, \textbf{odnos paketne i pojedinačne inferencije je specifičan za metodu}: PCA
+Konačno, \textbf{odnos \textit{batch} i pojedinačne inferencije je specifičan za metodu}: PCA
 $52\times$, BoVW $2{,}0\times$, HOG $1{,}3\times$, CNN $1{,}4\times$. Kamera daje jedan kadar
 u jednom trenutku, pa je pojedinačna kolona ona koju sme koristiti bilo kakva tvrdnja o
 kašnjenju -- i u njoj se ogromna prednost PCA metode svodi sa $200\times$ na $8{,}5\times$.
@@ -617,13 +617,13 @@ Razlog je što su dve normalizacije pogrešno tretirane kao ista stvar različit
 \item \textbf{HOG-ov L2-Hys} normalizuje nad \emph{blokom} od $2\times2$ ćelije -- oblast od
 oko $12\times12$ px -- i \textbf{linearan} je.
 \item \textbf{SIFT} normalizuje po \emph{pojedinačnom deskriptoru} od 128 dimenzija, i uz to
-\textbf{odseca svaku komponentu na $0{,}2$ pa ponovo normalizuje}~\cite{sift}. To odsecanje je
+\textbf{\textit{clip}-uje svaku komponentu na $0{,}2$ pa ponovo normalizuje}~\cite{sift}. Taj \textit{clipping} je
 \textbf{nelinearnost}, i ono potiskuje upravo one velike gradijentne komponente koje gama kriva
 uvećava.
 \end{itemize}
 
 Linearni normalizator poništava linearnu promenu kontrasta tačno ($0{,}0000$ izmereno kod
-HOG-a), ali gama korekciju samo delimično ($0{,}0339$); odsecanje se gracioznije ponaša u oba
+HOG-a), ali gama korekciju samo delimično ($0{,}0339$); \textit{clipping} se gracioznije ponaša u oba
 slučaja.
 
 \textbf{Isto svojstvo objašnjava i drugi neočekivan nalaz.} Zamućenje \emph{ne} urušava rečnik
@@ -640,7 +640,7 @@ zato što nema prostorni raspored na koji bi se oslonila kada zamućenje spoji i
 \subsection*{5.3 Drugi promašaj: podešavanje je zamenilo metodu o kojoj je očekivanje govorilo}
 
 Navedeni mehanizam za male znake -- ,,gusti SIFT ima premalo lokalne podrške'' -- bio je
-\textbf{ispravan za metodu koju je plan specificirao}, sa ključnim tačkama od 12 px. Podešavanje
+\textbf{ispravan za metodu koju je plan specificirao}, sa \textit{keypoint}-ima od 12 px. Podešavanje
 je razmeru promenilo na \textbf{2 px}, a deskriptor od 2 px gotovo da i ne traži lokalnu podršku.
 
 Dakle promena parametra od $+53{,}5$ pp nije samo popravila BoVW, već je \textbf{promenila na
@@ -650,7 +650,7 @@ slabost metode je tvrdnja o konfiguraciji, a ne o metodi}.
 
 \subsection*{5.4 Koliko vredi odbacivanje prostornog rasporeda}
 
-Pošto ključne tačke leže na pravilnoj mreži, pripadnost prostornoj ćeliji poznata je već iz
+Pošto \textit{keypoint}-i leže na pravilnoj mreži, pripadnost prostornoj ćeliji poznata je već iz
 indeksa -- informacija o položaju je bila \emph{dostupna} sve vreme i BoVW je jednostavno
 odbacuje. To dopušta kontrolisan eksperiment: isti deskriptori, isti rečnik, isti klasifikator,
 a jedina razlika je da li se položaj beleži.
@@ -676,7 +676,7 @@ preostalih pet razlika između te dve metode zajedno ne doprinose gotovo ništa.
 \includegraphics[width=\textwidth]{bovw_permutation.png}
 \caption{Šta ,,bez prostornog rasporeda'' zaista znači. Isti deskriptori, ponovo sažeti nakon
 nasumične permutacije njihovih položaja. \textbf{Obična BoVW: maksimalna razlika $0{,}0$ --
-to je isti vektor, bit za bitom.} Sa piramidom: $0{,}0833$. Karta kodnih reči levo pokazuje da
+to je isti vektor, \textit{bit-for-bit}.} Sa piramidom: $0{,}0833$. Karta kodnih reči levo pokazuje da
 je struktura znaka zaista uništena, a histogram to \emph{ne primećuje}.}
 \end{figure}
 
@@ -695,7 +695,7 @@ i zahteva oko 6 GB radne memorije pri treniranju, što prevazilazi mogućnosti k
 \midrule
 PCA      & 0,7713 & \textbf{0,7977} & 0,7674 & \textbf{nema} \\
 HOG      & \textbf{0,9175} & 0,9138 & 0,8205 & blok L2-Hys \\
-BoVW     & \textbf{0,8808} & 0,8791 & --- & SIFT po deskriptoru + odsecanje \\
+BoVW     & \textbf{0,8808} & 0,8791 & --- & SIFT po deskriptoru + \textit{clipping} \\
 CNN e2e  & 0,9856 & \textbf{0,9872} & 0,9642 & batch normalizacija \\
 \bottomrule
 \end{tabular}
@@ -732,7 +732,7 @@ namerno nije primenjena, jer su sva podešavanja izvršena nad postojećom konfi
 
 \subsection*{6.1 Statistička}
 
-\textbf{Jedno seme, bez ponavljanja.} Razlike od nekoliko desetih delova procentnog poena nisu
+\textbf{Jedan \textit{seed}, bez ponavljanja.} Razlike od nekoliko desetih delova procentnog poena nisu
 interpretabilne, pa su tvrdnje gde god je moguće iskazane \emph{ordinalno}. Projekat sadrži
 konkretan primer te granice: BoVW je imao veću validacionu tačnost od HOG-a ($0{,}9330$ naspram
 $0{,}9298$), a na test skupu HOG vodi ($0{,}9238$ naspram $0{,}9141$) -- prednost od $0{,}3$ pp
@@ -755,13 +755,13 @@ pa je metoda koja već pobeđuje ujedno i ona koja je najmanje podešena.
 
 \textbf{Treniranje mreže je zaustavljeno pravilom ranog zaustavljanja, a ne potvrđenom
 konvergencijom.} Zaustavljeno je u epohi 24, nakon što je poslednje poboljšanje zabeleženo u
-epohi 18 -- to jest, isteklo je strpljenje od šest epoha. Izveštaj koristi formulaciju
+epohi 18 -- to jest, isteklo je \textit{patience} od šest epoha. Izveštaj koristi formulaciju
 ,,zaustavljeno'', nikada ,,konvergiralo''.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{cnn_training_curves.png}
-\caption{Levo: osenčen pojas je prozor strpljenja. Vraćanje \emph{poslednje} epohe umesto
+\caption{Levo: osenčen pojas je \textit{patience} prozor. Vraćanje \emph{poslednje} epohe umesto
 najbolje koštalo bi $0{,}63$ pp makro-F1. Desno: gubitak nad trening skupom pada oko
 $1000\times$ dok je validacioni makro-F1 ravan posle epohe 18 -- posle te tačke mreža pamti, a
 ne generalizuje.}
@@ -813,13 +813,13 @@ koji bira za poznat uslov ne može robusnost pročitati sa rang-liste.
 \item \textbf{Otpornost na promene intenziteta kupuje interna normalizacija -- i njen \emph{tip}
 je bitan.} Metode koje normalizuju interno gotovo su ravnodušne na CLAHE i preživljavaju gama
 korekciju; PCA, koja ne normalizuje, najlošija je u oba slučaja. Uz to, \textbf{nelinearna
-normalizacija nadmašuje linearnu}: SIFT-ovo odsecanje i ponovna normalizacija po deskriptoru
+normalizacija nadmašuje linearnu}: SIFT-ov \textit{clipping} i ponovna normalizacija po deskriptoru
 zadržava $95{,}3\%$ pri $\gamma=2{,}5$, naspram $89{,}2\%$ za HOG-ov blok-L2.
 
 \item \textbf{Odbacivanje prostornog rasporeda je skupo, i ta cena je merljiva izolovano.}
 Dodavanje prostornih ćelija BoVW metodi -- uz iste deskriptore, isti rečnik i isti klasifikator,
 gde je jedina promena da li se položaj beleži -- vredi $+10{,}4$ pp makro-F1 i dovodi metodu na
-$0{,}1$ pp od HOG-a. Test permutacijom to čini egzaktnim: mešanje položaja ključnih tačaka
+$0{,}1$ pp od HOG-a. Test permutacijom to čini egzaktnim: mešanje položaja \textit{keypoint}-a
 ostavlja običan histogram \textbf{bit-identičnim}.
 
 \item \textbf{Parametri su dominirali nad metodom.} Ponovno podešavanje geometrije deskriptora
