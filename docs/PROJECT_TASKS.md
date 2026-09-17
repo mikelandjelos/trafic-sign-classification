@@ -630,8 +630,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       stopped ~0.73.
       **TO DO:** re-run on `raw_gray` (the §1 plan change) and **persist to `results.csv`**.
       The size-2 and pyramid numbers above were printed to a terminal and never written to
-      disk; that is the documentation failure of this task. Then train + record both
-      `bovw_svm` and `bovw_spm_svm`.
+      disk; that is the documentation failure of this task. Then train + record `bovw_svm`.
       **Decision 2026-09-17: the vocabulary is capped at k = 1000**, and `k=2000` is *not*
       run. `k` had not plateaued (+6 pp at 500→1000), so this is a **stated compute budget,
       not a located optimum** — the same caveat PCA's k=256 carries, and it must be reported
@@ -705,7 +704,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       conclusion turns on it.
       **(c) Training times are NOT comparable across the three runs** — `torch_threads` was
       6/7/8, so 3350/2596/1133 s measure three different degrees of parallelism. Only the
-      `raw_gray` row is a Table 1 candidate, and 9.1 must re-measure all six methods in one
+      `raw_gray` row is a Table 1 candidate, and 9.1 must re-measure all five methods in one
       pass at a fixed CPU profile (§10).
       7.5 (`cnn_feat_svm`) re-run off the `raw_gray` network: **0.9774 / 0.9860**.
 - [x] **7.5** **CNN-as-feature-extractor**: penultimate layer → `LinearSVC`. Puts the CNN on the same footing as the other three.
@@ -802,7 +801,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       flip is a finding and gets reported.
 - [ ] **8.3** Verify results CSV is complete, no NaNs
       `results.check_complete()` against the 80-cell grid. **This is the review checkpoint**
-      (agreed 2026-09-16): when 8.3 passes, stop and recap everything — the six methods, every
+      (agreed 2026-09-16): when 8.3 passes, stop and recap everything — the five methods, every
       finding, every withdrawn claim, the state of all docs and figures — **before** starting
       the Day 4 analysis and the Day 5 writeup. Nothing enters the report that has not been
       through that pass.

@@ -38,8 +38,8 @@ Distinct from:
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
 | [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.5) + addendum 2026-09-16 (row moves to `raw_gray`) |
 | [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (tasks 5.1–5.5) + addendum 2026-09-16 (unaffected — already `raw_gray`) |
-| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU, untuned LR, patience-limited stop) | 7.1–7.5 complete + addenda 2026-09-16/17; **7.6 open** |
-| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; **the layout measurement (§9)**; **preprocessing-vs-normalisation pattern (§11.1, feeds 9.7)**; demo 6.6; blur panel (9.5); §11 premise | 6.1–6.5 complete (reported config in §11); **6.5b reverted — SPM is a diagnostic, not a row**; 6.6 open |
+| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU, untuned LR, patience-limited stop) | **complete (7.1–7.6)** + addenda 2026-09-16/17 |
+| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; **the layout measurement (§9), in the DISCUSSION**; **preprocessing-vs-normalisation pattern (§11.1, feeds 9.7)**; **a falsified blur prediction (§13.2, feeds 9.6)**; §11 premise | **complete (6.1–6.6)**; reported config in §11; **6.5b reverted — SPM is a diagnostic, not a row** |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
 render is copied into `figures/report/` (committed) by

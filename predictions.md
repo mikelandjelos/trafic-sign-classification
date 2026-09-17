@@ -14,7 +14,13 @@ Latest commit at time of recording: task 3.5 (degradations complete, no model tr
 > ⚠ **One addendum was added later, on 2026-09-17**, for a method that did not exist when
 > this file was locked. It is at the bottom, separately dated, and states exactly what was
 > known when it was written. **Everything above the addendum is untouched and predates every
-> result.** The addendum predates every *degradation* result, which is what it predicts.
+> result.**
+>
+> ⚠⚠ **That method (`bovw_spm_svm`) was then dropped from the comparison later the same day**,
+> for reasons of compute rather than of science (note 14 §9.4). Its predictions are therefore
+> **never evaluated** — they are left on the record rather than deleted, because a prediction
+> that was made and then rendered untestable is still part of the honest account. Task 9.6
+> scores only the 2026-09-13 table.
 
 ---
 
@@ -73,6 +79,13 @@ Lower confidence than the table above; recorded so they cannot be retrofitted.
 **Recorded: 2026-09-17**, before task 8.1 — i.e. **before any degradation result exists for
 any method**. Latest commit at time of recording: the task 8.1 grid runner, which has not been
 run.
+
+> **STATUS: NEVER EVALUATED.** Hours after this was written, `bovw_spm_svm` was dropped as a
+> method — at the k=1000 the sweep selected, L=2 is 21,000 dimensions and does not fit this
+> machine (note 14 §9.4). It is not in the 8.1 grid, so nothing below can be scored. It stays
+> here **unedited** because deleting a prediction once it becomes inconvenient is exactly the
+> habit `predictions.md` exists to prevent — and because the reasoning in it still informs how
+> the blur row of the main table should be read (see the last paragraph of note 14 §13.2).
 
 ## Why this is a late addition, and what was already known
 

@@ -220,7 +220,7 @@ def figure(frame: pd.DataFrame, best: dict, out_dir: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="BoVW configuration sweep (task 6.5).")
-    # `raw_gray` only by default: preprocessing is held FIXED across all six configurations
+    # `raw_gray` only by default: preprocessing is held FIXED across all five configurations
     # (plan change 2026-09-16), so sweeping it here would reintroduce the per-method
     # preprocessing the comparison no longer uses. See PROJECT_TASKS.md section 1.
     parser.add_argument("--preproc", nargs="+", default=["raw_gray"],

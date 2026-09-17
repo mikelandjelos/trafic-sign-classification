@@ -12,16 +12,22 @@ differences at once.
 Measured at size 2 / step 2, k=500: L0 0.8143 -> L1 0.8973 -> L2 **0.9184** macro-F1.
 Layout is worth **+10.4 pp**, and L2 lands within 0.1 pp of HOG (0.9175).
 
-STATUS: this began as a throwaway diagnostic, and the exclusion of SPM from the comparison was
-decided *before* those numbers existed. On the strength of them, **SPM was promoted to a sixth
-configuration** (`bovw_spm_svm`, decision 2026-09-16, note 14 section 9.4) -- ADDED alongside
-plain BoVW, never replacing it: BoVW is the only method on the "layout discarded" side of the
-proposal's section 4.3 axis, and substituting SPM would leave that axis with no occupant.
+STATUS: **this is a diagnostic, and it stays one.** It was briefly promoted to a sixth
+configuration in the comparison (2026-09-16) and reverted a day later (2026-09-17): at the
+k=1000 the 6.5 sweep selected, L=2 is 21,000 dimensions and ~6 GB resident, which does not fit
+this machine. The science was fine; the engineering was not. See note 14 section 9.4.
 
-Consequently the pooling below **must move into `gtsrb.representations.bovw`** as a proper
-`Representation`, so task 8.1 can run it across the degradation grid and so results land in
-`results.csv` rather than only on a terminal. Scheduled with the 6.5 re-run; until then this
-script remains the reference implementation and its numbers are NOT persisted.
+So the numbers above are reported in the **discussion**, not in Table 1, and this script --
+together with `gtsrb.representations.bovw.BoVWSpatialPyramid` and its tests -- is what keeps
+them reproducible. The comparison itself is the proposal's five configurations.
+
+A note on `class_weight`
+------------------------
+This sweeps only `C` and passes `class_weight=None`, which **predates the Q8 policy** (fixed
+`class_weight="balanced"` for every method, 2026-09-17). The recorded numbers were produced
+that way and are not re-run, because the claim they support is a **delta between levels** and
+all three levels used the identical setting -- so the +10.4 pp is unaffected. Only the
+absolute values would shift, and they are not quoted as method results anywhere.
 
 How SPM works
 -------------

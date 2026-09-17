@@ -1,29 +1,32 @@
-"""Tasks 6.5 / 6.5b: train the final BoVW models and record their cost.
+"""Task 6.5: train the final BoVW model and record its cost.
 
-    poetry run python scripts/train_bovw.py              # both rows
-    poetry run python scripts/train_bovw.py --spm-only   # just bovw_spm_svm
+    poetry run python scripts/train_bovw.py             # the reported row
+    poetry run python scripts/train_bovw.py --with-spm  # + the pyramid diagnostic (needs ~6 GB)
 
 The exact analogue of `scripts/train_pca.py` and `scripts/train_hog.py`, at the configuration
 task 6.5 selected. Same protocol throughout: train split only, test set untouched, `val_*`
 metrics, batched **and** single-image inference.
 
-Two rows from one vocabulary
-----------------------------
-This script produces **both** `bovw_svm` and `bovw_spm_svm`, and it fits the vocabulary
-**once**, sharing it between them. That is not an optimisation -- it is the experimental
-control. The two rows must differ in exactly one respect (whether a descriptor's position is
-recorded), so anything they could otherwise differ in has to be literally the same object.
-Fitting two vocabularies, even with the same seed and the same data, would leave the claim
-resting on a convention instead of on construction.
+The pyramid is OFF by default
+-----------------------------
+`bovw_spm_svm` was a sixth configuration for one day (2026-09-16 to 09-17) and was reverted:
+at the k=1000 the sweep selected, L=2 is **21,000 dimensions**, a 4.91 GB float64 training
+matrix and ~6 GB resident, which does not fit this machine. The layout measurement it carried
+is reported as a **diagnostic** instead (note 14 section 9), and `--with-spm` is kept so it
+stays reproducible on a machine with the memory for it. **The comparison is the proposal's
+five configurations.**
 
-`BoVWSpatialPyramid` subclasses `BoVWRepresentation` for the same reason; see note 14 §9.
+When both are run, the vocabulary is fitted **once** and shared. That is not an optimisation:
+the two must differ in exactly one respect -- whether a descriptor's position is recorded --
+so anything they could otherwise differ in has to be literally the same object. Fitting two
+vocabularies, even with the same seed, would leave the claim resting on convention rather than
+construction. `BoVWSpatialPyramid` subclasses `BoVWRepresentation` for the same reason.
 
 The `C` grids differ
 --------------------
-`C` is tuned per method (Q4), and these are two methods: plain BoVW has `n_words` features
-where the pyramid has `n_words x 21`, and the 4.2/5.2/6.5 measurements all show the best `C`
-tracking dimensionality. Each row therefore re-selects `C` from the sweep for its own
-feature space rather than inheriting the other's.
+`C` is tuned per method (Q4). Plain BoVW has `n_words` features where the pyramid has
+`n_words x 21`, and the 4.2/5.2/6.5 measurements all show the best `C` tracking
+dimensionality, so each re-selects `C` for its own feature space.
 """
 
 from __future__ import annotations
@@ -165,11 +168,14 @@ def train_one(method: str, phi, train_images, y_train, val_images, y_val,
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train final BoVW + BoVW-SPM (6.5, 6.5b).")
+    parser = argparse.ArgumentParser(
+        description="Train the final BoVW model (6.5); --with-spm adds the diagnostic.")
     parser.add_argument("--sweep", type=Path,
                         default=config.RESULTS_DIR / "sweeps" / "bovw_configs.csv")
-    parser.add_argument("--plain-only", action="store_true")
-    parser.add_argument("--spm-only", action="store_true")
+    parser.add_argument("--with-spm", action="store_true",
+                        help="also train the pyramid diagnostic (21,000 dims, ~6 GB resident)")
+    parser.add_argument("--spm-only", action="store_true",
+                        help="only the pyramid diagnostic; implies --with-spm")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -205,11 +211,12 @@ def main() -> int:
     # The pyramid's feature space is 21x wider, and the best C tracks dimensionality, so the
     # grid is shifted down for it rather than reused.
     scores = {}
+    want_spm = args.with_spm or args.spm_only
     if not args.spm_only:
         scores[PLAIN_METHOD] = train_one(
             PLAIN_METHOD, plain, train_images, y_train, val_images, y_val,
             c_grid=(0.1, 1.0, 10.0, 100.0), dry_run=args.dry_run)
-    if not args.plain_only:
+    if want_spm:
         scores[SPM_METHOD] = train_one(
             SPM_METHOD, spm, train_images, y_train, val_images, y_val,
             c_grid=(0.01, 0.1, 1.0, 10.0), dry_run=args.dry_run)
