@@ -27,27 +27,29 @@ interaction between representation and degradation type, not a leaderboard.
 | PCA | holistic, alignment-critical | global | no |
 | HOG | rigid grid, layout preserved | local | no |
 | BoVW | **orderless**, layout discarded | local | vocabulary only |
-| BoVW + SPM | rigid grid, layout preserved | local | vocabulary only |
 | CNN | hierarchical, pooling-invariant | local | fully |
 
-**Experimental design.** The classifier is held fixed (`LinearSVC`) across all
+**Experimental design.** The classifier is held fixed (`LinearSVC`) across all four
 representations, so any difference is attributable to the representation itself and not
 confounded with the classifier. The CNN therefore appears **twice**: once as a feature
 extractor (penultimate layer → `LinearSVC`, comparable to the others) and once
-end-to-end with its own softmax head. **Six rows total.**
+end-to-end with its own softmax head. **Five rows total**, as the proposal specifies.
 
-> **Plan change, 2026-09-16 — two decisions, both recorded in `14-bovw.md` §9.4.**
+> **Plan changes — (a) proposed 2026-09-16 and REVERTED 2026-09-17; (b) stands.**
 >
-> **(a) BoVW appears twice, as BoVW and BoVW+SPM.** Spatial Pyramid Matching was originally
-> excluded (correctly, and *before* any SPM number existed) because it moves BoVW onto HOG's
-> position on the layout axis. It is now **added as a sixth configuration, never as a
-> replacement** — plain BoVW remains the only occupant of "layout discarded", which is how the
-> proposal's §4.3 table defines it. Rationale: BoVW vs. BoVW+SPM differs in **exactly one
-> variable** (whether a descriptor's position is recorded), where BoVW vs. HOG confounds six.
-> It is the controlled form of the study's central claim, and it is worth **+10.4 pp macro-F1**
-> — landing within 0.1 pp of HOG, which says the BoVW/HOG gap *is* the layout information.
-> Also gives one method family two opposite predictions: orderlessness should **hurt** under
-> blur and **help** under bbox jitter (§11).
+> **(a) ~~BoVW appears twice, as BoVW and BoVW+SPM~~ — reverted.** Spatial Pyramid Matching
+> was added as a sixth configuration on the strength of a **+10.4 pp macro-F1** measurement
+> (landing within 0.1 pp of HOG, i.e. the BoVW/HOG gap *is* the layout information). It was
+> removed again a day later for a purely practical reason: at the **k=1000** the 6.5 sweep
+> selected, L=2 is **21,000 dimensions** — a 4.91 GB float64 training matrix, ~6 GB resident,
+> which does not fit this machine alongside the rest of the pipeline. Three training attempts
+> died. The cost was not visible when the row was proposed, because the +10.4 pp was measured
+> at k=500 (10,500 dims); the k=1000 decision doubled it, and that connection was missed.
+> **Nothing measured is lost.** The layout result stays in the report as a *diagnostic* in the
+> discussion — which is what it was before the promotion — and
+> `gtsrb.representations.bovw.BoVWSpatialPyramid` stays in the codebase, with its tests, so
+> the number remains reproducible. The comparison is back to the proposal's five
+> configurations. See `14-bovw.md` §9.4 and index Q6.
 >
 > **(b) Preprocessing is held FIXED at `raw_gray` for the whole comparison.** Per-method
 > preprocessing selection (decided at 4.2) is withdrawn as the headline protocol. It was a
@@ -60,8 +62,8 @@ end-to-end with its own softmax head. **Six rows total.**
 > ablation is demoted to a noted limitation (8.2, now optional).
 >
 > Cost of (b): PCA loses 2.6 pp (0.7977 `clahe_gray` → 0.7713 `raw_gray`), `cnn_e2e` loses
-> 0.16 pp (0.9872 → 0.9856), HOG is unchanged (already `raw_gray`). All the sweep data already
-> exists; only `cnn_feat_svm` and both BoVW rows need re-running. **The per-method sweeps are
+> 0.16 pp (0.9872 → 0.9856), HOG is unchanged (already `raw_gray`), BoVW loses 0.1 pp.
+> All re-runs are done. **The per-method sweeps are
 > kept and reported** — they are what *measures* the preprocessing effect, and 9.7 stands.
 
 ### Explicitly out of scope
@@ -408,7 +410,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 > nuisance hyperparameter. PCA is the only representation whose features are not internally
 > normalised (HOG block-normalises, BoVW L2-normalises, the CNN has batch norm; PCA's feature
 > σ spans 29×), so a frozen `C` would hand each representation a dial calibrated for another's
-> feature scale. Applies to **4.3, 5.3, 6.5, 6.5b, 7.5** and the grid at **8.1**.
+> feature scale. Applies to **4.3, 5.3, 6.5, 7.5** and the grid at **8.1**.
 >
 > **Still in force after the 2026-09-16 plan change, and note the asymmetry with
 > preprocessing.** `C` stays tuned per method; *preprocessing* is now fixed across methods.
@@ -605,7 +607,11 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       **Trap recorded:** the first probe reported chance-level macro-F1 (0.023) with plausible
       accuracy (0.446) — it had subsampled with `iloc[:3000]` on class-ordered annotations and
       contained 3 of 43 classes. A large accuracy/macro-F1 gap is a label-space signature.
-- [ ] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
+- [x] **6.5** `LinearSVC` on BoVW histograms, `C` tuned on val; record cost metrics and `C`
+      **DONE 2026-09-17** — `raw_gray`, size 2 / step 2, k=1000, C=1, balanced →
+      **val macro-F1 0.8840, accuracy 0.9330**; model 1.59 MB, train 89.9 s, inference
+      1.38 ms/img batched and 2.79 single (only a **2.0x** batching ratio, against PCA's 49x,
+      because dense SIFT is per-image and does not amortise). Persisted to `results.csv`.
       **UNPARKED and tuned** — `scripts/sweep_bovw.py`. BoVW went from **0.3492** macro-F1 at
       the plan's parameters to **0.8791** (accuracy 0.9227), a **+53 pp** recovery, the largest
       single effect measured anywhere in this project. The method was never broken; it was
@@ -632,29 +638,30 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       the same way: BoVW's number is a lower bound and a larger vocabulary would likely
       improve it. The budget is spent instead on the degradation grid, which is the project's
       actual subject; at size 2 a k=2000 vocabulary would also put SPM L=2 at ~42,000
-      dimensions, where the classifier cost starts to crowd out §7's 96 cells.
+      dimensions, where the classifier cost starts to crowd out §7's 80 cells.
+      (That dimensionality is exactly what made the SPM row infeasible — see 6.5b.)
       See `14-bovw.md` §7–§8.
-- [ ] **6.5b** **BoVW+SPM as the sixth configuration** (new, 2026-09-16). Move the pooling out
-      of `scripts/experiment_spatial_pyramid.py` into `gtsrb.representations.bovw` as a proper
-      `Representation`, so 8.1 can run it across the degradation grid and results land in
-      `results.csv`. Measured (`clahe_gray`, size 2/step 2, k=500, **not persisted**):
-      L0 0.8143 → L1 0.8973 → L2 **0.9184** macro-F1 / 0.9441 accuracy.
-      **Layout is worth +10.4 pp**, and L=2 lands within 0.1 pp of HOG (0.9175) — the BoVW/HOG
-      gap *is* the layout information, with the other five differences between those methods
-      contributing ~nothing net. Second finding: **the pyramid helps less as the base
-      representation improves** (+14.1 pp at the poor config, +10.4 pp at the good one) —
-      layout and descriptor quality are partial substitutes.
-      **Implemented 2026-09-17**: `gtsrb.representations.bovw.BoVWSpatialPyramid`, a subclass
-      of `BoVWRepresentation` overriding only the pooling — so the two rows share descriptors,
-      vocabulary, normalisation and classifier *by construction*, not by convention. Tests pin
-      the two properties that make the measurement valid: `levels=0` reduces **exactly** to
-      plain BoVW, and permuting keypoint positions leaves the plain histogram byte-identical
-      while changing the pyramid.
-      **Decision 2026-09-17: the row is L = 2 only.** L=1 stays in note 14 as the intermediate
-      measurement — it is what shows the effect is *graded* rather than a step change, and that
-      layout and descriptor quality are partial substitutes — but it does not get a Table 1
-      row. Table 1 stays at six.
-      Rationale for adding rather than substituting: `14-bovw.md` §9.4.
+- [x] **6.5b** ~~**BoVW+SPM as the sixth configuration**~~ — **REVERTED 2026-09-17.**
+      Proposed 2026-09-16, implemented, then removed as a *method* a day later. It does not
+      fit this machine: at the k=1000 the 6.5 sweep selected, L=2 is **21,000 dimensions**, a
+      4.91 GB float64 training matrix and ~6 GB resident. Three training runs died — twice
+      silently at the header, because `LinearSVC` upcasts float32 to float64 internally and
+      each fit therefore wanted 2.45 + 4.91 = **7.36 GB** against ~7 GB free, six times over.
+      **The mistake to record: the cost was invisible when the row was proposed.** The
+      +10.4 pp was measured at k=500 (10,500 dims); the later k=1000 decision doubled the
+      pyramid's width, and nobody connected the two until three runs had failed. A method's
+      feasibility has to be re-checked when a parameter it depends on changes.
+      **What survives, and it is the part that mattered:**
+      L0 **0.8143** → L1 **0.8973** → L2 **0.9184** macro-F1 / 0.9441 accuracy (`clahe_gray`,
+      size 2 / step 2, k=500, one shared vocabulary). **Layout is worth +10.4 pp**, and L=2
+      lands within **0.1 pp of HOG** (0.9175) — so the BoVW/HOG gap *is* the layout
+      information, the other five differences between those methods contributing ~nothing net.
+      Also: **the pyramid helps less as the base representation improves** (+14.1 pp at a poor
+      config, +10.4 pp at a good one) — layout and descriptor quality are partial substitutes,
+      the same pattern vocabulary size shows (note 14 §11.3).
+      This is reported as a **diagnostic in the discussion**, not a Table 1 row.
+      `BoVWSpatialPyramid` and its 9 tests stay in the codebase so the number is reproducible;
+      `scripts/experiment_spatial_pyramid.py` is what produced it.
 - [ ] **6.6** **Demo** (`scripts/demo/bovw_mechanics.py`) — the dense keypoint grid drawn on
       a sign, codeword assignment as a colour map (which patches share a word), and the
       histogram before/after normalisation. **This is the demo most likely to catch a real
@@ -718,9 +725,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 >   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
 >   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.
 - [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
-      **Runner written 2026-09-17**: `scripts/evaluate_grid.py`, 13 tests. Not yet run — it
-      needs both BoVW rows to exist first.
-      **6 methods × 16 conditions = 96 cells at `raw_gray`**, which is the reported grid.
+      **Runner written and tested 2026-09-17**: `scripts/evaluate_grid.py`, 9 tests.
+      **All five models exist and are persisted — this is ready to run.**
+      **5 methods × 16 conditions = 80 cells at `raw_gray`**, which is the reported grid.
       Run the other two preprocessing configs as well if the wall-clock allows (it is
       inference-only); they feed 8.2 and the limitations note, and are dropped without loss
       if time is short.
@@ -734,7 +741,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       *named* `..._raw_gray.joblib` whose payload says `clahe_gray` follows the **payload**.
       Two artifacts matching one method are refused rather than resolved by sort order — this
       fired immediately on the superseded `clahe_gray` models, which are now in
-      `results/models/superseded/`.
+      `results/models/superseded/` with a README recording what they were.
       **Also pinned:** every degradation's *identity* level is in the grid, because that is the
       baseline 9.5 normalises against — and gamma's identity is 1.0, in the **middle** of its
       range, so a `levels[0]` assumption would baseline every gamma curve against γ=0.4.
@@ -761,7 +768,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       seed and no repeats we cannot support "no significant difference". A ranking that does
       flip is a finding and gets reported.
 - [ ] **8.3** Verify results CSV is complete, no NaNs
-      `results.check_complete()` against the 96-cell grid. **This is the review checkpoint**
+      `results.check_complete()` against the 80-cell grid. **This is the review checkpoint**
       (agreed 2026-09-16): when 8.3 passes, stop and recap everything — the six methods, every
       finding, every withdrawn claim, the state of all docs and figures — **before** starting
       the Day 4 analysis and the Day 5 writeup. Nothing enters the report that has not been
@@ -769,11 +776,11 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ### Day 4 — Analysis and figures (~5.5 h)
 
-- [ ] **9.1** Table 1: accuracy, macro-F1, train time, inference ms/img, model size MB, feature dim — one row per method (**6 rows**) *(task 9 = 2.0 h)*
-      **All six rows at `raw_gray`** (§1). A third caveat joins (a) and (b) below: `bovw_spm`
-      is 10,500 dims at k=500, ~6× HOG and ~20× plain BoVW, so the feature-dimension and
-      model-size columns are not like-for-like across the BoVW pair either — and that is the
-      point, since the extra dimensions *are* the layout information.
+- [ ] **9.1** Table 1: accuracy, macro-F1, train time, inference ms/img, model size MB, feature dim — one row per method (**5 rows**) *(task 9 = 2.0 h)*
+      **All five rows at `raw_gray`** (§1).
+      A third caveat joins (a) and (b) below: **the batching ratio is method-specific and
+      spans 49×** — PCA 49×, BoVW 2.0×, HOG 1.3×, CNN 0.87×. Quoting one batched figure for
+      all five would misrepresent four of them.
       **Two caveats measured at 4.3, both must appear with the table.** (a) Report the
       **single-image** inference figure, or state which is which: batched throughput is 49×
       the per-frame latency for PCA, and the ratio is method-specific. (b) `model_size_mb`
@@ -836,13 +843,14 @@ Models are trained once; only inference varies across the grid. Whole grid runs 
 under an hour.
 
 ```
-methods       = [pca_svm, hog_svm, bovw_svm, bovw_spm_svm, cnn_feat_svm, cnn_e2e]   # 6
-degradations  = [clean] + [noise, blur, gamma] x 5 levels                           # 16
-preproc       = raw_gray                                    # FIXED -- see the §1 plan change
+methods       = [pca_svm, hog_svm, bovw_svm, cnn_feat_svm, cnn_e2e]   # 5
+degradations  = [clean] + [noise, blur, gamma] x 5 levels             # 16
+preproc       = raw_gray                          # FIXED -- see the §1 plan change
 ```
 
-Core grid: 6 × 16 = **96** evaluation runs, all at `raw_gray`. (Was 80 at 5 methods; before
-that 105, when bbox jitter was still in — no cell in the remaining grid is compromised.)
+Core grid: 5 × 16 = **80** evaluation runs, all at `raw_gray`. (Briefly 96 while `bovw_spm`
+was a sixth row, 2026-09-16 to 09-17; and 105 before bbox jitter moved to §11 — no cell in
+the remaining grid is compromised by either change.)
 
 **Decision 2026-09-17: run `raw_gray` first and bank it, then extend to `clahe_gray` and
 `clahe_hsv` only if the clock allows.** The grid is inference-only and cheap, but BoVW
@@ -888,9 +896,8 @@ datasets whose pixels actually exist outside the box.
 Cut in this order if you fall behind. The comparison survives all three.
 
 **Reordered 2026-09-16.** BoVW was first on this list when it was the fiddliest task and
-scoring 0.52. It is now tuned, and it carries the **layout measurement** (6.5b) — the one
-controlled manipulation of the study's central variable. Cutting it would remove the best
-evidence for the thesis, not the most expendable task.
+scoring 0.52. It is now tuned at **0.8840** and fully recorded, so it is no longer a candidate
+for cutting at all — the work is done.
 
 1. **Preprocessing ablation** (8.2) — report one config, note as a limitation. Already
    downgraded to optional by the §1 plan change, so this is the cheapest cut by a wide margin.
@@ -901,10 +908,10 @@ evidence for the thesis, not the most expendable task.
    the plan's parameters and the swept ones, so "sensible defaults" is demonstrably not a safe
    fallback for BoVW.
 
-Never cut: track-disjoint splitting, the cost table, the predictions table, **the BoVW /
-BoVW+SPM pair** (6.5b — the layout axis is the thesis), and the **measurement** of why jitter
-cannot be done on GTSRB (§11 — the number is the finding, even if the extension itself is
-never run).
+Never cut: track-disjoint splitting, the cost table, the predictions table, **the layout
+measurement** (6.5b — reported as a diagnostic, it is the one controlled manipulation of the
+study's central variable), and the **measurement** of why jitter cannot be done on GTSRB
+(§11 — the number is the finding, even if the extension itself is never run).
 Those are what make this a study rather than a tutorial.
 
 ---

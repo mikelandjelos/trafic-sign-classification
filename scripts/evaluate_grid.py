@@ -1,10 +1,10 @@
 """Task 8.1: run the full evaluation grid on the TEST set.
 
-    poetry run python scripts/evaluate_grid.py                    # raw_gray, all 6 methods
+    poetry run python scripts/evaluate_grid.py                    # raw_gray, all 5 methods
     poetry run python scripts/evaluate_grid.py --methods hog_svm  # one method
     poetry run python scripts/evaluate_grid.py --dry-run          # no results.csv writes
 
-6 methods x 16 conditions (clean + noise/blur/gamma at 5 levels each) = **96 cells**.
+5 methods x 16 conditions (clean + noise/blur/gamma at 5 levels each) = **80 cells**.
 **Inference only -- nothing is retrained.** Every model was fitted once by its own
 `train_*.py` and is reloaded here exactly as saved.
 
@@ -45,9 +45,14 @@ import sklearn
 
 from gtsrb import cache, config, data, degradations, evaluation, preprocessing, results
 
-#: The comparison, in report order. Six rows since the 2026-09-16 plan change.
+#: The comparison, in report order -- the proposal's five configurations (section 4.3).
+#:
+#: `bovw_spm_svm` was added on 2026-09-16 and **removed again on 2026-09-17**: at the k=1000
+#: the sweep selected, L=2 is 21,000 dimensions and ~6 GB resident to train, which does not
+#: fit this machine alongside everything else. The layout measurement it was added to carry is
+#: already recorded (note 14 section 9) and stays in the report as a diagnostic. See index Q6.
 METHODS: tuple[str, ...] = (
-    "pca_svm", "hog_svm", "bovw_svm", "bovw_spm_svm", "cnn_feat_svm", "cnn_e2e",
+    "pca_svm", "hog_svm", "bovw_svm", "cnn_feat_svm", "cnn_e2e",
 )
 
 #: `clean` plus every (degradation, level). Note gamma's identity is 1.0, in the MIDDLE of
@@ -65,7 +70,7 @@ class LoadedMethod:
 
 
 def _load_sklearn_method(name: str) -> LoadedMethod:
-    """PCA / HOG / BoVW / BoVW-SPM / CNN-features: a representation plus a LinearSVC."""
+    """PCA / HOG / BoVW / CNN-features: a representation plus a LinearSVC."""
     matches = sorted(config.MODELS_DIR.glob(f"{name}_*.joblib"))
     if not matches:
         raise SystemExit(

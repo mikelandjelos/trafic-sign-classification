@@ -86,10 +86,12 @@ def test_a_missing_model_names_the_script_that_makes_it(model_dir) -> None:
 # --- the grid itself ---------------------------------------------------------------------
 
 
-def test_the_grid_is_ninety_six_cells() -> None:
-    assert len(evaluate_grid.METHODS) == 6
+def test_the_grid_is_eighty_cells() -> None:
+    """Five configurations, as the proposal specifies -- bovw_spm was reverted (index Q6)."""
+    assert len(evaluate_grid.METHODS) == 5
+    assert "bovw_spm_svm" not in evaluate_grid.METHODS
     assert len(evaluate_grid.conditions()) == 16
-    assert len(evaluate_grid.METHODS) * len(evaluate_grid.conditions()) == 96
+    assert len(evaluate_grid.METHODS) * len(evaluate_grid.conditions()) == 80
 
 
 def test_clean_is_present_exactly_once() -> None:

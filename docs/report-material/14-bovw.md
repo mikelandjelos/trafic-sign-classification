@@ -1,16 +1,19 @@
-# 14 — BoVW and BoVW+SPM: the layout axis (tasks 6.1–6.6)
+# 14 — BoVW, and what orderlessness costs (tasks 6.1–6.6)
 
 *Feeds: Methodology → representations; Table 1 (9.1); BoVW demo (6.6); the blur panel (9.5);
-**the layout measurement (§9), which is the study's central structural claim**; the §11
-jitter extension, whose premise rests on this method's orderlessness.*
+**the layout measurement (§9) — reported in the DISCUSSION as a diagnostic, not as a table
+row**; the §11 jitter extension, whose premise rests on this method's orderlessness.*
 
 Implementation: `src/gtsrb/representations/bovw.py` (`BoVWRepresentation`,
 `BoVWSpatialPyramid`). Tests: `tests/test_bovw.py` (58).
-**Status:** 6.1–6.5 complete; **6.5b implemented**; 6.6 written, not yet run.
-**§11 holds the reported `raw_gray` configuration** — selected size 2 / step 2, k = 1000,
-macro-F1 **0.8801** / accuracy **0.9317**, a **+53.5 pp** recovery from the plan's parameters.
-§7–§9 record the tuning journey on `clahe_gray` and are kept as history, not as results.
-§9.4 promotes SPM to a sixth configuration in the comparison.
+**Status:** 6.1–6.5 complete. **6.5b reverted 2026-09-17** — SPM is a diagnostic (§9.4), not a sixth method. 6.6 written, not yet run.
+**The reported row** (`results.csv`, run `20260917T014750`): `raw_gray`, size 2 / step 2,
+k = 1000, C = 1, `balanced` → val macro-F1 **0.8840**, accuracy **0.9330**. The sweep cell that
+selected it scored 0.8801/0.9317 (§11); the small gap is the final fit using a full vocabulary
+fit rather than the sweep's sampled one.
+**A +53.5 pp recovery** from the parameters the plan specified.
+§7–§9 record the tuning journey on `clahe_gray` and are kept as history, not as results;
+**§9.4 records why SPM is a diagnostic rather than a sixth row.**
 
 ---
 
@@ -398,37 +401,59 @@ geometry with k=1000 scores 0.8791 — a +6.5 pp vocabulary effect, matching the
 +6.0/+5.9 pp measured at two other geometries in §7.3. Two separately-run experiments agree
 on a parameter effect neither was designed to measure.
 
-### 9.4 DECISION (2026-09-16): SPM becomes a sixth configuration, not a replacement
+### 9.4 DECISION (2026-09-16), REVERSED (2026-09-17): SPM is a diagnostic, not a method
 
-**Both go in the comparison.** Plain BoVW stays the method the proposal defines; SPM is added
-alongside it as `bovw_spm_svm`.
+**Final position: the comparison is the proposal's five configurations. This measurement is
+reported in the discussion, not as a Table 1 row.**
 
-**Why SPM does not simply replace BoVW.** The proposal's §4.3 table defines BoVW as *"bez
-rasporeda, raspored odbačen"* — without layout, layout discarded — and it is the only method
-on that side of the axis. Substituting SPM would leave the layout axis with no occupant: HOG
-is a rigid grid of local histograms and so is SPM L=2. Two rows at the same point, and the
-contrast the study exists to measure disappears. It would also make the blur prediction
-untestable, since that prediction turns on there being *no layout to fall back on*.
+#### What was decided, and why it was reversed
 
-Note the exclusion was decided and written down **before** any of these numbers existed
-(§8.2 of the previous revision, committed 2026-09-15), and it passes the neutrality test in
-`CLAUDE.md`: had SPM come out *worse*, the structural reason to keep BoVW orderless would be
-unchanged. It is not protecting a result.
+On 2026-09-16 SPM was promoted to a sixth configuration, on the strength of the numbers above.
+The argument was sound and is worth keeping, because it is what the measurement is *for*:
 
-**Why it is nonetheless added.** Reporting BoVW at 0.88 when the standard deployed form of the
-method reaches 0.92 understates it, and a report that omits SPM silently looks like it
-handicapped the method that lost. Adding a row costs 16 inference-only grid cells and buys:
+> BoVW vs. HOG differs in six ways at once — descriptor, pooling, quantisation, normalisation,
+> dimensionality **and** layout. BoVW vs. BoVW+SPM differs in **exactly one**. It is the
+> controlled form of the study's central claim, and it lands within 0.1 pp of HOG, which says
+> the BoVW/HOG gap *is* the layout information.
 
-- the controlled layout measurement of §9.1, in the results table rather than a footnote;
-- a directly falsifiable pair of opposite predictions — orderlessness should **hurt** under
-  blur (nothing to fall back on) and **help** under bbox jitter (§11, nothing to misalign).
-  One method family, two settings, opposite directions. That is the sharpest claim available.
+It was reversed a day later for a reason that has nothing to do with that argument: **it does
+not fit the machine.** At the **k = 1000** that the 6.5 sweep selected, L=2 is **21,000
+dimensions** — a 4.91 GB float64 training matrix, ~6 GB resident, on a laptop with ~7 GB free.
+Three training runs died, two of them silently at the header because `LinearSVC` upcasts
+float32 to float64 internally, so each of the six fits transiently wanted 2.45 + 4.91 =
+**7.36 GB**.
 
-**Costs, recorded honestly:** the comparison grows to six rows; SPM's 10,500 dims at k=500 is
-6× HOG's, so the Table 1 feature-dimension and model-size columns need the same "not
-like-for-like" caveat PCA already carries; and it **diverges from the proposal's "pet
-konfiguracija"** (five configurations, §4.3). Per `CLAUDE.md` the proposal is not edited — the
-divergence is recorded here and was raised with the author, who approved it.
+#### The mistake, recorded plainly
+
+**The cost was invisible at the moment the row was proposed.** The +10.4 pp was measured at
+**k = 500** — 10,500 dimensions, perfectly comfortable. The k = 1000 decision came *later*, for
+plain BoVW, and doubled the pyramid's width as a side effect. Nobody connected the two until
+three runs had failed, and each failure was diagnosed as the local symptom (chunk size, then
+`nohup`, then dtype) rather than as the scope decision underneath.
+
+> **The general lesson, which is the reportable part: a method's feasibility has to be
+> re-checked when a parameter it depends on changes.** A shared vocabulary made the two rows
+> a controlled comparison — and it also coupled their costs, so a decision taken for one
+> silently resized the other.
+
+#### Why plain BoVW would never have been replaced by SPM in any case
+
+Even had it fitted, SPM was always an *addition*. Plain BoVW is the only method on the "layout
+discarded" side of the proposal's §4.3 axis; substituting would have left that axis with no
+occupant — HOG is a rigid grid of local histograms and so is SPM L=2 — and would have made the
+blur prediction untestable, since that prediction turns on there being no layout to fall back
+on. That reasoning is unaffected by the reversal.
+
+#### What survives
+
+Everything measured. §9's table, the L=1 intermediate, the "pyramid helps less as the base
+improves" substitution effect, and the HOG coincidence all stand and are reported as a
+**diagnostic in the discussion**. `gtsrb.representations.bovw.BoVWSpatialPyramid` stays in the
+codebase with its 9 tests — including the two identities that make the measurement valid
+(`levels=0` reduces exactly to plain BoVW; permuting keypoint positions leaves the plain
+histogram byte-identical while changing the pyramid) — so the number remains reproducible by
+`scripts/experiment_spatial_pyramid.py`. **The §4.3 divergence is withdrawn with the row:** the
+report describes five configurations, exactly as the proposal does.
 
 ---
 
