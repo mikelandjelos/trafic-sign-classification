@@ -684,17 +684,19 @@ nothing structurally, failing hardest on the same pair, at ~2× attenuation — 
 
 ## ADDENDUM 3 (2026-09-17) — PCA on test, and the result the whole study was built for
 
-Test (task 8.1): accuracy **0.7986**, macro-F1 **0.7525** — last of five on clean data, 15 pp
-behind HOG. **And first under heavy noise.**
+Test (task 8.1, after the Q8 refit — see note 15 §8): accuracy **0.7932**, macro-F1
+**0.7312** — last of five on clean data, 17.5 pp behind HOG. **And the most noise-robust
+method in the study.**
 
 | noise σ | 0 | 5 | 10 | 20 | 40 |
 |---|---|---|---|---|---|
-| PCA, % of its own clean macro-F1 | 100 | 99.2 | 97.6 | 90.9 | **77.5** |
+| PCA, % of its own clean macro-F1 | 100 | 99.3 | 97.4 | 89.8 | **76.7** |
 | HOG, same | 100 | 80.6 | 61.9 | 37.0 | **14.8** |
 
-**At σ=40 PCA scores 0.5834 macro-F1 against HOG's 0.1341 and both CNNs' ~0.425.** It is the
-best method in the condition in absolute terms, not merely the slowest to degrade — a
-holistic linear subspace beating a convolutional network on the same pixels.
+**PCA retains 76.7 % at σ=40 against HOG's 14.8 % — 5.2×, and 11 pp clear of second place.**
+In absolute macro-F1 it scores 0.5606, level with BoVW (0.5639, a 0.33 pp gap that is inside
+this project's resolution) and far ahead of both CNNs (~0.425). A 256-dimensional linear
+projection beating a 0.88 M-parameter convolutional network on the same pixels.
 
 The predicted mechanism is the right one: PCA retains 256 of 2304 dimensions, so most of the
 isotropic noise energy falls outside the subspace and is averaged away. **The 4.1 decision not
@@ -703,10 +705,51 @@ where the noise concentrates, and §4.1 flagged that at the time as the reason t
 `whiten=False`. That reasoning is now vindicated by measurement rather than argument.
 
 **The gamma asymmetry, and PC1.** PCA is the *worst* method under gamma, as predicted — but
-unevenly: γ=0.4 costs **20.9 pp** of retention while γ=1.5 costs 9.2 pp. That fits the
+unevenly: γ=0.4 costs **20.1 pp** of retention while γ=1.5 costs 11.8 pp. That fits the
 PC1-is-brightness measurement (52.3 % of variance, r=+0.9975 with mean intensity): darkening
 compresses the projection toward a region the training data populated, brightening pushes it
 off the training distribution. The figure at §9 and this asymmetry belong together in the
 discussion.
 
 Full grid and analysis: [15-results.md](15-results.md).
+
+---
+
+## ADDENDUM 4 (2026-09-17) — the whitening ablation: mechanism confirmed, but it is second-order
+
+`scripts/experiment_whitened_pca.py`. §2.1 recorded, as a fact about the operator rather than
+as a reason for the default, that whitening "amplifies the low-variance retained directions —
+the ones where an isotropic perturbation has the largest share relative to signal", and that
+whitened PCA is therefore "plausibly a *differently robust* representation". §2.1 also records
+that an early draft wrongly used this as a *justification* for `whiten=False`. **Now that
+PCA's noise robustness is the study's headline result, that claim had to be measured rather
+than left as an argument.**
+
+Identical protocol to the reported row — k=256, `raw_gray`, same split, `class_weight`
+`balanced` (Q8) — with `C` re-tuned per feature space, since whitening changes the scale by
+construction. Test set, noise ladder:
+
+| σ | 0 | 5 | 10 | 20 | 40 |
+|---|---|---|---|---|---|
+| unwhitened, retained | 100 | 99.3 | 97.4 | 89.8 | **76.7 %** |
+| **whitened**, retained | 100 | 98.7 | 96.7 | 88.3 | **73.4 %** |
+
+Feature σ spread: **87.1× unwhitened → 1.0× whitened**, confirming the operator does what it
+is supposed to. Clean macro-F1 is essentially unchanged (0.7312 → 0.7283, −0.29 pp).
+
+**Verdict: the mechanism is real but small — −3.3 pp of retention at σ=40.**
+
+**And the more useful reading is what it rules out.** Whitened PCA still retains **73.4 %**,
+against the CNNs' ~44 % and HOG's 14.8 %. So the variance weighting is *not* where PCA's
+noise robustness comes from: **the dominant mechanism is the subspace projection itself** —
+keeping 256 of 2304 dimensions, so most isotropic noise energy falls outside the retained
+subspace regardless of how the retained coordinates are scaled. Whitening modulates that by a
+few points; it does not create or destroy it.
+
+That is a stronger claim than the original prediction made, and it is the one the report
+should carry: **dimensionality reduction is the robustness mechanism; the scaling of the
+retained coordinates is a second-order refinement.**
+
+**Reportable as a limitation, now discharged:** §2.1 said "results are for unwhitened PCA; a
+whitened variant might behave differently, particularly under noise, and that is not measured
+here." It is measured now, and the difference is 3.3 pp in the predicted direction.

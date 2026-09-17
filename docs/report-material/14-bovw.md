@@ -667,14 +667,20 @@ survived until the figure was actually looked at.
 
 ## 14. BoVW on test — and the prediction it broke (task 8.1)
 
-Test: accuracy **0.9141**, macro-F1 **0.8596** — fourth of five on clean data. **Second most
-noise-robust, most gamma-robust, and least blur-robust of all five.** The strongest
+Test: accuracy **0.9141**, macro-F1 **0.8596** — fourth of five on clean data. **Most
+gamma-robust of all five, joint-best under heavy noise, and least blur-robust.** The strongest
 representation × stressor interaction in the study.
+
+**On noise, note the two readings.** By *retention* BoVW is second (65.6 % vs PCA's 76.7 %).
+By *absolute* macro-F1 at σ=40 it is nominally first — 0.5639 against PCA's 0.5606 — but that
+0.33 pp gap is inside this project's resolution and neither is a win (note 15 §3, §8). What is
+safe: **both are far ahead of the CNNs (~0.425) and HOG (0.1341)**, and BoVW reaches that
+while giving up far less clean accuracy than PCA does (0.8596 vs 0.7312).
 
 | % of own clean macro-F1 | noise σ=40 | blur k=15 | gamma 2.5 |
 |---|---|---|---|
 | **BoVW** | **65.6** (2nd) | **20.7** (worst) | **95.3** (BEST) |
-| PCA | 77.5 | 43.1 | 72.3 |
+| PCA | 76.7 | 45.1 | 70.1 |
 | HOG | 14.8 | 23.9 | 89.2 |
 | CNN (both) | ~44 | ~38 | ~86 |
 
