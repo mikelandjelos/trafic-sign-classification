@@ -126,9 +126,10 @@ MANIFEST: tuple[ReportFigure, ...] = (
         deliverable=False),
     ReportFigure(
         "demo/bovw/bovw_blur_collapse.png", "bovw_blur_collapse.png", "6.6",
-        "The mechanism behind BoVW's predicted blur weakness: vocabulary usage collapses AND "
-        "different classes converge on the same histogram. The second panel is the correcting "
-        "quantity — a falling word count alone could be misread as compactness.",
+        "The demo that FALSIFIED a locked prediction. predictions.md expects blur to make "
+        "descriptors collapse onto a few codewords; measured, distinct words fall only 18 % "
+        "and between-class similarity is flat. Likely cause is SIFT's L2 normalisation. "
+        "Belongs in the discussion (9.6) as a mechanism ruled out.",
         deliverable=False),
     ReportFigure(
         "demo/bovw/bovw_grid_and_words.png", "bovw_grid_and_words.png", "6.6",
@@ -141,13 +142,33 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "root does anything a linear classifier can see. Justifies a fixed parameter that is "
         "otherwise taken on trust.",
         deliverable=False),
-    # --- pending: produced by tasks not yet done ---
     ReportFigure(
         "demo/cnn/cnn_training_curves.png", "cnn_training_curves.png", "7.6",
-        "Validation macro-F1 per epoch with the selected epoch marked. Carries the 7.4b "
-        "disclosure visually: the run STOPPED at epoch 24 having last improved at 18, which "
-        "is the early-stopping rule firing, not a verified plateau.",
+        "Carries the 7.4b disclosure visually: the run STOPPED at epoch 24 having last "
+        "improved at 18 — the patience rule firing, not a verified plateau. Also shows train "
+        "loss falling ~1000x while validation plateaus, and that returning the LAST epoch "
+        "instead of the best would have cost 0.63 pp.",
         deliverable=False),
+    ReportFigure(
+        "demo/cnn/cnn_dropout_check.png", "cnn_dropout_check.png", "7.6",
+        "STRONGLY RECOMMENDED. The §10 gotcha made visible: in train mode `embed()` returns "
+        "the identical vector twice (max |Δ| = 0.0000) while calling the layers directly "
+        "does not (14.3046). A bug that never raises and would only show as a mysteriously "
+        "worse cnn_feat_svm. Both paths shown, because the safe path alone proves nothing.",
+        deliverable=False),
+    ReportFigure(
+        "demo/cnn/cnn_activations.png", "cnn_activations.png", "7.6",
+        "Mean activation per conv block across four sign shapes: 48->24->12->6 as channels "
+        "widen 32->64->128. The hierarchical property the structural table names, shown "
+        "rather than asserted — and directly comparable to HOG's fixed 8x8 cell grid.",
+        deliverable=False),
+    ReportFigure(
+        "demo/cnn/cnn_first_layer_filters.png", "cnn_first_layer_filters.png", "7.6",
+        "The 32 learned first-layer 3x3 kernels. They are oriented difference operators — "
+        "the learned analogue of the fixed gradient filter HOG and SIFT apply by "
+        "construction, which is the cleanest way to say what 'learned' buys.",
+        deliverable=False),
+    # --- pending: produced by tasks not yet done ---
     ReportFigure(
         "pca/pca_eigensigns.png", "pca_eigensigns.png", "4.4",
         "Top-16 eigenvectors as images. Ties directly to the Eigenfaces lecture.",

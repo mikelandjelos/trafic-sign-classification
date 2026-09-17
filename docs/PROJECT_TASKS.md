@@ -727,11 +727,33 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       mismatch rather than the representation. PCA, HOG and BoVW were never optimised for any
       classifier, so this asymmetry is the CNN's alone.
       See `docs/report-material/13-cnn.md` §1.1.
-- [ ] **7.6** **Demo** (`scripts/demo/cnn_mechanics.py`) — training curves, first-layer
-      filters, and feature-map activations for one sign per super-category. Include the
-      `eval()`/`no_grad()` check as a *visual*: penultimate features extracted twice must be
-      identical, and are not if dropout is still active (§10) — a bug that otherwise only
-      shows up as mysteriously poor `cnn_feat_svm` accuracy.
+- [x] **7.6** **Demo** (`scripts/demo/cnn_mechanics.py`) → `figures/demo/cnn/`, 4 figures,
+      all four committed to `figures/report/`. Reads the **trained** network and its recorded
+      history — nothing is built or fitted, so the figures describe what was reported.
+      **The failure test: the §10 gotcha made visible.** With the model deliberately in TRAIN
+      mode, `embed()` returns the identical vector twice (**max |Δ| = 0.0000**) while calling
+      `embedding(trunk(x))` directly does not (**14.3046**) — 37 % of the 128 dimensions change
+      between two calls on the *same image*. **Both paths are shown deliberately**: a figure of
+      the protected path alone would look identical whether or not the guarantee held.
+      Why it matters beyond its size: **this bug never raises**, and would surface only as
+      `cnn_feat_svm` scoring slightly lower — indistinguishable from "the CNN's features
+      transfer less well to an SVM", which is one of the actual conclusions we draw. A silent
+      bug that imitates a finding.
+      **The 7.4b disclosure, visually.** Best epoch 18 (0.9856), stopped at 24 (0.9793):
+      **returning the last epoch instead of the best would have cost 0.63 pp** — the concrete
+      value of `train()`'s best-weights restore on the reported run. Train loss falls ~1000× to
+      0.0013 while validation is flat after epoch 18: past that the network is memorising, the
+      honest visual accompaniment to "LR untuned, convergence unverified".
+      **First-layer filters** are oriented difference operators — the *learned* analogue of the
+      fixed gradient filter HOG and SIFT apply by construction, which is the most compact
+      answer to "what does learned actually buy". **Activations** show 48→24→12→6 as channels
+      widen 32→64→128: the network trades *where* for *what*, and by block 3 describes a sign
+      on a grid **coarser** than HOG's 8×8 cells but with 128 learned channels per position.
+      **A wrong caption statistic caught by reading the figure:** it first reported "dropout
+      zeroes −1 % more of the vector" — a negative percentage, because ReLU already zeroes most
+      dimensions and the zero *count* barely moves. Replaced with the fraction of dimensions
+      that change and the change relative to the vector's peak.
+      See `13-cnn.md` §7.6. **Task 7 complete.**
 > **P.1 (see §2)** — ~~write `predictions.md` before task 8~~ was **done early**, on
 >   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
 >   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.

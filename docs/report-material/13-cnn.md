@@ -446,3 +446,72 @@ This compounds the §10 gotcha already on record — the CPU power profile moved
 change is invisible in the logs. **Table 1's timing column must be re-measured for all six
 methods in one pass on an idle machine at a fixed `energy_performance_preference`** (task
 9.1). Until then every duration in `results.csv` is indicative only, per note 06.
+
+---
+
+## Task 7.6 — the demo
+
+`scripts/demo/cnn_mechanics.py` → `figures/demo/cnn/`, four figures, all four in the report
+manifest. Everything reads the **trained** network and its recorded history; nothing is built
+or fitted here, so the figures describe what was actually reported.
+
+### 7.6a The failure test: the §10 gotcha, made visible
+
+`cnn_dropout_check.png`. With the model deliberately left in **train mode**:
+
+| path | max abs difference between two calls on the same image |
+|---|---|
+| **`embed()`** — forces `eval()`/`no_grad()` | **0.0000** |
+| `embedding(trunk(x))` — called directly | **14.3046** |
+
+37 % of the 128 dimensions change between two calls on the *same image*, by up to a third of
+the vector's own peak.
+
+**Both paths are shown, and that is the point.** A figure of the protected path alone would
+look identical whether or not the guarantee held, so it would prove nothing — the unprotected
+call is made deliberately to produce the contrast. This is the one place in the project where
+the `embed()` contract is *demonstrated* rather than asserted by a test name.
+
+Why it matters more than its size suggests: **this bug never raises.** It would surface only
+as `cnn_feat_svm` scoring a little lower — which is indistinguishable from "the CNN's
+representation transfers less well to an SVM", one of the actual conclusions this project
+draws. A silent bug that imitates a finding is the worst kind here.
+
+### 7.6b Early stopping is not convergence — the 7.4b disclosure, visually
+
+`cnn_training_curves.png`. The left panel shades the patience window; the right plots both
+losses on a log scale.
+
+- Best epoch **18** (0.9856), stopped at **24** (0.9793). **Returning the last epoch instead
+  of the best would have cost 0.63 pp macro-F1** — the concrete value of `train()`'s
+  best-weights restore, on the run actually reported. (Note 13 §5 records 0.52 pp for the
+  `clahe_gray` run; this is the `raw_gray` equivalent.)
+- **Train loss falls to 0.0013** — roughly 1000× — while validation macro-F1 is flat after
+  epoch 18. Past that point the network is memorising, not generalising, which is the honest
+  visual accompaniment to "we did not tune the learning rate and did not verify convergence".
+
+### 7.6c What the network learned
+
+`cnn_first_layer_filters.png` — the 32 learned 3×3 kernels, on a shared diverging scale. They
+are **oriented difference operators**: the learned analogue of the fixed gradient filter HOG
+and SIFT apply by construction. That is the most compact answer the report can give to "what
+does *learned* actually buy here" — not a different kind of operator, but one fitted to the
+data, stacked, and followed by two more blocks. The weight-norm spread also shows the layer
+does not use its capacity evenly.
+
+`cnn_activations.png` — mean activation after each block for four sign shapes:
+48×48 → 24×24 → 12×12 → 6×6 as channels widen 32 → 64 → 128. **The network trades *where* for
+*what*.** Useful directly against HOG: by block 3 a whole sign is described on a 6×6 grid,
+*coarser* than HOG's 8×8 cells — but with 128 learned channels per position instead of 9 fixed
+orientation bins.
+
+### 7.6d A caption statistic that was wrong, and how it was caught
+
+The dropout figure first reported "dropout zeroes **−1 %** more of the vector per call" — a
+negative percentage, i.e. meaningless. The quantity was a difference in zero *counts*, but
+ReLU already zeroes most dimensions and dropout rescales the survivors, so the count barely
+moves and its sign is arbitrary. Replaced with what actually describes the damage: the
+**fraction of dimensions that change** and the change **relative to the vector's own peak**.
+
+Caught by reading the rendered figure, not by any test — the same way the motion-blur kernel
+defect (§3.2) and the BoVW blur captions (note 14 §13.3) were caught.
