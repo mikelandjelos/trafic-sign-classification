@@ -545,13 +545,13 @@ does not.
 
 | noise σ=40, % of own clean macro-F1 | |
 |---|---|
-| PCA | **77.5** |
+| PCA | **76.7** |
 | BoVW | 65.6 |
 | **CNN (both)** | **~44** |
 | HOG | 14.8 |
 
-**The CNNs sit mid-table under noise and are beaten outright by PCA** — 0.5834 against ~0.425
-absolute macro-F1 at σ=40. The network has 0.88 M learned parameters and loses, on the same
+**The CNNs sit mid-table under noise and are beaten outright by both PCA and BoVW** — 0.5606
+and 0.5639 against ~0.425 absolute macro-F1 at σ=40. The network has 0.88 M learned parameters and loses, on the same
 pixels, to a 256-dimensional linear projection.
 
 Worth being precise about why this is not a criticism of the CNN: it was trained on **clean

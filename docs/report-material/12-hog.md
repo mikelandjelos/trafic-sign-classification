@@ -421,7 +421,7 @@ Test (task 8.1): accuracy **0.9238**, macro-F1 **0.9062** — third of five on c
 | next-worst method at that level | 97.1 | 89.2 | 71.4 | 43.8 |
 
 **HOG loses a fifth of its performance at σ=5** — the *mildest* noise level in the grid — and
-retains 14.8 % at σ=40, where PCA retains 77.5 %. That is a **5.2× gap**, the largest effect
+retains 14.8 % at σ=40, where PCA retains 76.7 %. That is a **5.2× gap**, the largest effect
 in the robustness grid.
 
 **The task 5.5 demo predicted this exactly, and quantified the mechanism.** Per-cell gradient

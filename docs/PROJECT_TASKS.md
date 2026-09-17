@@ -761,10 +761,12 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       `20260917T023936-bc880c9` (BoVW). 80/80 cells, 535 rows, no retraining. Full results and
       analysis in **`docs/report-material/15-results.md`**.
       **THE HEADLINE PREDICTION HOLDS, both directions.** Retention vs each method's own clean
-      baseline: at **noise σ=40** PCA **77.5 %** (best) against HOG **14.8 %** (worst, 5.2×
+      baseline: at **noise σ=40** PCA **76.7 %** (best) against HOG **14.8 %** (worst, 5.2×
       apart); at **gamma 2.5** HOG **89.2 %** against PCA **72.3 %** (worst). **The ranking
-      inverts** — Spearman vs the clean ranking is **−0.70** at noise 40, and PCA goes last →
-      **first**, beating both CNNs in absolute macro-F1 (0.5834 vs ~0.425).
+      inverts** — Spearman vs the clean ranking is **−0.60** at noise 40, and PCA goes last →
+      **second**, with PCA (0.5606) and BoVW (0.5639) level within 0.33 pp and **both far
+      ahead of the two CNNs (~0.425)**. (Those figures postdate the Q8 PCA refit, which
+      changed the rank — see `15-results.md` §8.)
       **6 of 7 prediction rows held.** The miss is gamma: BoVW (95.3 %) beats HOG (89.2 %)
       where the prediction said BoVW's protection would be "slightly weaker" — SIFT's per-patch
       clip-and-renormalise is non-linear where HOG's block L2 is linear, and gamma is close to
@@ -842,7 +844,7 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       counts would make the large classes look worse simply for being large.
       Per-class F1 for the clean condition is already in `results.csv` (`f1_class_*` rows from
       8.1), so this needs only the confusion matrices themselves. Best = `cnn_e2e` (0.9684),
-      worst = `pca_svm` (0.7525) on test macro-F1.
+      worst = `pca_svm` (0.7312) on test macro-F1.
 - [x] **9.3** Table: top-10 most-confused class pairs + commentary ~~(speed limits confuse predictably)~~
       **DONE, and the premise was wrong twice over.** Output in `15-results.md` §9.1.
       **No class is in the worst five of all methods; no pair is in the top-10 of all
