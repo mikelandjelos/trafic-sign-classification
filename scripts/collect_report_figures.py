@@ -184,8 +184,11 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "Accuracy vs ROI height, one line per method.", deliverable=True),
     ReportFigure(
         "results/robustness_curves.png", "robustness_curves.png", "9.5",
-        "Robustness curves, 3 panels, relative to each method's own clean baseline. "
-        "The headline figure of the study.", deliverable=True),
+        "THE HEADLINE FIGURE. 3 panels, retention against each method's own clean baseline. "
+        "Shows the ranking inverting under noise (PCA last on clean, 76.7 % retained at "
+        "sigma=40 vs HOG's 14.8 %) and NOT inverting under blur or gamma — so the "
+        "representation x stressor interaction is real but stressor-specific.",
+        deliverable=True),
 )
 
 

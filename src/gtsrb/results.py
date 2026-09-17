@@ -172,6 +172,24 @@ def load(path: Path | None = None) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def latest_per_cell(frame: pd.DataFrame) -> pd.DataFrame:
+    """Keep only the most recent run for each (method, degradation, level, metric).
+
+    **This file is append-only by design** (task 1.6): a re-run does not overwrite a row, it
+    adds one, so every consumer must decide which run it means. Filtering by a `run_id` prefix
+    is the obvious shortcut and it is a trap -- when `pca_svm` was refitted under the Q8
+    policy and its grid row re-run, the new rows fell outside the prefix `table1.py` carried,
+    and that table silently kept printing superseded numbers while every other document had
+    been corrected.
+
+    `run_id` is `<timestamp>-<commit>`, so a lexicographic sort is chronological and taking
+    the last is stable under any number of re-runs. Use this rather than re-deriving it.
+    """
+    return (frame.sort_values("run_id")
+                 .groupby(["method", "degradation", "level", "metric"], as_index=False)
+                 .last())
+
+
 def pivot(
     frame: pd.DataFrame,
     metric: str = "accuracy",

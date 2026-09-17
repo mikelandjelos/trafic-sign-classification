@@ -47,6 +47,7 @@ import json
 import pandas as pd
 
 from gtsrb import config
+from gtsrb import results as results_mod
 
 METHODS: tuple[str, ...] = (
     "pca_svm", "hog_svm", "bovw_svm", "cnn_feat_svm", "cnn_e2e",
@@ -89,25 +90,10 @@ def load_average(run_id: str) -> float | None:
     return json.loads(path.read_text()).get("load_average", [None])[0]
 
 
-def latest_per_cell(frame: pd.DataFrame) -> pd.DataFrame:
-    """Keep only the most recent run for each (method, degradation, level, metric).
-
-    `results.csv` is append-only by design, so a re-run does not overwrite -- it adds. Filtering
-    by a hard-coded `run_id` prefix is the obvious shortcut and it is a trap: when `pca_svm` was
-    refitted under the Q8 policy and its grid row re-run, the new rows fell OUTSIDE the prefix
-    this function used to carry, and the table silently kept printing the superseded numbers
-    while every other document had been corrected. Sorting by `run_id` (which is timestamp-
-    prefixed) and taking the last is stable under any number of re-runs.
-    """
-    return (frame.sort_values("run_id")
-                 .groupby(["method", "degradation", "level", "metric"], as_index=False)
-                 .last())
-
-
 def collect() -> pd.DataFrame:
     frame = pd.read_csv(config.RESULTS_CSV)
     # Test rows are the ones without the `val_` prefix; `clean` at NO_LEVEL is the headline.
-    test = latest_per_cell(frame[frame.metric.isin(("accuracy", "macro_f1"))])
+    test = results_mod.latest_per_cell(frame[frame.metric.isin(("accuracy", "macro_f1"))])
 
     rows = []
     for method in METHODS:
