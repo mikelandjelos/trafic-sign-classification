@@ -662,3 +662,55 @@ to look alike"* — written from the prediction, before the data existed. The me
 neither. They now describe what was measured. This is exactly the failure mode `CLAUDE.md`
 warns about: a figure that asserts the expected result rather than the observed one, and it
 survived until the figure was actually looked at.
+
+---
+
+## 14. BoVW on test — and the prediction it broke (task 8.1)
+
+Test: accuracy **0.9141**, macro-F1 **0.8596** — fourth of five on clean data. **Second most
+noise-robust, most gamma-robust, and least blur-robust of all five.** The strongest
+representation × stressor interaction in the study.
+
+| % of own clean macro-F1 | noise σ=40 | blur k=15 | gamma 2.5 |
+|---|---|---|---|
+| **BoVW** | **65.6** (2nd) | **20.7** (worst) | **95.3** (BEST) |
+| PCA | 77.5 | 43.1 | 72.3 |
+| HOG | 14.8 | 23.9 | 89.2 |
+| CNN (both) | ~44 | ~38 | ~86 |
+
+### 14.1 The gamma result falsifies the locked prediction
+
+`predictions.md` said SIFT's normalisation would give BoVW *"similar (slightly weaker)"*
+protection than HOG's. **BoVW is the most gamma-robust method in the study**, and in absolute
+**accuracy** at γ=2.5 it is the outright best (0.8873, ahead of HOG's 0.8409 and `cnn_e2e`'s
+0.8113).
+
+The mechanism, and it is a detail of §3 that the prediction overlooked: **HOG's L2-Hys is
+linear and block-scoped; SIFT's is per-patch and non-linear.** SIFT normalises the 128-dim
+descriptor, **clips every component at 0.2, and renormalises** — and that clip suppresses
+precisely the large gradient components a gamma curve inflates. A linear normaliser cancels a
+*linear* contrast change exactly (HOG measured 0.0000 at task 5.5) but only partly cancels
+gamma (0.0339); the clip degrades gracefully across both.
+
+### 14.2 The same property explains §13.2's non-collapse
+
+Task 6.6 found blur does **not** collapse the vocabulary (distinct words −18 %, between-class
+similarity flat) and attributed it to the same L2 normalisation — blur cuts gradient
+*magnitude* while descriptor *direction* still varies, and k-means assigns by direction.
+
+**One descriptor property, two unpredicted results.** The report should present them together:
+SIFT's normalise-clip-renormalise makes BoVW robust to anything that scales gradient magnitude
+without moving edges. Gamma is that case exactly; blur is that case partially.
+
+### 14.3 …and it is why the blur row still held, for the *other* reason
+
+BoVW is nevertheless the **worst** method under blur (20.7 %). The descriptors survive; what
+BoVW lacks is anywhere to fall back to once blur merges edges and the local evidence becomes
+ambiguous. That is the blur prediction's **second** mechanism — "no spatial layout left to
+fall back on" — and **§9's +10.4 pp is the direct measurement of it**.
+
+So the blur row is right, the first half of its stated reasoning is wrong, and the diagnostic
+we nearly promoted to a method is what supplies the correct explanation. That is worth saying
+plainly in the discussion.
+
+Full grid and analysis: [15-results.md](15-results.md).

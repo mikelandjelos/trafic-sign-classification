@@ -407,3 +407,35 @@ so CLAHE is redundant for it and very slightly harmful (−0.4 pp).
 One consequence to carry into 9.1: **HOG is now the only hand-designed method whose reported
 number required no compromise**, while PCA gives up 2.6 pp. If HOG's margin over PCA is
 discussed, that 2.6 pp belongs in the sentence.
+
+---
+
+## ADDENDUM 2 (2026-09-17) — HOG on test: the sharpest failure in the study
+
+Test (task 8.1): accuracy **0.9238**, macro-F1 **0.9062** — third of five on clean data, and
+**last under noise by a wide margin**.
+
+| noise σ | 5 | 10 | 20 | 40 |
+|---|---|---|---|---|
+| HOG, % of its own clean macro-F1 | 80.6 | 61.9 | 37.0 | **14.8** |
+| next-worst method at that level | 97.1 | 89.2 | 71.4 | 43.8 |
+
+**HOG loses a fifth of its performance at σ=5** — the *mildest* noise level in the grid — and
+retains 14.8 % at σ=40, where PCA retains 77.5 %. That is a **5.2× gap**, the largest effect
+in the robustness grid.
+
+**The task 5.5 demo predicted this exactly, and quantified the mechanism.** Per-cell gradient
+energy relative to clean showed low-contrast background cells reaching **6× their clean
+energy** at σ=40 while the sign centre stayed near 1×. Differentiation is a high-pass
+operation: it amplifies noise rather than averaging it, and it does so worst precisely where
+there was no real gradient to report, so those cells' orientation votes go random. The demo
+figure and this grid row are the same finding at two scales, and should be presented together.
+
+**Gamma: the prediction held, but name the quantity.** HOG is the most gamma-robust method *on
+retention* (89.2 % at γ=2.5, vs the CNNs' 86.1 %) — but **not** in absolute macro-F1, where
+the CNNs score higher (0.8338 vs 0.8084), and **not** against BoVW, which retains 95.3 %. The
+locked prediction ("HOG most robust under gamma") is therefore **scored as a miss**: see
+[15-results.md](15-results.md) §4.1, which traces it to block-L2 being *linear* where SIFT's
+per-patch clip-and-renormalise is not.
+
+Full grid and analysis: [15-results.md](15-results.md).

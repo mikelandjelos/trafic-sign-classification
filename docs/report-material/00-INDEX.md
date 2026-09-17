@@ -20,7 +20,9 @@ Distinct from:
 - Every claim that will appear in the report cites either a results.csv row, a figure
   file, or a source in `docs/proposition/references.bib`.
 - **Surprises get written down even when they are inconvenient.** A prediction that
-  failed is more valuable to the discussion section than one that held.
+  failed is more valuable to the discussion section than one that held. *(Scored at 8.1:
+  6 of 7 held, and the one miss — note 15 §4.1 — turned out to explain a second
+  unpredicted result as well.)*
 
 ## Notes
 
@@ -36,10 +38,12 @@ Distinct from:
 | [08-preprocessing.md](08-preprocessing.md) | Methodology → preprocessing; ablation table 9.7; **Limitations** | complete (tasks 2.1–2.3) + addendum 2026-09-16 (preproc fixed at `raw_gray`) |
 | [09-jitter-and-datasets.md](09-jitter-and-datasets.md) | Scope; **Limitations**; Future work | decided (extension §11) |
 | [10-degradations.md](10-degradations.md) | Methodology → degradations; fig. 9.5; contact sheet | complete (tasks 3.1–3.3, 3.5) |
-| [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (tasks 4.1–4.5) + addendum 2026-09-16 (row moves to `raw_gray`) |
-| [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (tasks 5.1–5.5) + addendum 2026-09-16 (unaffected — already `raw_gray`) |
-| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU, untuned LR, patience-limited stop) | **complete (7.1–7.6)** + addenda 2026-09-16/17 |
-| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; **the layout measurement (§9), in the DISCUSSION**; **preprocessing-vs-normalisation pattern (§11.1, feeds 9.7)**; **a falsified blur prediction (§13.2, feeds 9.6)**; §11 premise | **complete (6.1–6.6)**; reported config in §11; **6.5b reverted — SPM is a diagnostic, not a row** |
+| [11-pca.md](11-pca.md) | Methodology → representations; **classifier protocol**; Table 1; figs 4.2, 4.4, 9.5, 9.7 | complete (4.1–4.5) + addenda 2026-09-16/17 — **§ADD3 has the noise result: PCA last on clean, FIRST at σ=40** |
+| [12-hog.md](12-hog.md) | Methodology → representations; Table 1; fig 5.4; noise & gamma panels (9.5) | complete (5.1–5.5) + addenda 2026-09-16/17 — **§ADD2: the sharpest failure in the study, 14.8 % retained at σ=40** |
+| [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU, untuned LR, patience-limited stop) | **complete (7.1–7.6)** + addenda 2026-09-16/17 — **§ADD3: learned ≠ robust; the two CNN rows are indistinguishable under stress** |
+| [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; **the layout measurement (§9), in the DISCUSSION**; **preprocessing-vs-normalisation pattern (§11.1, feeds 9.7)**; **a falsified blur prediction (§13.2, feeds 9.6)**; §11 premise | **complete (6.1–6.6)**; reported config in §11; 6.5b reverted (SPM = diagnostic); **§14: most gamma-robust method, and the one falsified prediction** |
+
+| [15-results.md](15-results.md) | **Results (the whole section)**; Table 1 (9.1); robustness curves (9.5); **predictions vs outcomes (9.6)** | **complete (tasks 8.1, 8.3)** — 80/80 cells, 0 NaNs |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
 render is copied into `figures/report/` (committed) by

@@ -679,3 +679,34 @@ spread across both families.
 both PCA (68.3 %) and `cnn_feat_svm` (30.0 %)** on the same input. Two representations sharing
 nothing structurally, failing hardest on the same pair, at ~2× attenuation — the same signature
 §9.3 reports, on a different pair. That difficulty is intrinsic to the classes.
+
+---
+
+## ADDENDUM 3 (2026-09-17) — PCA on test, and the result the whole study was built for
+
+Test (task 8.1): accuracy **0.7986**, macro-F1 **0.7525** — last of five on clean data, 15 pp
+behind HOG. **And first under heavy noise.**
+
+| noise σ | 0 | 5 | 10 | 20 | 40 |
+|---|---|---|---|---|---|
+| PCA, % of its own clean macro-F1 | 100 | 99.2 | 97.6 | 90.9 | **77.5** |
+| HOG, same | 100 | 80.6 | 61.9 | 37.0 | **14.8** |
+
+**At σ=40 PCA scores 0.5834 macro-F1 against HOG's 0.1341 and both CNNs' ~0.425.** It is the
+best method in the condition in absolute terms, not merely the slowest to degrade — a
+holistic linear subspace beating a convolutional network on the same pixels.
+
+The predicted mechanism is the right one: PCA retains 256 of 2304 dimensions, so most of the
+isotropic noise energy falls outside the subspace and is averaged away. **The 4.1 decision not
+to whiten is what makes this work** — whitening would rescale the low-variance directions
+where the noise concentrates, and §4.1 flagged that at the time as the reason to keep
+`whiten=False`. That reasoning is now vindicated by measurement rather than argument.
+
+**The gamma asymmetry, and PC1.** PCA is the *worst* method under gamma, as predicted — but
+unevenly: γ=0.4 costs **20.9 pp** of retention while γ=1.5 costs 9.2 pp. That fits the
+PC1-is-brightness measurement (52.3 % of variance, r=+0.9975 with mean intensity): darkening
+compresses the projection toward a region the training data populated, brightening pushes it
+off the training distribution. The figure at §9 and this asymmetry belong together in the
+discussion.
+
+Full grid and analysis: [15-results.md](15-results.md).

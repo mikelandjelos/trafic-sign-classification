@@ -515,3 +515,54 @@ moves and its sign is arbitrary. Replaced with what actually describes the damag
 
 Caught by reading the rendered figure, not by any test — the same way the motion-blur kernel
 defect (§3.2) and the BoVW blur captions (note 14 §13.3) were caught.
+
+---
+
+## ADDENDUM 3 (2026-09-17) — the CNN on test, and "learned ≠ robust"
+
+Test (task 8.1):
+
+| | accuracy | macro-F1 |
+|---|---|---|
+| `cnn_e2e` | 0.9785 | **0.9684** |
+| `cnn_feat_svm` | **0.9804** | 0.9651 |
+
+Both lead the clean table, as expected. **Two findings, neither of them about clean accuracy.**
+
+### The two rows are indistinguishable under stress
+
+Across all 16 conditions the two CNN rows stay within **~0.5 pp of each other** and swap
+places repeatedly (`cnn_feat_svm` is ahead at noise σ=5, σ=20 and σ=40; `cnn_e2e` at blur and
+gamma). The objective mismatch of §1.1 costs about 0.8 pp of clean macro-F1 and **nothing
+measurable in robustness**.
+
+That is the cleanest available statement of the §1.1 caveat: the gap between a softmax head
+and a linear SVM on the same features is a property of **the head**, not of the
+representation — because if it were the representation, it would show up under stress, and it
+does not.
+
+### Learned features are not automatically robust features
+
+| noise σ=40, % of own clean macro-F1 | |
+|---|---|
+| PCA | **77.5** |
+| BoVW | 65.6 |
+| **CNN (both)** | **~44** |
+| HOG | 14.8 |
+
+**The CNNs sit mid-table under noise and are beaten outright by PCA** — 0.5834 against ~0.425
+absolute macro-F1 at σ=40. The network has 0.88 M learned parameters and loses, on the same
+pixels, to a 256-dimensional linear projection.
+
+Worth being precise about why this is not a criticism of the CNN: it was trained on **clean
+data only**, like every other method, and nothing in its objective rewarded noise tolerance.
+The finding is that **capacity and clean accuracy do not imply robustness**, which is exactly
+the kind of claim the proposal's §1 says a practitioner needs when choosing a representation
+for a known condition. With augmentation the picture would likely change — and that is future
+work, not a result we have.
+
+The CNNs *are* the most blur-robust methods (39.6 % / 36.8 % at k=15, behind only PCA's 43.1 %
+in retention but ahead in absolute score), so this is stressor-specific, not a general
+weakness.
+
+Full grid and analysis: [15-results.md](15-results.md).

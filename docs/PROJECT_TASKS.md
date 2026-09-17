@@ -756,9 +756,20 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 > **P.1 (see §2)** — ~~write `predictions.md` before task 8~~ was **done early**, on
 >   2026-09-13 before task 4.1. Waiting until Day 3 would have meant predicting after
 >   seeing PCA, HOG, BoVW and CNN results. Recorded once, in §2.
-- [ ] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
-      **Runner written and tested 2026-09-17**: `scripts/evaluate_grid.py`, 9 tests.
-      **All five models exist and are persisted — this is ready to run.**
+- [x] **8.1** Run full evaluation grid (§7) — inference only, no retraining *(task 8 = 1.5 h)*
+      **DONE 2026-09-17** — runs `20260917T022546-bc880c9` (four methods) and
+      `20260917T023936-bc880c9` (BoVW). 80/80 cells, 535 rows, no retraining. Full results and
+      analysis in **`docs/report-material/15-results.md`**.
+      **THE HEADLINE PREDICTION HOLDS, both directions.** Retention vs each method's own clean
+      baseline: at **noise σ=40** PCA **77.5 %** (best) against HOG **14.8 %** (worst, 5.2×
+      apart); at **gamma 2.5** HOG **89.2 %** against PCA **72.3 %** (worst). **The ranking
+      inverts** — Spearman vs the clean ranking is **−0.70** at noise 40, and PCA goes last →
+      **first**, beating both CNNs in absolute macro-F1 (0.5834 vs ~0.425).
+      **6 of 7 prediction rows held.** The miss is gamma: BoVW (95.3 %) beats HOG (89.2 %)
+      where the prediction said BoVW's protection would be "slightly weaker" — SIFT's per-patch
+      clip-and-renormalise is non-linear where HOG's block L2 is linear, and gamma is close to
+      its best case. Same property explains 6.6's non-collapse under blur.
+      **Runner**: `scripts/evaluate_grid.py`, 9 tests.
       **5 methods × 16 conditions = 80 cells at `raw_gray`**, which is the reported grid.
       Run the other two preprocessing configs as well if the wall-clock allows (it is
       inference-only); they feed 8.2 and the limitations note, and are dropped without loss
@@ -781,7 +792,10 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       object*, making "the methods were compared on different pixels" structurally impossible
       rather than merely prevented by seeding.
 - [ ] **8.2** Preprocessing ablation: best 2 methods × 3 configs. **OPTIONAL — skip if it
-      costs real time** (decision 2026-09-16). Preprocessing is now held fixed at `raw_gray`
+      costs real time** (decision 2026-09-16). **Still unrun after 8.1; recommend SKIP** — the
+      per-method sweeps already answer its question, and 15-results §7 records the resulting
+      limitation explicitly (ranking stability across preprocessing is *argued*, not measured
+      on the test grid). Preprocessing is now held fixed at `raw_gray`
       (§1), so this task no longer supports a headline claim; it is a robustness footnote.
       Most of its content already exists for free in the per-method sweeps, which are reported
       at 9.7 regardless. If skipped, say so in the limitations rather than leaving it implied.
@@ -799,7 +813,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       conclusion is not an artifact of one preprocessing choice. Claim ordinally — with one
       seed and no repeats we cannot support "no significant difference". A ranking that does
       flip is a finding and gets reported.
-- [ ] **8.3** Verify results CSV is complete, no NaNs
+- [x] **8.3** Verify results CSV is complete, no NaNs
+      **PASSED 2026-09-17**: `results.check_complete()` reports **0 missing cells, 0 NaNs**
+      across all 80. 535 rows.
       `results.check_complete()` against the 80-cell grid. **This is the review checkpoint**
       (agreed 2026-09-16): when 8.3 passes, stop and recap everything — the five methods, every
       finding, every withdrawn claim, the state of all docs and figures — **before** starting
@@ -821,6 +837,9 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       reads as "PCA is 20× bigger than HOG" when the real difference is a learned dictionary
       vs none. See `docs/report-material/06-cost-measurement.md`.
 - [ ] **9.2** Figure: confusion matrix, best and worst method
+      Per-class F1 for the clean condition is already in `results.csv` (`f1_class_*` rows from
+      8.1), so this needs only the confusion matrices themselves. Best = `cnn_e2e` (0.9684),
+      worst = `pca_svm` (0.7525) on test macro-F1.
 - [ ] **9.3** Table: top-10 most-confused class pairs + commentary (speed limits confuse predictably)
       **Report confusions for more than the best and worst method.** PCA and the CNN — which
       share nothing structurally — fail on the *same* classes, with the same top confusion
@@ -832,10 +851,29 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       signs. See `docs/report-material/13-cnn.md` §7.3.
 - [ ] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
 - [ ] **9.5** Figure: robustness curves — 3 panels (noise, blur, gamma), one line per method.
+      **The data is complete** (8.1); this is now a plotting task. It is the study's headline
+      figure and it works: the noise panel shows PCA and HOG crossing between σ=0 and σ=5 and
+      ending 5.2× apart. Numbers in `15-results.md` §2.
+      **Plot retention, and label the axis as retention** — 15-results §4.3 records that HOG's
+      gamma "win" holds on retention but *not* on absolute macro-F1, where the CNNs lead. A
+      reader checking a different column would otherwise conclude the prediction failed.
       Plot accuracy **relative to each method's own clean baseline**, so the figure compares
       rate of degradation rather than starting point (and stays commensurable with the §11
       jitter panel, which lives on a different test set).
 - [ ] **9.6** **Table: predictions vs. outcomes** — which held, which didn't, and why. This is the core of the discussion section.
+      **Scored at 8.1: 6 of 7 MVP rows held** — table in `15-results.md` §4, with the
+      mechanism for each. Score against the **2026-09-13 table only**; the SPM addendum in
+      `predictions.md` is marked NEVER EVALUATED because that method was dropped (note 14
+      §9.4), and it must not be quietly counted as a miss.
+      **The one miss is the most valuable row** (§4.1): gamma predicted HOG most robust, but
+      BoVW wins at 95.3 % vs 89.2 %. The prediction treated SIFT's and HOG's normalisation as
+      the same mechanism at different strengths; they are not — SIFT's is per-patch and
+      *non-linear* (0.2 clip + renormalise), HOG's is per-block and linear. The same property
+      explains 6.6's non-collapse under blur, so one descriptor detail accounts for **two**
+      unpredicted results.
+      Also carry the **two prediction-adjacent findings the demos produced**: 6.6 falsified the
+      blur row's *first* mechanism (codeword collapse) while the row itself still held for its
+      *second* (no layout to fall back on), which §9's +10.4 pp supports directly.
 - [ ] **9.7** Table: preprocessing ablation — **must carry the hue-wrap finding.**
       `clahe_hsv` stores OpenCV HSV where hue wraps at 0/179, and red — the commonest sign
       colour — sits on the wrap: *Stop* has 56.5 % of saturated pixels at hue<10 and 4.4 % at
@@ -849,6 +887,14 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       Reported as **ranking stability per
       stressor** across the three configs (see 8.2), not as a bare accuracy comparison.
 - [ ] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
+      Candidates, all measured: (1) **the ranking inverts under noise** (Spearman −0.70; PCA
+      last → first, ahead of both CNNs); (2) **learned ≠ robust** — the CNNs sit mid-table
+      under noise and lose to a linear subspace at σ=40; (3) **internal normalisation is what
+      buys gamma robustness**, and its *kind* matters (SIFT's non-linear clip beats HOG's
+      linear block L2); (4) **orderlessness is expensive and measurable** — +10.4 pp from
+      layout alone, on identical descriptors and vocabulary; (5) **parameters dominated
+      method** for BoVW — +53 pp from geometry, larger than any between-method gap in the
+      study. See `15-results.md` and note 14.
 - [ ] Buffer
 
 ### Day 5 — Report (Serbian)
