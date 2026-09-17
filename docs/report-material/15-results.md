@@ -350,3 +350,92 @@ version of §3 stated the rank claim as a headline.
 3. **The 0.33 pp PCA/BoVW gap is inside the noise this project can resolve**, and §7's caveat
    now has a concrete instance: a 2.1 pp change in one method's clean score reordered a
    headline. Ordinal claims only, and only where the gaps are large.
+
+---
+
+## 9. Clean-test structure: confusions and size (tasks 9.2, 9.3, 9.4)
+
+`scripts/analyse_clean.py` — one pass over the clean-test predictions, three deliverables.
+Figures: `confusion_best_worst.png` (9.2), `accuracy_by_size.png` (9.4).
+
+### 9.1 The methods do NOT fail on the same things — and that is the finding
+
+Overlap of each method's **five worst classes** by per-class F1:
+
+| | PCA | HOG | BoVW | CNN-feat | CNN-e2e |
+|---|---|---|---|---|---|
+| **PCA** | 5/5 | **1/5** | 3/5 | 3/5 | 3/5 |
+| **HOG** | 1/5 | 5/5 | **1/5** | **0/5** | **1/5** |
+| **BoVW** | 3/5 | 1/5 | 5/5 | 2/5 | 3/5 |
+| **CNN-feat** | 3/5 | 0/5 | 2/5 | 5/5 | **4/5** |
+| **CNN-e2e** | 3/5 | 1/5 | 3/5 | 4/5 | 5/5 |
+
+Overlap of each method's **top-10 confused pairs** — a stricter test, since two methods can
+struggle with the same class while confusing it with different things:
+
+| | PCA | HOG | BoVW | CNN-feat | CNN-e2e |
+|---|---|---|---|---|---|
+| **PCA** | 10 | 4 | 2 | **0** | 1 |
+| **HOG** | 4 | 10 | 4 | **0** | 1 |
+| **BoVW** | 2 | 4 | 10 | 1 | 2 |
+| **CNN-feat** | 0 | 0 | 1 | 10 | **6** |
+| **CNN-e2e** | 1 | 1 | 2 | 6 | 10 |
+
+**No class is in the worst five of all methods. No pair is in the top-10 of all methods.**
+
+Two clusters fall out cleanly:
+
+- **The three hand-designed methods share mistakes with each other** (PCA–HOG 4 pairs,
+  HOG–BoVW 4, PCA–BoVW 2).
+- **The two CNN rows share 6 pairs with each other and 0–2 with anything hand-designed.**
+  `cnn_feat_svm` shares **zero** of its top-10 with PCA and **zero** with HOG.
+
+So the CNN is not "the same thing but better" — it **fails differently**. That is a stronger
+statement of the representation × difficulty interaction than the robustness grid makes,
+because it holds on *clean* data where all five are working well.
+
+**HOG is the outlier among the hand-designed three too** (1/5, 1/5, 0/5 class overlap): its
+errors are concentrated on speed-limit digits, the fine within-cell detail its 6 px pooling
+discards (note 12 §5.2, corroborated visually at 5.4).
+
+> **This corrects note 13 §7.3.** On validation, with `clahe_gray` and `class_weight=None`,
+> PCA and the CNN appeared to share four of five worst classes and their single top confusion,
+> and that was written up as evidence the difficulty is *intrinsic to those classes*. **On
+> test, under the corrected protocol, it does not hold**: they share 3/5 classes but **0 of 10
+> pairs**. The right claim is narrower and more interesting — they find some of the same
+> classes hard, and then confuse them with entirely different things.
+
+### 9.2 Accuracy by sign size — the prediction is half wrong
+
+| method | [0,32) | [32,48) | [48,72) | [72,∞) | drop, largest → smallest |
+|---|---|---|---|---|---|
+| PCA | 0.740 | 0.854 | 0.853 | 0.775 | +3.5 pp |
+| HOG | 0.885 | 0.957 | 0.959 | 0.966 | **+8.1 pp** |
+| BoVW | **0.892** | 0.946 | 0.930 | 0.902 | **+1.0 pp** |
+| CNN-feat | **0.975** | 0.993 | 0.984 | 0.960 | −1.5 pp |
+| CNN-e2e | 0.969 | 0.989 | 0.986 | 0.984 | +1.5 pp |
+
+`predictions.md`: *"Small signs <32 px — most robust **CNN**, least robust **BoVW**."*
+
+- **CNN most robust: ✅** 0.975 / 0.969 at <32 px, and `cnn_feat_svm` is actually *better* on
+  small signs than on the largest bucket.
+- **BoVW least robust: ❌** BoVW is **0.892 at <32 px, the best of the three hand-designed
+  methods**, and by *drop* it is the most size-stable method in the study (+1.0 pp). **HOG**
+  degrades most (+8.1 pp), and **PCA** is worst in absolute terms (0.740).
+
+**Why the prediction failed, and it is the tuning's fault, not the reasoning's.** The stated
+mechanism was that "upsampled small signs carry no genuine high-frequency detail, so dense
+SIFT has too little local support" — which was a correct argument **about the BoVW the plan
+specified**, with 12 px keypoints on a 48 px crop. Task 6.5 changed the descriptor scale to
+**2 px** (+53 pp, note 14 §11), and a 2 px patch needs almost no local support. **The
+prediction was made about a method that the tuning then replaced.**
+
+That is worth stating plainly in 9.6: a +53 pp parameter change did not merely make BoVW
+better, it **changed which stressors it is vulnerable to**. It remains worst under blur, where
+the missing ingredient is layout rather than local support — a property tuning cannot fix.
+
+**One more oddity worth a sentence:** PCA is **non-monotonic**, peaking in the middle buckets
+(0.854 at [32,48)) and falling at both ends. The large-sign end is the surprise. A plausible
+reading is that the largest crops are downsampled *into* 48×48 while small ones are upsampled,
+and PCA — alone among the five — has no internal normalisation to absorb the resulting
+difference in effective sharpness. Not measured; flagged as a hypothesis, not a finding.

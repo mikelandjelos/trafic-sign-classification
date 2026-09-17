@@ -836,11 +836,26 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       stage at all (~0.1 MB of SVM coefficients). Say what dominates each row, or the table
       reads as "PCA is 20× bigger than HOG" when the real difference is a learned dictionary
       vs none. See `docs/report-material/06-cost-measurement.md`.
-- [ ] **9.2** Figure: confusion matrix, best and worst method
+- [x] **9.2** Figure: confusion matrix, best and worst method — `scripts/analyse_clean.py` →
+      `figures/report/confusion_best_worst.png`. Best `cnn_e2e` (0.9684), worst `pca_svm`
+      (0.7312). **Row-normalised**, because test classes differ 12.5× in frequency and raw
+      counts would make the large classes look worse simply for being large.
       Per-class F1 for the clean condition is already in `results.csv` (`f1_class_*` rows from
       8.1), so this needs only the confusion matrices themselves. Best = `cnn_e2e` (0.9684),
       worst = `pca_svm` (0.7525) on test macro-F1.
-- [ ] **9.3** Table: top-10 most-confused class pairs + commentary (speed limits confuse predictably)
+- [x] **9.3** Table: top-10 most-confused class pairs + commentary ~~(speed limits confuse predictably)~~
+      **DONE, and the premise was wrong twice over.** Output in `15-results.md` §9.1.
+      **No class is in the worst five of all methods; no pair is in the top-10 of all
+      methods.** Two clusters instead: the three hand-designed methods share mistakes with
+      each other (PCA–HOG 4 pairs, HOG–BoVW 4), while the two CNN rows share 6 with each
+      other and **0–2 with anything hand-designed** — `cnn_feat_svm` shares **zero** of its
+      top-10 with PCA and **zero** with HOG. The CNN is not "the same but better", it fails
+      differently, and that holds on *clean* data where all five work well.
+      **This corrects note 13 §7.3**, which reported from validation that PCA and the CNN
+      share four of five worst classes and their top confusion, and read that as difficulty
+      being *intrinsic to those classes*. On test under the corrected protocol they share 3/5
+      classes but **0 of 10 pairs** — they find some of the same classes hard and then confuse
+      them with entirely different things.
       **Report confusions for more than the best and worst method.** PCA and the CNN — which
       share nothing structurally — fail on the *same* classes, with the same top confusion
       (End of no passing → End of all speed and passing limits: 60.0 % for PCA, 15.0 % for the
@@ -849,9 +864,29 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       method's confusion table cannot show. Note also the commentary premise needs revising:
       the hardest pairs are *not* the speed limits but the near-identical end-of-restriction
       signs. See `docs/report-material/13-cnn.md` §7.3.
-- [ ] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
-- [ ] **9.5** Figure: robustness curves — 3 panels (noise, blur, gamma), one line per method.
-      **The data is complete** (8.1); this is now a plotting task. It is the study's headline
+- [x] **9.4** Figure: accuracy vs. sign size — buckets [0,32), [32,48), [48,72), [72,∞) by ROI height, one line per method
+      `figures/report/accuracy_by_size.png`; numbers in `15-results.md` §9.2. Free — the same
+      clean predictions, partitioned differently.
+      **The prediction is half wrong. CNN most robust ✅** (0.975 at <32 px, and
+      `cnn_feat_svm` is *better* on small signs than on the largest bucket). **BoVW least
+      robust ❌** — BoVW is 0.892 at <32 px, best of the three hand-designed methods, and by
+      *drop* the most size-stable method in the study (+1.0 pp). HOG degrades most (+8.1 pp);
+      PCA is worst absolutely (0.740) and **non-monotonic**, peaking in the middle buckets.
+      **Why it failed: the tuning replaced the method the prediction was about.** The stated
+      mechanism — "dense SIFT has too little local support" — was correct for the plan's 12 px
+      keypoints; 6.5 changed the scale to **2 px**, and a 2 px patch needs almost no support.
+      A +53 pp parameter change did not just make BoVW better, it **changed which stressors it
+      is vulnerable to**. Carry this into 9.6.
+- [x] **9.5** Figure: robustness curves — 3 panels (noise, blur, gamma), one line per method.
+      **DONE** — `scripts/figure_robustness.py` → `figures/report/robustness_curves.png`.
+      Retention against each method's own clean baseline, macro-F1 (`--metric accuracy` gives
+      the alternative; the two agree on every qualitative claim). Gamma on a log-x axis so 0.4
+      and 2.5 sit symmetrically about the identity at 1.0.
+      **Caption bug caught by looking at it:** it annotated "PCA and HOG cross between σ=0 and
+      σ=5", but on *retention* curves every line starts at 100 % by construction and nothing
+      can cross — the crossing is in absolute score and belongs in Table 1. Now annotates what
+      the panel shows: HOG losing a fifth of its performance at the mildest noise level.
+      **The data is complete** (8.1); this was a plotting task. It is the study's headline
       figure and it works: the noise panel shows PCA and HOG crossing between σ=0 and σ=5 and
       ending 5.2× apart. Numbers in `15-results.md` §2.
       **Plot retention, and label the axis as retention** — 15-results §4.3 records that HOG's
