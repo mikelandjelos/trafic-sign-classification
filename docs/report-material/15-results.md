@@ -439,3 +439,161 @@ the missing ingredient is layout rather than local support — a property tuning
 reading is that the largest crops are downsampled *into* 48×48 while small ones are upsampled,
 and PCA — alone among the five — has no internal normalisation to absorb the resulting
 difference in effective sharpness. Not measured; flagged as a hypothesis, not a finding.
+
+---
+
+## 10. Task 9.6 — predictions vs outcomes, complete
+
+**Scored against the 2026-09-13 table only.** The SPM addendum in `predictions.md` is marked
+NEVER EVALUATED (that method was dropped, note 14 §9.4) and is **not** counted as a miss.
+
+### 10.1 MVP stressor table — 8 of 10 rows held
+
+| # | prediction (2026-09-13) | outcome | |
+|---|---|---|---|
+| 1 | Noise: **PCA most robust** | 76.7 % retained, best by 11 pp | ✅ |
+| 2 | Noise: **HOG least robust** | 14.8 %, worst by 4.4× | ✅ |
+| 3 | Noise: BoVW "between PCA and HOG" | 65.6 %, 2nd of five | ✅ |
+| 4 | Blur: **PCA most robust** | 45.1 %, best | ✅ |
+| 5 | Blur: **BoVW least robust** | 20.7 %, worst | ✅ |
+| 6 | Blur ⚠: "HOG should beat BoVW" *(revised row)* | 23.9 % vs 20.7 % | ✅ |
+| 7 | Gamma: **PCA least robust** | 70.1 %, worst | ✅ |
+| 8 | Gamma: **HOG most robust** | **BoVW 95.3 % > HOG 89.2 %** | ❌ |
+| 9 | Small signs: **CNN most robust** | 0.975 at <32 px | ✅ |
+| 10 | Small signs: **BoVW least robust** | **BoVW 0.892 — best hand-designed; PCA 0.740 is worst** | ❌ |
+
+### 10.2 The headline prediction — confirmed, with one qualification the report must make
+
+> *No single representation wins everywhere, and the ranking inverts between stressors. The
+> sharpest falsifiable case: PCA best under noise and worst under gamma, HOG worst under noise
+> and best under gamma.*
+
+**Confirmed in both directions** (rows 1, 2, 7 held; row 8 failed only because a *third*
+method beat HOG, not because HOG did badly — it is still second on gamma retention).
+
+**The qualification:** the inversion is **stressor-specific, not general**. Spearman against
+the clean ranking is **−0.60 under noise** but **+0.70 under blur** and **+0.90 under gamma**.
+So the premise holds — but it is carried by one stressor out of three, and the report should
+say so rather than implying the ordering is unstable everywhere.
+
+### 10.3 Secondary expectations — mixed, and the misses are the useful ones
+
+| prediction | outcome | |
+|---|---|---|
+| Clean order `CNN > CNN-feat > HOG > BoVW > PCA` | **exactly** 0.9684 > 0.9651 > 0.9062 > 0.8596 > 0.7312 | ✅ |
+| "accuracy/macro-F1 gap widest for the weakest method; **PCA's largest**" | PCA 6.20 pp, BoVW 5.45, HOG 1.77, CNN-feat 1.53, CNN-e2e 1.02 | ✅ |
+| "PCA cheapest at inference" | 0.0069 ms batched, 0.3268 single — cheapest both ways | ✅ |
+| "BoVW most expensive" | 1.3810 / 2.7923 ms — most expensive both ways | ✅ |
+| "cost spans **more than an order of magnitude**" | batched **200×** ✅, but single-image only **8.5×** | ⚠ |
+| "`clahe_gray` > `raw_gray` **for the gradient methods**" | **HOG prefers `raw_gray`** (CLAHE costs it 0.4 pp); only PCA — which has no internal normalisation — prefers CLAHE | ❌ |
+| "`clahe_hsv` buys little for its 3× dimensionality" | costs everything, HOG −9.7 pp — and for a defective reason (§11 below) | ✅ |
+| "`clahe_hsv` possibly **hurts BoVW**, which can only use one channel" | BoVW barely notices preprocessing at all (0.1 pp between configs) | ❌ |
+
+**The two ❌ rows share one wrong belief**, and it is worth naming in the discussion: the
+predictions treated "gradient-based method" as the category that benefits from contrast
+enhancement. **The category that actually matters is whether the representation normalises
+internally.** HOG block-normalises, BoVW L2-normalises its descriptors, the CNN has BatchNorm
+— all three are near-indifferent to CLAHE. PCA has no internal normalisation and is the only
+method CLAHE helps (+2.6 pp). That reframing is §11.
+
+**The ⚠ row matters for the deployment framing.** The 200× cost spread is a *batched* artifact;
+at batch size 1 — a camera presenting one frame at a time, which is the setting the proposal
+describes — the spread collapses to 8.5×. PCA's headline cost advantage is largely an artifact
+of amortising a matrix multiply the deployment case never gets to amortise.
+
+### 10.4 Two mechanisms the predictions got wrong in an instructive way
+
+**Gamma (row 8).** The prediction said SIFT's normalisation gives BoVW *"similar (slightly
+weaker)"* protection than HOG's. It gives **stronger** protection — because HOG's L2-Hys is
+*linear and block-scoped* while SIFT's is *per-patch and non-linear* (clip at 0.2, then
+renormalise), and that clip suppresses exactly the large gradients a gamma curve inflates.
+**The same property explains why blur did not collapse BoVW's vocabulary** (note 14 §13.2):
+one descriptor detail, two unpredicted results.
+
+**Small signs (row 10).** The stated mechanism — "dense SIFT has too little local support" —
+was correct **for the method the plan specified**, with 12 px keypoints. Task 6.5 changed the
+scale to **2 px** (+53 pp), and a 2 px patch needs almost no support. **The prediction was made
+about a method the tuning replaced.** A parameter change did not merely improve BoVW, it moved
+which stressors it is vulnerable to — while leaving blur untouched, because there the missing
+ingredient is *layout*, which no amount of tuning supplies.
+
+---
+
+## 11. Task 9.7 — preprocessing, and the axis that actually predicts it
+
+Best validation macro-F1 per (method, config), from the per-method sweeps. **8.2 was not run**
+(§7); this is the ablation the sweeps already paid for.
+
+| method | `raw_gray` | `clahe_gray` | `clahe_hsv` | internal normalisation? |
+|---|---|---|---|---|
+| **PCA** | 0.7713 | **0.7977** (+2.64) | 0.7674 (−0.39) | **none** |
+| **HOG** | **0.9175** | 0.9138 (−0.37) | 0.8205 (−9.70) | block L2-Hys |
+| **BoVW** | **0.8808** | 0.8791 (−0.17) | not swept | SIFT per-patch L2 + clip |
+| **CNN e2e** | 0.9856 | **0.9872** (+0.16) | 0.9642 (−2.14) | BatchNorm |
+
+**The finding is the ordering of the last column.** How much preprocessing matters is not a
+property of being "gradient-based" — it tracks **whether the representation normalises
+internally**:
+
+- PCA, with none, is the only method CLAHE helps, and by the largest margin (+2.64 pp).
+- HOG, BoVW and the CNN all normalise internally and are indifferent (−0.37 to +0.16 pp).
+
+**This also justifies the fixed-`raw_gray` protocol** (index Q7): the largest preprocessing
+effect (2.64 pp) is smaller than the smallest between-method gap on clean test (PCA→BoVW is
+12.8 pp), so fixing preprocessing cannot reorder the comparison.
+
+### 11.1 `clahe_hsv` — a defective encoding, not evidence about colour
+
+`clahe_hsv` loses to grayscale for **every** method, and the report must not read that as
+"colour is uninformative for traffic signs". It is a **defective encoding of colour**:
+
+OpenCV HSV wraps hue at 0/179, and **red — the commonest sign colour — sits on the wrap**.
+*Stop* has 56.5 % of its saturated pixels at hue < 10 and 4.4 % at hue > 169. **3.98 % of
+adjacent-pixel hue gradients exceed 90**, and mean hue gradients match intensity gradients, so
+they win any max-magnitude channel selection.
+
+**The cost scales with how much the method differentiates**, which is the clean confirmation:
+
+| method | `clahe_hsv` cost | why |
+|---|---|---|
+| **HOG** | **−9.70 pp** | selects the max-magnitude gradient *across channels* — it actively picks the corrupted one |
+| CNN e2e | −2.14 pp, and **peaks at epoch 5 instead of 18** | learns a spurious early signal that does not generalise |
+| PCA | −0.39 pp | never differentiates; only sees the hue channel as extra dimensions |
+
+The fix is known (hue as cos/sin, or CIELab) and **deliberately not applied**: all sweeps used
+the current config, and changing it mid-study would invalidate the comparison. Reported as a
+limitation with the mechanism named.
+
+---
+
+## 12. Task 9.8 — five findings
+
+1. **The ranking inverts under noise, and the conventional answer is wrong there.** PCA is
+   *last* on clean test (0.7312) and retains **76.7 %** at σ=40 where HOG retains **14.8 %** —
+   a 5.2× gap, Spearman **−0.60** against the clean ranking. Both PCA and BoVW beat both CNNs
+   in absolute macro-F1 at that level. **But the inversion is stressor-specific**: blur and
+   gamma correlate *positively* with clean performance (+0.70, +0.90).
+
+2. **Learned features are not automatically robust features.** The CNNs win clean by 6 pp and
+   sit mid-table under noise, losing to a 256-dimensional linear projection. They were trained
+   on clean data only and nothing rewarded noise tolerance — which is the point: capacity and
+   clean accuracy do not imply robustness, and a practitioner choosing for a known condition
+   cannot read robustness off a leaderboard.
+
+3. **What buys robustness to intensity changes is internal normalisation — and its *kind*
+   matters.** Methods that normalise internally are near-indifferent to CLAHE and survive
+   gamma; PCA, which does not, is worst at both. Beyond that, **non-linear normalisation beats
+   linear**: SIFT's per-patch clip-and-renormalise retains 95.3 % at γ=2.5 against HOG's
+   block-L2 89.2 %, and the same property is why blur does not collapse BoVW's vocabulary.
+
+4. **Orderlessness is expensive, and the cost is measurable in isolation.** Adding spatial
+   binning to BoVW — identical descriptors, identical vocabulary, identical classifier, the
+   only change being whether position is recorded — is worth **+10.4 pp macro-F1** and lands
+   within 0.1 pp of HOG. The permutation test makes it exact: shuffling keypoint positions
+   leaves the plain histogram **bit-identical**.
+
+5. **Parameters dominated method.** Retuning BoVW's descriptor geometry moved it **+53 pp**
+   (0.3455 → 0.8808), larger than any between-method gap in the study, and **changed which
+   stressors it is vulnerable to** (9.4). A method's reported weakness is a claim about a
+   configuration, not about the method — and the project's own locked prediction about small
+   signs was invalidated by its own tuning.

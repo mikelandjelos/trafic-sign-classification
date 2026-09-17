@@ -895,41 +895,46 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       Plot accuracy **relative to each method's own clean baseline**, so the figure compares
       rate of degradation rather than starting point (and stays commensurable with the §11
       jitter panel, which lives on a different test set).
-- [ ] **9.6** **Table: predictions vs. outcomes** — which held, which didn't, and why. This is the core of the discussion section.
-      **Scored at 8.1: 6 of 7 MVP rows held** — table in `15-results.md` §4, with the
-      mechanism for each. Score against the **2026-09-13 table only**; the SPM addendum in
-      `predictions.md` is marked NEVER EVALUATED because that method was dropped (note 14
-      §9.4), and it must not be quietly counted as a miss.
-      **The one miss is the most valuable row** (§4.1): gamma predicted HOG most robust, but
-      BoVW wins at 95.3 % vs 89.2 %. The prediction treated SIFT's and HOG's normalisation as
-      the same mechanism at different strengths; they are not — SIFT's is per-patch and
-      *non-linear* (0.2 clip + renormalise), HOG's is per-block and linear. The same property
-      explains 6.6's non-collapse under blur, so one descriptor detail accounts for **two**
-      unpredicted results.
-      Also carry the **two prediction-adjacent findings the demos produced**: 6.6 falsified the
-      blur row's *first* mechanism (codeword collapse) while the row itself still held for its
-      *second* (no layout to fall back on), which §9's +10.4 pp supports directly.
-- [ ] **9.7** Table: preprocessing ablation — **must carry the hue-wrap finding.**
-      `clahe_hsv` stores OpenCV HSV where hue wraps at 0/179, and red — the commonest sign
-      colour — sits on the wrap: *Stop* has 56.5 % of saturated pixels at hue<10 and 4.4 % at
-      hue>169. **3.98 % of adjacent-pixel hue gradients exceed 90**, and mean hue gradients
-      match intensity gradients, so they win any max-magnitude selection. Costs scale with
-      reliance on derivatives: **HOG −9.7 pp** (selects max-magnitude gradient across
-      channels), **CNN −2.3 pp and peaks at epoch 5 vs 18**, **PCA −3.0 pp** (never
-      differentiates). **Do not report this as "colour is uninformative"** — it is a defective
-      *encoding* of colour. Fix is known (hue as cos/sin, or CIELab) and deliberately not
-      applied: all three sweeps used the current config. See `08-preprocessing.md` addendum.
-      Reported as **ranking stability per
-      stressor** across the three configs (see 8.2), not as a bare accuracy comparison.
-- [ ] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
-      Candidates, all measured: (1) **the ranking inverts under noise** (Spearman −0.70; PCA
-      last → first, ahead of both CNNs); (2) **learned ≠ robust** — the CNNs sit mid-table
-      under noise and lose to a linear subspace at σ=40; (3) **internal normalisation is what
-      buys gamma robustness**, and its *kind* matters (SIFT's non-linear clip beats HOG's
-      linear block L2); (4) **orderlessness is expensive and measurable** — +10.4 pp from
-      layout alone, on identical descriptors and vocabulary; (5) **parameters dominated
-      method** for BoVW — +53 pp from geometry, larger than any between-method gap in the
-      study. See `15-results.md` and note 14.
+- [x] **9.6** **Table: predictions vs. outcomes** — the core of the discussion.
+      **DONE** — `15-results.md` §10, scored against the 2026-09-13 table only (the SPM
+      addendum is NEVER EVALUATED and is not counted as a miss).
+      **8 of 10 MVP stressor rows held; the headline prediction is confirmed in both
+      directions**, with one qualification the report must make: the inversion is
+      **stressor-specific** (Spearman −0.60 under noise, but +0.70 blur and +0.90 gamma), so
+      it is carried by one stressor of three.
+      **Two misses, both instructive:** gamma (BoVW beats HOG — non-linear per-patch
+      normalisation beats linear block normalisation) and small signs (BoVW is the *most*
+      size-stable method — the prediction described the plan's 12 px descriptor, which 6.5
+      replaced with a 2 px one).
+      **Secondary expectations scored too**, and their two misses share one wrong belief:
+      the predictions treated "gradient-based" as the category that benefits from CLAHE. The
+      category that matters is **whether the representation normalises internally** — that
+      reframing is 9.7.
+      Also: the "cost spans an order of magnitude" claim is a **batched artifact** (200×
+      batched, only 8.5× single-image), and single-image is the deployment case.
+- [x] **9.7** Table: preprocessing ablation — **carries the hue-wrap finding.**
+      **DONE** — `15-results.md` §11, built from the per-method sweeps (8.2 not run, §7).
+      **The finding is the axis, not the table**: how much preprocessing matters tracks
+      **whether the representation normalises internally**. PCA (none) is the only method
+      CLAHE helps, +2.64 pp; HOG (block L2-Hys) −0.37, BoVW (SIFT L2+clip) −0.17, CNN
+      (BatchNorm) +0.16 — all indifferent.
+      **This justifies the fixed-`raw_gray` protocol:** the largest preprocessing effect
+      (2.64 pp) is smaller than the smallest between-method gap on clean test (12.8 pp), so
+      fixing preprocessing cannot reorder the comparison.
+      **The hue-wrap finding is carried**, with the cost scaling by reliance on derivatives:
+      HOG **−9.70 pp** (picks the max-magnitude gradient across channels, so it actively
+      selects the corrupted one), CNN −2.14 pp **and peaks at epoch 5 vs 18**, PCA −0.39 pp
+      (never differentiates). Reported as a **defective encoding of colour**, not as evidence
+      colour is uninformative; the fix (cos/sin hue, or CIELab) is deliberately not applied
+      because every sweep used the current config.
+- [x] **9.8** Write 5 concrete findings as bullets — raw material for the conclusion
+      **DONE** — `15-results.md` §12. (1) the ranking inverts under noise, and the inversion
+      is stressor-specific; (2) learned features are not automatically robust features;
+      (3) internal normalisation buys intensity robustness, and its *kind* matters —
+      non-linear beats linear; (4) orderlessness is expensive and measurable in isolation
+      (+10.4 pp, and the permutation test makes it exact); (5) parameters dominated method —
+      +53 pp for BoVW, larger than any between-method gap, and it changed which stressors the
+      method is vulnerable to.
 - [ ] Buffer
 
 ### Day 5 — Report (Serbian)

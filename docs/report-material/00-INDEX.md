@@ -43,7 +43,7 @@ Distinct from:
 | [13-cnn.md](13-cnn.md) | Methodology → representations; Table 1; **Limitations** (no GPU, untuned LR, patience-limited stop) | **complete (7.1–7.6)** + addenda 2026-09-16/17 — **§ADD3: learned ≠ robust; the two CNN rows are indistinguishable under stress** |
 | [14-bovw.md](14-bovw.md) | Methodology → representations; Table 1; **the layout measurement (§9), in the DISCUSSION**; **preprocessing-vs-normalisation pattern (§11.1, feeds 9.7)**; **a falsified blur prediction (§13.2, feeds 9.6)**; §11 premise | **complete (6.1–6.6)**; reported config in §11; 6.5b reverted (SPM = diagnostic); **§14: most gamma-robust method, and the one falsified prediction** |
 
-| [15-results.md](15-results.md) | **Results (the whole section)**; Table 1 (9.1); robustness curves (9.5); **predictions vs outcomes (9.6)** | **complete (8.1, 8.3)** — 80/80 cells, 0 NaNs; **§8 records a Q8 protocol violation caught late, and what it changed** |
+| [15-results.md](15-results.md) | **Results (the whole section)**; Table 1 (9.1); confusions (9.2/9.3); size (9.4); robustness curves (9.5); **predictions vs outcomes (9.6)**; preprocessing (9.7); **the five findings (9.8)** | **complete (8.1, 8.3, 9.1–9.8)** — 80/80 cells, 0 NaNs. §8 a Q8 violation caught late; §10 predictions scored **8/10**; §11 the preprocessing axis; §12 the five findings |
 
 Pipeline diagram: `docs/diagrams/pipeline.puml` → `figures/diagrams/pipeline.png`; the
 render is copied into `figures/report/` (committed) by
