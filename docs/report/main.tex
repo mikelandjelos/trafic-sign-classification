@@ -91,27 +91,29 @@
 % --- Sažetak: izvor 15-results.md §3, §10, §12 ----------------------------------------
 \section*{Sažetak}
 
-Upoređeno je pet konfiguracija klasifikacije saobraćajnih znakova nad GTSRB skupom
-podataka~\cite{gtsrb}, zasnovanih na četiri različite reprezentacije slike: PCA (isti princip
-kao Eigenfaces~\cite{eigenfaces}), HOG deskriptor~\cite{hog}, metod vreća vizuelnih reči nad
-gustim SIFT deskriptorima~\cite{sift, bovw}, i konvoluciona neuronska mreža -- koja se
-pojavljuje dvaput, kao ekstraktor obeležja i \textit{end-to-end}. Klasifikator (linearni SVM),
-pretprocesiranje i protokol evaluacije su fiksirani, pa su razlike u rezultatima pripisive
-isključivo reprezentaciji.
+Pri izboru reprezentacije slike za klasifikaciju saobraćajnih znakova uobičajeno je da odluku
+donese tačnost na čistim podacima. Ovaj rad ispituje da li je to dovoljno. Upoređene su četiri
+reprezentacije --- PCA~\cite{eigenfaces}, HOG~\cite{hog}, metod vreća vizuelnih reči nad
+gustim SIFT deskriptorima~\cite{sift, bovw} i konvoluciona neuronska mreža u dve varijante --- nad GTSRB
+skupom podataka~\cite{gtsrb}, uz namerno strogu kontrolu. Klasifikator, pretprocesiranje i
+protokol evaluacije drže se fiksnim, tako da razlike u
+rezultatima ostaju pripisive isključivo reprezentaciji.
 
-Nad test skupom je izvršena mreža od \textbf{80 evaluacija} -- pet metoda pri šesnaest uslova
-(čist ulaz i po pet nivoa Gausovog šuma, zamućenja usled kretanja i gama korekcije).
-\textbf{Glavni rezultat je da se redosled uspešnosti metoda invertuje pod šumom}. PCA je
-poslednja na čistom ulazu (makro-F1 $0{,}7312$), a pri $\sigma=40$ zadržava $76{,}7\%$
-sopstvene čiste vrednosti, dok HOG -- treći na čistom ulazu -- zadržava svega $14{,}8\%$.
-Spearman-ova korelacija sa čistim poretkom iznosi $-0{,}60$. Pod zamućenjem i gama korekcijom
-inverzije nema ($+0{,}70$ i $+0{,}90$), pa je interakcija stvarna ali \emph{vezana za vrstu
-degradacije}, a ne opšta.
+Umesto jednog broja po metodi, svaka konfiguracija je izmerena i na čistom test skupu i pod
+tri kontrolisane degradacije --- šumom, zamućenjem usled kretanja i gama korekcijom --- svaka
+na pet nivoa jačine.
 
-Od deset unapred zapisanih očekivanja o robusnosti, osam se obistinilo. Dva promašaja su
-detaljno analizirana, jer oba upućuju na isti mehanizam — presudno nije da li je metoda
-zasnovana na gradijentima, već \textbf{da li reprezentacija interno normalizuje} -- i kog je
-tipa ta normalizacija.
+Glavni nalaz je da tačnost na čistim podacima \textbf{ne predviđa otpornost}. Pod jakim šumom
+redosled uspešnosti se preokreće, metoda koja je na čistom ulazu poslednja postaje najotpornija
+i nadmašuje konvolucionu mrežu na istim pikselima, dok metoda koja se oslanja na gradijente
+gubi gotovo sve. Pod zamućenjem i gama korekcijom tog preokreta nema, pa je interakcija između
+reprezentacije i degradacije stvarna, ali vezana za \emph{vrstu} degradacije, a ne opšta.
+
+Većina unapred zapisanih očekivanja se obistinila. Dva promašaja su zadržana i analizirana, jer
+su informativnija od onih koja su se potvrdila --- oba upućuju na isto: presudno nije da li
+metoda računa gradijente, već da li reprezentacija interno normalizuje i kog je tipa ta
+normalizacija. Praktična posledica je da se reprezentacija bira prema degradaciji koja u datoj
+primeni dominira, a ne prema rang-listi na čistim podacima.
 
 \textbf{Ključne reči:} računarski vid, klasifikacija saobraćajnih znakova, GTSRB,
 reprezentacije slike, PCA, HOG, vreća vizuelnih reči, konvolucione neuronske mreže, robusnost.
