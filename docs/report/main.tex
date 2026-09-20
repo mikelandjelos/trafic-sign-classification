@@ -260,7 +260,7 @@ agregirane radi čitljivosti, jer svaka skripta koristi više modula.}
 \hline
 \texttt{cache} & uint8 \texttt{.npy} keš sa otiskom pipeline-a; \textbf{83$\times$ brže} od ponovnog čitanja PPM datoteka, uz \texttt{-{}-verify} režim za poređenje sa referentnom implementacijom (svedoči o konzistentnosti keša) \\
 \hline
-\texttt{degradations} & registar tri degradacije, gde svaka deklariše \emph{svoj} neutralan nivo, onaj na kome sliku ostavlja nepromenjenom \\
+\texttt{degradations} & registar tri degradacije, gde svaka deklariše sopstveni \textit{identity} nivo, onaj na kome sliku ostavlja nepromenjenom \\
 \hline
 \texttt{representations} & \texttt{pca}, \texttt{hog}, \texttt{bovw}, \texttt{cnn} -- sve iza istog protokola \\
 \hline
@@ -277,7 +277,7 @@ agregirane radi čitljivosti, jer svaka skripta koristi više modula.}
 \end{tabular}
 \end{center}
 
-\subsection*{3.2 Zajednički interfejs -- ono što ,,jedinstven protokol'' čini proverljivim}
+\subsection*{3.2 Zajednički interfejs -- ,,jedinstven protokol''}
 
 Sve četiri reprezentacije implementiraju isti \texttt{Protocol}:
 
@@ -295,7 +295,7 @@ nadzorom (mreža), ali ih interfejs ne razlikuje, jer mreža evaluacije mora da 
 pet konfiguracija bez ijednog izuzetka. \textbf{Da protokol nije zajednički, tvrdnja iz odeljka
 1.2 da su razlike pripisive reprezentaciji bila bi stvar konvencije, a ne konstrukcije.}
 
-Dva pravila važe za svaku implementaciju i ugrađena su u interfejs, a ne ostavljena disciplini:
+Dva pravila važe za svaku implementaciju i ugrađena su u interfejs, a ne ostavljena doslednosti implementacije. To su
 \textbf{prilagođavanje isključivo nad trening podskupom} (lako je pogrešiti kod PCA i BoVW
 rečnika, koji ne koriste oznake, pa se prilagođavanje nad svime \emph{čini} bezopasnim), i
 \textbf{prilagođavanje isključivo nad čistim slikama} (degradacije su stresor u vreme testiranja;
@@ -312,7 +312,7 @@ Svi rezultati se dopisuju u \texttt{results.csv}, u \emph{tidy} obliku:
 
 \texttt{run\_id} je \texttt{<vreme>-<commit>} i povezuje se sa
 \texttt{results/platform\_<run\_id>.json}, koji beleži procesor, memoriju, \emph{ostvaren} broj
-niti, opterećenje sistema i verzije biblioteka. Datoteka je \textbf{samo za dopisivanje} — ponovno
+niti, opterećenje sistema i verzije biblioteka. Datoteka je \textbf{append-only} — ponovno
 pokretanje dodaje redove umesto da ih prepiše, pa svaki potrošač mora da odluči na koji run misli.
 To radi \texttt{latest\_per\_cell()}.
 
@@ -336,7 +336,7 @@ kojih bi rezultati bili tiho pogrešni:
   \item \textbf{\texttt{embed()} je deterministična i u \texttt{train} režimu}, i vraća režim
   koji je zatekla;
   \item \textbf{reprezentacija se učitava sa \emph{sopstvenim} pretprocesiranjem}, jer se ime
-  konfiguracije čita iz artefakta, nikada iz zastavice.
+  konfiguracije čita iz artefakta, nikada iz \textit{flag}-a.
 \end{itemize}
 
 \subsection*{3.5 Najznačajniji detalji implementacije}
@@ -345,7 +345,7 @@ Pet odluka koje nisu očigledne, a menjaju rezultate:
 
 \textbf{Raspored u memoriji menja rezultate u \texttt{float32}.} \texttt{PCA.fit} ostavlja
 \texttt{components\_} u Fortran rasporedu, a povratak kroz \texttt{joblib} ga vraća u C
-rasporedu. Vrednosti su bit-identične, ali BLAS bira drugo jezgro za množenje, pa se projekcije
+rasporedu. Vrednosti su bit-identične, ali BLAS bira drugi \textit{GEMM kernel}, pa se projekcije
 razlikuju za oko $10^{-6}$, to jest \emph{model se ponašao drugačije nakon ponovnog
 učitavanja}.
 Rešeno normalizacijom rasporeda u trenutku prilagođavanja.
@@ -449,7 +449,7 @@ netaknuta, menja se samo intenzitet.
 \begin{center}
 \begin{tabular}{lll}
 \toprule
-\textbf{degradacija} & \textbf{nivoi} & \textbf{neutralan nivo} \\
+\textbf{degradacija} & \textbf{nivoi} & \textit{\textbf{identity}} \\
 \midrule
 Gausov šum & $\sigma \in \{0, 5, 10, 20, 40\}$ & $\sigma = 0$ \\
 Zamućenje usled kretanja & $k \in \{0, 3, 5, 9, 15\}$ px, nasumičan ugao & $k = 0$ \\
@@ -458,11 +458,12 @@ Gama korekcija & $\gamma \in \{0{,}4;\ 0{,}7;\ 1{,}0;\ 1{,}5;\ 2{,}5\}$ & $\gamm
 \end{tabular}
 \end{center}
 
-Neutralan nivo je onaj na kome degradacija ne menja sliku, pa služi kao referenca u odnosu na
-koju se meri opadanje. Kod šuma i zamućenja to je prvi nivo, ali se \textbf{kod gama korekcije
-nalazi u sredini opsega}. Pretpostavka da je prvi nivo uvek referentan tiho bi normalizovala
-sve gama krive u odnosu na $\gamma=0{,}4$, što je već jaka degradacija. Zato svaka degradacija
-svoj neutralan nivo deklariše eksplicitno, umesto da se on izvodi iz redosleda.
+\textit{Identity} nivo je onaj na kome degradacija ne menja sliku, pa služi kao referenca u
+odnosu na koju se meri opadanje. Kod šuma i zamućenja to je prvi nivo, ali se \textbf{kod gama
+korekcije nalazi u sredini opsega}. Pretpostavka da je prvi nivo uvek referentan tiho bi
+normalizovala sve gama krive u odnosu na $\gamma=0{,}4$, što je već jaka degradacija. Zato svaka
+degradacija svoj \textit{identity} nivo deklariše eksplicitno, umesto da se on izvodi iz
+redosleda.
 
 \textbf{Degradacije se primenjuju na pretprocesiran ulaz modela $48\times48$}, a ne na izvornu
 rezoluciju. Time je ono što se ubacuje po konstrukciji \emph{ostatak koji pretprocesiranje
@@ -480,7 +481,7 @@ izvršavanja.
 \centering
 \includegraphics[width=0.78\textwidth]{degradation_contact_sheet.png}
 \caption{Svaka degradacija na svakom nivou, nad istim uzorkom. Prikazan je stvarni ulaz modela
-$48\times48$; neutralan nivo je uokviren, a kod gama korekcije se nalazi u sredini reda.}
+$48\times48$; \textit{identity} nivo je uokviren, a kod gama korekcije se nalazi u sredini reda.}
 \end{figure}
 
 \subsection*{4.4 Izbor hiperparametara i protokol evaluacije}
