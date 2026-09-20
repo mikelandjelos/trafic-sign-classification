@@ -508,6 +508,51 @@ Spearman-ova korelacija sa čistim poretkom je $+0{,}70$ i $+0{,}90$, dakle pore
 prati čistu uspešnost. Premisa se potvrđuje, ali je nosi jedna od tri degradacije, i izveštaj
 to mora reći umesto da sugeriše opštu nestabilnost poretka.
 
+\subsection*{4.2.1 Ista slika po tačnosti -- i jedna razlika koju treba imenovati}
+
+Odeljak 6.3 predloga navodi \emph{tačnost} kao meru za krive robusnosti, dok se gore vodi
+makro-F1 -- metrika po kojoj je svaka metoda i birana. \textbf{Obe verzije su izrađene}
+(\texttt{robustness\_curves.png} i \texttt{robustness\_curves\_accuracy.png}) i \textbf{upoređene
+su, a ne pretpostavljeno da se slažu}.
+
+\textbf{Svaka ocena ,,najbolji'' i ,,najlošiji'' je identična} po obe metrike, na sve tri
+degradacije: PCA najbolja i HOG najlošiji pod šumom, PCA najbolja i BoVW najlošija pod
+zamućenjem, BoVW najbolja i PCA najlošija pod gama korekcijom. Nijedan zaključak u ovom
+izveštaju ne zavisi od izbora metrike.
+
+\textbf{Jedan broj se ipak bitno razlikuje, i on ograničava prethodni pasus:}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Spearman sa čistim poretkom} & \textbf{makro-F1} & \textbf{tačnost} \\
+\midrule
+šum $\sigma=40$ & $-0{,}60$ & $-0{,}70$ \\
+zamućenje $k=15$ & $+0{,}70$ & $+0{,}60$ \\
+\textbf{gama $2{,}5$} & $\mathbf{+0{,}90}$ & $\mathbf{+0{,}10}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Pod gama korekcijom je poredak \emph{po tačnosti} praktično \textbf{nepovezan} sa čistom
+uspešnošću ($+0{,}10$), dok ga poredak po makro-F1 blisko prati ($+0{,}90$). To i dalje nije
+inverzija -- korelacija je blizu nule, a ne negativna -- ali tvrdnja ,,zamućenje i gama prate
+čist poredak'' \textbf{važi za makro-F1 i mora se tako i napisati}.
+
+Uzrok se vidi u apsolutnim vrednostima: po tačnosti pri $\gamma=2{,}5$ poredak je
+BoVW $>$ HOG $>$ CNN-obeležja $>$ CNN $>$ PCA, to jest dve ručno projektovane metode sa
+najjačom internom normalizacijom penju se iznad obe mreže. Po makro-F1 mreže ostaju na vrhu,
+jer ih gama korekcija najviše košta na \emph{retkim} klasama -- koje makro-F1 ponderiše
+jednako, a tačnost ne.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{robustness_curves_accuracy.png}
+\caption{Krive robusnosti po \textbf{tačnosti} -- mera koju odeljak 6.3 predloga imenuje.
+Oblik je isti kao na slici po makro-F1, a razlika je u gama panelu, gde se BoVW i HOG penju
+iznad obe mreže.}
+\end{figure}
+
 \subsection*{4.3 Greške na čistom ulazu -- metode ne greše na istim mestima}
 
 \begin{figure}[H]

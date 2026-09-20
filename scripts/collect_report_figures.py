@@ -183,6 +183,13 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "results/accuracy_by_size.png", "accuracy_by_size.png", "9.4",
         "Accuracy vs ROI height, one line per method.", deliverable=True),
     ReportFigure(
+        "results/robustness_curves_accuracy.png", "robustness_curves_accuracy.png", "9.5",
+        "The ACCURACY version, which is the figure the proposal's section 6.3 explicitly "
+        "names. Every best/worst call matches the macro-F1 figure, but gamma's Spearman "
+        "against the clean ranking is +0.10 here versus +0.90 there -- so 'gamma follows the "
+        "clean ordering' is a macro-F1 statement, not a general one.",
+        deliverable=True),
+    ReportFigure(
         "results/robustness_curves.png", "robustness_curves.png", "9.5",
         "THE HEADLINE FIGURE. 3 panels, retention against each method's own clean baseline. "
         "Shows the ranking inverting under noise (PCA last on clean, 76.7 % retained at "

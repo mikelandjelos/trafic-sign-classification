@@ -119,6 +119,42 @@ inversion is **stressor-specific, not general**. That is a finding in its own ri
 be said plainly: the premise "ranking depends on the stressor" is confirmed, but it is
 confirmed by **one** stressor out of three.
 
+### 3.1 The "blur and gamma do not invert" claim is metric-dependent
+
+The proposal's §6.3 names **accuracy** for the robustness curves; this note leads with
+**macro-F1**, because that is what every method was selected on. Both figures are produced
+(`robustness_curves.png`, `robustness_curves_accuracy.png`) and **they were compared rather
+than assumed to agree** (2026-09-20).
+
+**Every best/worst call is identical** across the two metrics, at all three stressors: PCA
+best and HOG worst under noise, PCA best and BoVW worst under blur, BoVW best and PCA worst
+under gamma. So no headline claim in this note depends on the choice.
+
+**One number diverges sharply, and it qualifies §3's closing sentence:**
+
+| Spearman vs the clean ranking | macro-F1 | accuracy |
+|---|---|---|
+| noise σ=40 | −0.60 | −0.70 |
+| blur k=15 | +0.70 | +0.60 |
+| **gamma 2.5** | **+0.90** | **+0.10** |
+
+Under gamma the accuracy ranking is **essentially unrelated** to clean performance (+0.10),
+where the macro-F1 ranking closely follows it (+0.90). It is still not an *inversion* — the
+correlation is near zero, not negative — but "blur and gamma follow the clean ordering" is a
+**macro-F1 statement and must be written as one**.
+
+The cause is visible in the absolute numbers: on accuracy at γ=2.5 the order is
+`bovw` > `hog` > `cnn_feat` > `cnn_e2e` > `pca`, i.e. the two hand-designed methods with the
+strongest internal normalisation climb above both CNNs. On macro-F1 the CNNs stay on top,
+because gamma costs them mostly on the *rare* classes that macro-F1 weights equally and
+accuracy does not.
+
+**So the safest form of the headline is:** the inversion is carried by noise; blur follows
+the clean ordering on both metrics; gamma follows it on macro-F1 and is uncorrelated with it
+on accuracy.
+
+---
+
 ---
 
 ## 4. Predictions vs outcomes (feeds 9.6)

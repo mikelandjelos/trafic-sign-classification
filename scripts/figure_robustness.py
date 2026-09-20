@@ -20,11 +20,25 @@ are printed in the legend so the starting points are never hidden.
 
 macro-F1, not accuracy
 ----------------------
-`PROJECT_TASKS` 9.5 originally said "accuracy". This plots **macro-F1**, because that is what
-every method was *selected* on (10.7x train imbalance, note 05) and what the report leads
-with; plotting a metric the study does not use would invite exactly the mismatch the
-selection protocol exists to avoid. `--metric accuracy` produces the alternative, and the two
-agree on every qualitative claim -- checked, not assumed.
+The proposal's section 6.3 names **accuracy**; this plots **macro-F1** by default, because that
+is what every method was *selected* on (10.7x train imbalance, note 05) and what the report
+leads with. **Both are produced and both are committed** -- `--metric accuracy` writes
+`robustness_curves_accuracy.png`, which is the figure section 6.3 asks for.
+
+**They were compared rather than assumed to agree** (2026-09-20), and the result is worth
+knowing:
+
+- **Every best/worst call is identical** across the two metrics, at all three stressors.
+  PCA best and HOG worst under noise; PCA best and BoVW worst under blur; BoVW best and PCA
+  worst under gamma.
+- **But the Spearman correlation against the clean ranking diverges sharply for gamma:**
+  +0.90 on macro-F1 against **+0.10** on accuracy. Under noise (-0.60 / -0.70) and blur
+  (+0.70 / +0.60) the two agree closely.
+
+So the sentence "blur and gamma follow the clean ordering" is true on macro-F1 and **not** on
+accuracy, where the gamma ranking is essentially *unrelated* to clean performance rather than
+aligned with it. It is still not an inversion -- the correlation is near zero, not negative --
+but the claim has to name its metric. See note 15 section 3.1.
 
 Gamma's x-axis
 --------------

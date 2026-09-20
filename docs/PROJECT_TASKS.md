@@ -888,6 +888,17 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       σ=5", but on *retention* curves every line starts at 100 % by construction and nothing
       can cross — the crossing is in absolute score and belongs in Table 1. Now annotates what
       the panel shows: HOG losing a fifth of its performance at the mildest noise level.
+      **BOTH metrics produced (2026-09-20).** The proposal's §6.3 names *accuracy*; this led
+      with macro-F1. `robustness_curves_accuracy.png` is now generated and committed, and the
+      two were **compared rather than assumed to agree** — the script's docstring claimed
+      "checked, not assumed" when it had not been checked.
+      **Result: every best/worst call is identical** across both metrics at all three
+      stressors, so no headline claim depends on the choice. **But gamma's Spearman against
+      the clean ranking is +0.90 on macro-F1 and +0.10 on accuracy** — under gamma the
+      accuracy ranking is essentially *unrelated* to clean performance rather than aligned
+      with it. Still not an inversion (near zero, not negative), but "blur and gamma follow
+      the clean ordering" is a **macro-F1 statement** and is now written as one. See
+      `15-results.md` §3.1 and report §4.2.1.
       **The data is complete** (8.1); this was a plotting task. It is the study's headline
       figure and it works: the noise panel shows PCA and HOG crossing between σ=0 and σ=5 and
       ending 5.2× apart. Numbers in `15-results.md` §2.
