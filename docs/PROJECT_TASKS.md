@@ -1006,6 +1006,30 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
 
 ---
 
+## 6b. Backlog — after the report is finished
+
+- [ ] **academic-paper-skills** (`github.com/lishix520/academic-paper-skills`) — evaluated
+      2026-09-20, **not installed**, parked by decision until the report is done.
+      **Assessment:** it is a **process/QA framework**, not a prose style guide. It provides
+      venue targeting (PhilArchive, arXiv, PhilSci-Archive), stage gates, scoring rubrics with
+      pass thresholds (≥16/20 per chapter, ≥56/70 final) and completeness checklists; the
+      actual writing guidance is delegated to `references/writing_standards.md`, which the
+      SKILL.md points at rather than contains.
+      **Two mismatches for this project.** Venue targeting is dead weight — the venue is fixed
+      by the professor's brief and proposal §4.4, there is no journal to conform to. And it is
+      built for philosophy/interdisciplinary argumentation, where the work is building a
+      theoretical framework and finding a gap in the literature; this report has measurements
+      and a locked prediction table.
+      **It would not have fixed the problem it was suggested for.** The complaint was a style
+      tic (colons, then em-dashes), and the skill carries almost no prose-level rules.
+      **Worth salvaging:** its 5-dimension chapter rubric and 7-dimension final rubric, usable
+      as a review checklist against the finished report **without installing anything**.
+      Installation would be `cp -r composer ~/.claude/skills/...` — requires explicit approval.
+- [ ] **`whitepaper_report.tex`** — a separate, more formal rendering of the same content,
+      requested 2026-09-20. **Not started**; `main.tex` is not to be touched for it.
+
+---
+
 ## 7. Experiment grid
 
 Models are trained once; only inference varies across the grid. Whole grid runs in well
