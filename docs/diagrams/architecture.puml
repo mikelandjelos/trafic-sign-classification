@@ -1,0 +1,53 @@
+@startuml architecture
+title Arhitektura softvera — tri sloja
+
+skinparam shadowing false
+skinparam defaultFontSize 14
+skinparam packageStyle rectangle
+skinparam ArrowColor #444444
+skinparam ArrowThickness 1.6
+skinparam ArrowFontSize 13
+skinparam rectangle {
+  BackgroundColor<<script>> #F2F2F2
+  BackgroundColor<<core>> #FFFDE7
+  BackgroundColor<<repr>> #E8F5E9
+  BackgroundColor<<proto>> #A5D6A7
+  BackgroundColor<<out>> #FCE4EC
+  BorderColor #555555
+}
+
+package "1. Skripte — šta se pokreće" as L1 {
+  rectangle "sweep_*.py\nizbor hiperparametara\nnad validacijom" as sweeps <<script>>
+  rectangle "train_*.py\nfinalni modeli\n+ merenje cene" as trains <<script>>
+  rectangle "evaluate_grid.py\n5 x 16 = 80 ćelija\nnad TEST skupom" as grid <<script>>
+  rectangle "figure_*.py · table1.py\nanalyse_clean.py\nslike i tabele" as figs <<script>>
+  rectangle "demo/*_mechanics.py\nvizuelne provere\nmehanizama" as demos <<script>>
+  sweeps -[hidden]right- trains
+  trains -[hidden]right- grid
+  grid -[hidden]right- figs
+  figs -[hidden]right- demos
+}
+
+package "2. Biblioteka gtsrb — gde je logika" as L2 {
+  rectangle "ULAZ\nconfig · data · preprocessing\ncache · degradations" as core_in <<core>>
+  rectangle "REPREZENTACIJE\npca · hog · bovw · cnn" as core_repr <<repr>>
+  rectangle "Representation (Protocol)\nfit · transform · n_features · name" as proto <<proto>>
+  rectangle "PROTOKOL\ntuning · training\nevaluation · timing · results" as core_eval <<core>>
+
+  core_in -[hidden]right- core_repr
+  core_repr -down-> proto : sve četiri implementiraju
+  proto -[hidden]right- core_eval
+}
+
+package "3. Artefakti — šta ostaje" as L3 {
+  rectangle "results.csv\ntidy, append-only\nrun_id · method · preproc\ndegradation · level · metric · value" as csv <<out>>
+  rectangle "results/models/\n*.joblib, *.pt\npreproc upisan U artefakt" as models <<out>>
+  rectangle "figures/report/\n28 slika" as figures <<out>>
+  csv -[hidden]right- models
+  models -[hidden]right- figures
+}
+
+L1 -down-> L2 : pozivaju
+L2 -down-> L3 : upisuju
+
+@enduml

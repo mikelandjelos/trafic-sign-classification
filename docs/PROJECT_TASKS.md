@@ -984,6 +984,25 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       concrete in-project instance (BoVW's 0.3 pp validation lead over HOG did not survive to
       test), both lower-bound methods, the untuned learning rate, and the patience-limited stop
       stated as "stopped", never "converged".
+      **EXTENDED 2026-09-20 to close the gap against the professor's report brief**, which
+      requires *opis korišćenih tehnologija* and *prikaz arhitekture softvera u pogledu glavnih
+      komponenti* — the latter also promised by proposal §4.4 as an MVP deliverable
+      ("tehnički izveštaj sa **analizom arhitekture rešenja**"). Two new sections:
+      **§2 Korišćene tehnologije** — the stack as a table, plus §2.1 on the CPU-only constraint
+      and the two decisions it forced (`LinearSVC` over kernel SVM; `MiniBatchKMeans` over full
+      k-means), and why thread pinning must happen at runtime rather than via env vars.
+      **§3 Arhitektura softvera** — a three-layer diagram generated from
+      `docs/diagrams/architecture.puml`; the module table; §3.2 on the shared `Representation`
+      protocol as *what makes "one protocol" verifiable rather than merely declared*; §3.3 on
+      the append-only tidy CSV (with the `latest_per_cell` incident as the reason the rule
+      lives in the library); §3.4 on what the 351 tests actually pin; §3.5 on the five
+      non-obvious implementation decisions that change results.
+      Also: **§7 Diskusija now opens by naming itself** as the comparison proposal §6.4 calls
+      the core of the discussion, with the lock time (13.09. 14:24) against the first result
+      (20:36) — provable from git rather than asserted.
+      §2–§8 renumbered to §4–§10; three internal cross-references fixed and two hard-coded
+      figure numbers replaced with names so they cannot break again.
+      **23 pages** — over the 15–20 band by ~3, to be trimmed by the author.
 
 ---
 

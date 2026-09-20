@@ -44,6 +44,12 @@ class ReportFigure:
 MANIFEST: tuple[ReportFigure, ...] = (
     # --- named deliverables (PROJECT_TASKS section 8) ---
     ReportFigure(
+        "diagrams/architecture.png", "architecture.png", "report",
+        "Software architecture in three layers -- required by the professor's report brief "
+        "AND by proposal section 4.4 ('tehnicki izvestaj sa analizom arhitekture resenja'). "
+        "Built from docs/diagrams/architecture.puml, so it cannot drift from a hand drawing.",
+        deliverable=True),
+    ReportFigure(
         "diagrams/pipeline.png", "pipeline.png", "design",
         "Where degradations enter the pipeline — settles the question the whole design rests on.",
         deliverable=True),
