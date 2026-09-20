@@ -7,7 +7,7 @@ Mihajlo Madić, 2119.
 
 Pri izboru reprezentacije slike za klasifikaciju saobraćajnih znakova uobičajeno je da odluku
 donese tačnost na čistim podacima, a ovaj rad ispituje da li je takav kriterijum dovoljan.
-Upoređene su četiri reprezentacije nad GTSRB skupom podataka, uz namerno strogu kontrolu. To
+Upoređene su četiri reprezentacije nad GTSRB skupom podataka, uz namerno strogu kontrolu parametara. To
 su PCA, HOG, metod vreća vizuelnih reči nad gustim SIFT deskriptorima i konvoluciona neuronska
 mreža u dve varijante. Klasifikator, pretprocesiranje i protokol evaluacije drže se fiksnim,
 tako da razlike u rezultatima ostaju pripisive isključivo reprezentaciji.
@@ -24,10 +24,10 @@ preokreta nema, pa je interakcija između reprezentacije i degradacije stvarna, 
 *vrstu* degradacije.
 
 Pre početka eksperimenata, napravljen je skup hipoteza o ponašanju svake reprezentacije, pri
-određenoj vrsti šuma. Većina ovih pretpostavki se obistinila, a dva promašaja su analizirana,
-jer su informativnija od onih koja su se potvrdila. Praktična posledica je da se
-reprezentacija bira prema degradaciji koja u datoj primeni dominira, jer rang-lista na čistim
-podacima za tu odluku nije dovoljna.
+određenoj vrsti degradacije. Većina ovih pretpostavki se obistinila, a dva promašaja su
+analizirana, jer su informativniji od potvrđenih. Praktično prikazan zaključak je da se
+reprezentacija bira prema degradacijama koje u datoj primeni dominiraju, jer mere kvaliteta
+klasifikacije na čistim podacima za tu odluku nisu dovoljne.
 
 **Ključne reči:** reprezentacije slike, GTSRB, PCA, HOG, BoVW, CNN, klasifikacija.
 
