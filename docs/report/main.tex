@@ -258,11 +258,11 @@ agregirane radi čitljivosti, jer svaka skripta koristi više modula.}
 \hline
 \texttt{preprocessing} & tri imenovane konfiguracije, \texttt{resize} sa interpolacijom biranom \emph{po slici} \\
 \hline
-\texttt{cache} & uint8 \texttt{.npy} keš sa otiskom pipeline-a; \textbf{83$\times$ brže} od ponovnog čitanja PPM datoteka, uz \texttt{-{}-verify} režim koji poredi bit za bit sa referentnom implementacijom \\
+\texttt{cache} & uint8 \texttt{.npy} keš sa otiskom pipeline-a; \textbf{83$\times$ brže} od ponovnog čitanja PPM datoteka, uz \texttt{-{}-verify} režim za poređenje sa referentnom implementacijom (svedoči o konzistentnosti keša) \\
 \hline
-\texttt{degradations} & registar tri degradacije; svaka deklariše \emph{sopstveni} nivo identiteta \\
+\texttt{degradations} & registar tri degradacije, gde svaka deklariše \emph{svoj} neutralan nivo, onaj na kome sliku ostavlja nepromenjenom \\
 \hline
-\texttt{representations/} & \texttt{pca}, \texttt{hog}, \texttt{bovw}, \texttt{cnn} -- sve iza istog protokola \\
+\texttt{representations} & \texttt{pca}, \texttt{hog}, \texttt{bovw}, \texttt{cnn} -- sve iza istog protokola \\
 \hline
 \texttt{tuning} & izbor $C$ nad validacijom po makro-F1; pravilo izbora živi na jednom mestu \\
 \hline
@@ -449,7 +449,7 @@ netaknuta, menja se samo intenzitet.
 \begin{center}
 \begin{tabular}{lll}
 \toprule
-\textbf{degradacija} & \textbf{nivoi} & \textbf{identitet} \\
+\textbf{degradacija} & \textbf{nivoi} & \textbf{neutralan nivo} \\
 \midrule
 Gausov šum & $\sigma \in \{0, 5, 10, 20, 40\}$ & $\sigma = 0$ \\
 Zamućenje usled kretanja & $k \in \{0, 3, 5, 9, 15\}$ px, nasumičan ugao & $k = 0$ \\
@@ -458,9 +458,11 @@ Gama korekcija & $\gamma \in \{0{,}4;\ 0{,}7;\ 1{,}0;\ 1{,}5;\ 2{,}5\}$ & $\gamm
 \end{tabular}
 \end{center}
 
-Identitet gama korekcije je \textbf{u sredini opsega}, a ne na kraju. Pretpostavka da je prvi
-nivo referentan tiho bi normalizovala sve gama krive u odnosu na $\gamma=0{,}4$; registar
-degradacija zato eksplicitno deklariše identitet po degradaciji.
+Neutralan nivo je onaj na kome degradacija ne menja sliku, pa služi kao referenca u odnosu na
+koju se meri opadanje. Kod šuma i zamućenja to je prvi nivo, ali se \textbf{kod gama korekcije
+nalazi u sredini opsega}. Pretpostavka da je prvi nivo uvek referentan tiho bi normalizovala
+sve gama krive u odnosu na $\gamma=0{,}4$, što je već jaka degradacija. Zato svaka degradacija
+svoj neutralan nivo deklariše eksplicitno, umesto da se on izvodi iz redosleda.
 
 \textbf{Degradacije se primenjuju na pretprocesiran ulaz modela $48\times48$}, a ne na izvornu
 rezoluciju. Time je ono što se ubacuje po konstrukciji \emph{ostatak koji pretprocesiranje
@@ -478,7 +480,7 @@ izvršavanja.
 \centering
 \includegraphics[width=0.78\textwidth]{degradation_contact_sheet.png}
 \caption{Svaka degradacija na svakom nivou, nad istim uzorkom. Prikazan je stvarni ulaz modela
-$48\times48$; nivo identiteta je uokviren, a kod gama korekcije se nalazi u sredini reda.}
+$48\times48$; neutralan nivo je uokviren, a kod gama korekcije se nalazi u sredini reda.}
 \end{figure}
 
 \subsection*{4.4 Izbor hiperparametara i protokol evaluacije}
