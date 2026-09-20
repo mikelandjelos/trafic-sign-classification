@@ -111,13 +111,10 @@ reprezentacije i degradacije stvarna, ali vezana za \emph{vrstu} degradacije, a 
 
 Pre početka eksperimenata, napravljen je skup hipoteza o ponašanju svake reprezentacije, pri određenoj
 vrsti šuma. Većina ovih pretpostavki se obistinila, a dva promašaja su analizirana, jer
-su informativnija od onih koja su se potvrdila. Oba upućuju na isto. Presudno nije da li
-metoda računa gradijente, već da li reprezentacija interno normalizuje i kog je tipa ta
-normalizacija. Praktična posledica je da se reprezentacija bira prema degradaciji koja u datoj
-primeni dominira, a ne prema rang-listi na čistim podacima.
+su informativnija od onih koja su se potvrdila. Praktična posledica je da se reprezentacija bira prema 
+degradaciji koja u datoj primeni dominira, a ne prema rang-listi na čistim podacima.
 
-\textbf{Ključne reči:} računarski vid, klasifikacija saobraćajnih znakova, GTSRB,
-reprezentacije slike, PCA, HOG, vreća vizuelnih reči, konvolucione neuronske mreže, robusnost.
+\textbf{Ključne reči:} reprezentacije slike, GTSRB, PCA, HOG, BoVW, CNN, klasifikacija.
 
 \newpage
 
@@ -152,8 +149,7 @@ van opsega.
 
 Ta granica ima jednu merljivu posledicu koja je i sama rezultat, i o njoj je reč u odeljku
 8.3. Perturbacija graničnog okvira, koja bi najdirektnije povezala ovaj modul sa detektorom,
-\textbf{nije izvodljiva nad GTSRB skupom na pošten način}, i to je izmereno, a
-ne pretpostavljeno.
+\textbf{nije izvodljiva nad GTSRB skupom na pošten način}.
 
 \subsection*{1.2 Posmatrane reprezentacije}
 
@@ -190,15 +186,14 @@ Ukupno se poredi \textbf{pet konfiguracija}.
 \section*{2. Korišćene tehnologije}
 
 Ceo projekat je u Python-u 3.11, sa zavisnostima zaključanim preko \textbf{Poetry}-ja, u tri
-grupe (\texttt{main}, \texttt{research}, \texttt{dev}) kako bi okruženje bilo obnovljivo iz
-čistog kloniranja repozitorijuma.
+grupe (\texttt{main}, \texttt{research}, \texttt{dev}) kako bi okruženje bilo lako obnovljivo iz kloniranog repozitorijuma.
 
 \begin{center}
 \begin{tabular}{|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{12.2cm}|}
 \hline
 \textbf{Biblioteka} & \textbf{Uloga u projektu} \\
 \hline
-OpenCV & SIFT deskriptori (patent istekao, sada u osnovnom paketu), CLAHE, konverzije prostora boja, filtriranje, kernel zamućenja \\
+OpenCV & SIFT deskriptori, konverzije prostora boja, filtriranje, kernel(i) zamućenja \\
 \hline
 scikit-image & HOG deskriptor, konfigurabilniji od \texttt{cv2.HOGDescriptor}, čiji su podrazumevani parametri podešeni za prozore $64\times128$ za detekciju pešaka i nezgodni su za male kvadratne isečke \\
 \hline
@@ -210,17 +205,16 @@ NumPy, Pandas, Matplotlib & obrada rezultata i generisanje svih slika \\
 \hline
 pytest, ruff & \textbf{351 test} i statička analiza; pokreću se pre svakog upisa u repozitorijum \\
 \hline
-PlantUML & dijagrami arhitekture i pipeline-a, generisani iz izvora, ne crtani ručno \\
+PlantUML & dijagrami arhitekture i pipeline-a \\
 \hline
 \end{tabular}
 \end{center}
 
 \subsection*{2.1 Ograničenje računskih resursa i dve odluke koje je nametnulo}
 
-Razvojna mašina (AMD Ryzen 7 5800H, 8 jezgara / 16 niti, 13\,GB radne memorije) \textbf{nema
+Razvojna mašina (AMD Ryzen 7 5800H, 8 jezgara / 16 niti, 16\,GB radne memorije) \textbf{nema
 upotrebljiv GPU}, jer integrisana Vega grafika nije podržana od strane ROCm platforme, a CUDA
-nije primenljiva. Ceo projekat se izvršava isključivo na procesoru, i to nije samo neugodnost.
-diktiralo je dve konkretne odluke koje su vidljive u rezultatima.
+nije primenljiva. Ceo projekat se izvršava isključivo na procesoru, i to je diktiralo dve konkretne odluke koje su vidljive u rezultatima:
 
 \begin{itemize}
   \item \textbf{\texttt{LinearSVC} umesto SVM-a sa kernel funkcijom.} Složenost kernel SVM-a je
@@ -229,15 +223,10 @@ diktiralo je dve konkretne odluke koje su vidljive u rezultatima.
   između reprezentacija, a ne rezultat toga koliko je klasifikator uspeo da nadoknadi.
   \item \textbf{\texttt{MiniBatchKMeans} umesto klasičnog $k$-means algoritma} pri izgradnji
   vizuelnog rečnika. Oko 200.000 deskriptora od po 128 dimenzija stalo bi u memoriju, ali pune
-  Lloyd-ove iteracije nad njima su nepotrebno spore, a rečnik je sredstvo za kodiranje, a ne
-  predmet proučavanja.
+  Lloyd-ove iteracije nad njima su nepotrebno spore, a sam metod dobijanja rečnika	 nije predmet proučavanja.
 \end{itemize}
 
-Broj niti se \textbf{zaključava u vreme izvršavanja} preko \texttt{threadpoolctl}, a ne samo
-promenljivama okruženja. Razlog je merljiv. BLAS biblioteke čitaju \texttt{OMP\_NUM\_THREADS}
-u trenutku sopstvenog uvoza, a alat za sortiranje uvoza postavlja \texttt{import numpy} iznad
-\texttt{from gtsrb import config}, pa bi zaključavanje bilo tiho neaktivno upravo u skriptama
-u kojima je bitno.
+Broj niti se \textbf{zaključava u vreme izvršavanja} preko \texttt{threadpoolctl}-a.
 
 \newpage
 
@@ -245,9 +234,9 @@ u kojima je bitno.
 \section*{3. Arhitektura softvera}
 
 Kod je podeljen na \textbf{biblioteku} \texttt{gtsrb} (gde je sva logika, pokrivena testovima)
-i \textbf{skripte} (koje samo pozivaju biblioteku i upisuju artefakte). Nijedna skripta ne
-sadrži logiku koja bi mogla da se razlikuje između dve skripte. To je jedini način da tvrdnja
-o jedinstvenom protokolu bude proverljiva.
+i \textbf{skripte} (koje samo pozivaju biblioteku i upisuju artefakte). Sve što mora biti isto za 
+svih pet metoda živi u biblioteci. Time se uklanja mogućnost da dve skripte tiho urade isti posao 
+na dva različita načina, a bez toga tvrdnja o jedinstvenom protokolu ne bi bila proverljiva.
 
 \begin{figure}[H]
 \centering
@@ -263,7 +252,7 @@ agregirane radi čitljivosti, jer svaka skripta koristi više modula.}
 \hline
 \textbf{Modul} & \textbf{Odgovornost} \\
 \hline
-\texttt{config} & jedno seme, putanje, konstante skupa, zaključavanje broja niti, i \texttt{rng\_for()}, gde je \textbf{seed izveden iz sadržaja}, a ne iz redosleda izvršavanja \\
+\texttt{config} & jedan \textit{seed}, putanje, konstante skupa, zaključavanje broja niti, i \texttt{rng\_for()}, gde je \textbf{seed izveden iz sadržaja}, a ne iz redosleda izvršavanja \\
 \hline
 \texttt{data} & učitavanje anotacija, izvedeni \texttt{roi\_w}/\texttt{roi\_h}, i podela po sekvencama; validira broj redova, opseg klasa, ROI unutar granica i pravilo ,,jedna klasa po sekvenci'' \\
 \hline
@@ -277,7 +266,7 @@ agregirane radi čitljivosti, jer svaka skripta koristi više modula.}
 \hline
 \texttt{tuning} & izbor $C$ nad validacijom po makro-F1; pravilo izbora živi na jednom mestu \\
 \hline
-\texttt{training} & petlja treniranja mreže, rano zaustavljanje, vraćanje težina najbolje epohe \\
+\texttt{training} & petlja treniranja mreže, \textit{early stopping}, vraćanje težina najbolje epohe \\
 \hline
 \texttt{evaluation} & tačnost, makro-F1, F1 po klasi, matrica konfuzije, najčešći parovi zamene, tačnost po grupama -- sve sa \texttt{labels=range(43)} \\
 \hline
@@ -364,11 +353,11 @@ Rešeno normalizacijom rasporeda u trenutku prilagođavanja.
 \textbf{Interpolacija pri skaliranju bira se po slici.} 39,2\% isečaka se smanjuje, a 60,8\%
 uvećava; fiksan izbor ubacuje artefakt od oko četiri nivoa sivog, koreliran sa veličinom znaka.
 
-\textbf{Seed degradacija izveden je iz sadržaja.} Jedno semenovanje na početku učinilo bi
-degradiran test skup zavisnim od redosleda izvršavanja, pa bi metode bile poređene nad
+\textbf{\textit{Seed} degradacija izveden je iz sadržaja.} Jedan \textit{seed} postavljen na
+početku učinio bi degradiran test skup zavisnim od redosleda izvršavanja, pa bi metode bile poređene nad
 \emph{različitim} pikselima. Mreža evaluacije uz to iterira redosledom (pretprocesiranje
 $\rightarrow$ uslov $\rightarrow$ metoda), pa svakoj metodi predaje \emph{isti objekat niza}.
-Time je greška strukturno nemoguća, a ne samo sprečeno semenovanjem.
+Time je greška strukturno nemoguća, a ne samo sprečena izborom \textit{seed}-a.
 
 \textbf{Veličina bloka pri kodiranju računa se u bajtovima, ne u slikama.} Blok deskriptora je
 \texttt{chunk} $\times$ \texttt{n\_keypoints} $\times$ 128 $\times$ 4 bajta, pa isti broj slika
