@@ -361,7 +361,7 @@ Time je greška strukturno nemoguća, a ne samo sprečena izborom \textit{seed}-
 
 \textbf{Veličina bloka pri kodiranju računa se u bajtovima, ne u slikama.} Blok deskriptora je
 \texttt{chunk} $\times$ \texttt{n\_keypoints} $\times$ 128 $\times$ 4 bajta, pa isti broj slika
-košta 0,12\,GB pri 64 ključne tačke i 1,10\,GB pri 576. Formula mora da obuhvati i dodelu
+košta 0,12\,GB pri 64 \textit{keypoint}-a i 1,10\,GB pri 576. Formula mora da obuhvati i dodelu
 najbližem centru, koja raste sa veličinom rečnika.
 
 \textbf{Vraća se najbolja epoha, ne poslednja.} \texttt{patience} epoha bez poboljšanja su po
@@ -991,8 +991,8 @@ test mrežom.
 
 \textbf{Dve metode su izveštane kao donje granice.} Rečnik BoVW metode je ograničen na 1000
 reči odlukom, a ne merenjem, jer je prelazak sa 500 na 1000 i dalje vredeo $+3{,}7$ pp pri
-izabranoj razmeri, pa veći rečnik verovatno donosi još oko 2 pp. \textbf{Stopa učenja
-konvolucione mreže nikada nije podešavana} — sva tri treniranja koristila su podrazumevanu
+izabranoj razmeri, pa veći rečnik verovatno donosi još oko 2 pp. \textbf{\textit{Learning rate}
+konvolucione mreže nikada nije podešavan} — sva tri treniranja koristila su podrazumevanu
 vrednost $10^{-3}$, pa je mreža jedina metoda čiji glavni optimizacioni hiperparametar nije
 biran nad validacijom. Smer te pristrasnosti je poznat, jer bi podešavanje moglo samo pomoći,
 pa je metoda koja već pobeđuje ujedno i ona koja je najmanje podešena.
