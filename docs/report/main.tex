@@ -317,7 +317,7 @@ ponovno prilagođavanje po uslovu merilo bi koliko se metoda može \emph{pretren
 
 Arhitektura je oblikovana jednim ograničenjem, budući da poređenje ima smisla samo ako svih pet
 konfiguracija vidi \emph{isti} ulaz, pod istim pravilima, izmeren na isti način. Sve ozbiljnije
-odluke u kodu izvedene su iz toga, i sve brane od iste vrste greške, one koja ne pada nego
+odluke u kodu izvedene su iz toga, i sve brane od iste vrste greške, one koja ne dovodi do pada programa nego
 proizvede uverljiv pogrešan broj.
 
 Determinizam ovde ima status projektnog ograničenja. Izvor slučajnosti za degradacije
@@ -529,7 +529,7 @@ korisnosti.}
 
 \subsection*{5.2 HOG reprezentacija}
 
-Histogrami orijentacija gradijenata~\cite{hog} preko \texttt{scikit-image}~\cite{skimage}.
+Histogrami orijentisanih gradijenata~\cite{hog} preko \texttt{scikit-image}~\cite{skimage}.
 Nad validacijom su izabrane ćelije $6\times6$ px, 9 orijentacija, blok-normalizacija L2-Hys,
 1764 dimenzije.
 
