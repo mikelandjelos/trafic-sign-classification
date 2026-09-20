@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gtsrb import config, preprocessing
+from gtsrb.figures import save_demo_and_report
 from gtsrb.representations.pca import PCARepresentation
 
 N_COMPONENTS_SHOWN = 16
@@ -67,7 +68,7 @@ def figure(phi: PCARepresentation, out_dir: Path, preproc: str) -> Path:
     mean_ax.imshow(phi.mean_image(), cmap="gray", vmin=0, vmax=255, interpolation="nearest")
     mean_ax.set_xticks([])
     mean_ax.set_yticks([])
-    mean_ax.set_title("mean sign\n(subtracted before every projection)", fontsize=9,
+    mean_ax.set_title("srednji znak\n(oduzima se pri svakoj projekciji)", fontsize=9,
                       fontweight="bold")
 
     grid = outer[0, 1].subgridspec(4, 4, hspace=0.32, wspace=0.06)
@@ -80,7 +81,7 @@ def figure(phi: PCARepresentation, out_dir: Path, preproc: str) -> Path:
         ax.set_yticks([])
         ax.set_title(f"PC{i + 1}  ·  {ratios[i] * 100:.1f} %", fontsize=8.5)
 
-    fig.suptitle(
+    title = fig.suptitle(
         f"Eigensigns — the leading {N_COMPONENTS_SHOWN} principal components of "
         f"{len(phi.mean_)}-dimensional {preproc} sign images\n"
         f"Red positive, blue negative, each scaled to its own amplitude; the percentage is "
@@ -90,9 +91,10 @@ def figure(phi: PCARepresentation, out_dir: Path, preproc: str) -> Path:
         fontsize=10.5,
         y=0.97,
     )
-    out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "pca_eigensigns.png"
-    fig.savefig(path, dpi=170, bbox_inches="tight")
+    # bare_rect=None: this figure is positioned by an explicit gridspec (top=0.80), so the
+    # tight_layout solver must not touch it -- cropping alone reclaims the title's strip.
+    save_demo_and_report(fig, path, title, dpi=170, bare_rect=None)
     plt.close(fig)
     return path
 

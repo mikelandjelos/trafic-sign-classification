@@ -42,14 +42,15 @@ import numpy as np
 import torch
 
 from gtsrb import cache, config, data, preprocessing
+from gtsrb.figures import save_demo_and_report
 from gtsrb.representations import cnn as cnn_module
 
 #: One class per shape family, matching the HOG and BoVW demos so the three are comparable.
 SAMPLES: tuple[tuple[int, str], ...] = (
-    (14, "octagonal"),
-    (25, "triangular warning"),
-    (38, "round mandatory"),
-    (5, "round prohibitory"),
+    (14, "osmougaoni"),
+    (25, "trougaoni, upozorenje"),
+    (38, "okrugli, obaveza"),
+    (5, "okrugli, zabrana"),
 )
 
 
@@ -82,34 +83,34 @@ def figure_training_curves(history: dict, out_dir: Path) -> Path:
 
     fig, (left, right) = plt.subplots(1, 2, figsize=(12.6, 4.6))
 
-    left.plot(n, macro, "o-", color="#2b6cb0", lw=1.8, ms=5, label="validation macro-F1")
+    left.plot(n, macro, "o-", color="#2b6cb0", lw=1.8, ms=5, label="validacioni makro-F1")
     left.axvspan(best, n[-1], color="#c05621", alpha=0.10)
     left.axvline(best, color="#2f855a", lw=1.6, ls="--")
-    left.annotate(f"best: epoch {best}\n{best_score:.4f}", xy=(best, best_score),
+    left.annotate(f"najbolja: epoha {best}\n{best_score:.4f}", xy=(best, best_score),
                   xytext=(best - 9.5, best_score - 0.028), fontsize=9, color="#2f855a",
                   arrowprops={"arrowstyle": "->", "color": "#2f855a", "lw": 1.2})
-    left.annotate(f"stopped: epoch {n[-1]}\n{last_score:.4f}", xy=(n[-1], last_score),
+    left.annotate(f"zaustavljeno: epoha {n[-1]}\n{last_score:.4f}", xy=(n[-1], last_score),
                   xytext=(n[-1] - 7.0, last_score - 0.045), fontsize=9, color="#c05621",
                   arrowprops={"arrowstyle": "->", "color": "#c05621", "lw": 1.2})
-    left.set_xlabel("epoch")
-    left.set_ylabel("validation macro-F1")
-    left.set_title(f"The shaded band is the patience window ({n[-1] - best} epochs)",
+    left.set_xlabel("epoha")
+    left.set_ylabel("validacioni makro-F1")
+    left.set_title(f"Osenčeni pojas je patience prozor ({n[-1] - best} epoha)",
                    fontsize=10)
     left.grid(alpha=0.3)
     left.legend(fontsize=9, loc="lower right")
 
-    right.plot(n, train_loss, "o-", color="#c05621", lw=1.8, ms=5, label="train loss")
-    right.plot(n, val_loss, "o-", color="#2b6cb0", lw=1.8, ms=5, label="validation loss")
+    right.plot(n, train_loss, "o-", color="#c05621", lw=1.8, ms=5, label="gubitak nad trening skupom")
+    right.plot(n, val_loss, "o-", color="#2b6cb0", lw=1.8, ms=5, label="gubitak nad validacijom")
     right.axvline(best, color="#2f855a", lw=1.6, ls="--")
     right.set_yscale("log")
-    right.set_xlabel("epoch")
-    right.set_ylabel("loss (log scale)")
-    right.set_title(f"Train loss reaches {train_loss[-1]:.4f} — the network has memorised",
+    right.set_xlabel("epoha")
+    right.set_ylabel("gubitak (log skala)")
+    right.set_title(f"Gubitak nad trening skupom pada na {train_loss[-1]:.4f} — mreža pamti",
                     fontsize=10)
     right.grid(alpha=0.3)
     right.legend(fontsize=9)
 
-    fig.suptitle(
+    title = fig.suptitle(
         f"'{history['preproc']}' — early stopping is not convergence, and the report says so\n"
         f"Training STOPPED at epoch {n[-1]} having last improved at epoch {best}: that is the "
         f"patience rule firing, not an observed plateau (note 13, addendum 2).\n"
@@ -122,7 +123,7 @@ def figure_training_curves(history: dict, out_dir: Path) -> Path:
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
     path = out_dir / "cnn_training_curves.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     print(f"    best epoch {best} ({best_score:.4f}) vs last {n[-1]} ({last_score:.4f}): "
           f"returning the last would cost {(best_score - last_score) * 100:.2f} pp")
@@ -190,7 +191,7 @@ def figure_dropout_check(model: cnn_module.SmallCNN, image: np.ndarray,
     for ax in axes[:, 1]:
         ax.set_ylim(-span, span)
 
-    fig.suptitle(
+    title = fig.suptitle(
         "The gotcha that does not raise: dropout-contaminated features (PROJECT_TASKS §10)\n"
         f"With the model in TRAIN mode, `embed()` returns the identical vector twice "
         f"(max |Δ| = {safe_delta:.4f}); calling the layers directly does not "
@@ -204,7 +205,7 @@ def figure_dropout_check(model: cnn_module.SmallCNN, image: np.ndarray,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.86))
     path = out_dir / "cnn_dropout_check.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     print(f"    embed() max|Δ| = {safe_delta:.6f} (must be 0); "
           f"unprotected max|Δ| = {unsafe_delta:.4f}")
@@ -225,7 +226,7 @@ def figure_first_layer_filters(model: cnn_module.SmallCNN, out_dir: Path) -> Pat
         ax.set_xticks([])
         ax.set_yticks([])
 
-    fig.suptitle(
+    title = fig.suptitle(
         "First convolution: 32 learned 3×3 kernels (red positive, blue negative, shared scale)\n"
         "At 3×3 on 48×48 input these are oriented difference operators — the learned analogue "
         "of the fixed gradient filter HOG and SIFT apply by construction.\n"
@@ -235,7 +236,7 @@ def figure_first_layer_filters(model: cnn_module.SmallCNN, out_dir: Path) -> Pat
     )
     fig.tight_layout(rect=(0, 0, 1, 0.87))
     path = out_dir / "cnn_first_layer_filters.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 
@@ -259,7 +260,7 @@ def figure_activations(model: cnn_module.SmallCNN, frame, images: np.ndarray,
         axes[row, 0].imshow(image, cmap="gray", vmin=0, vmax=255, interpolation="nearest")
         axes[row, 0].set_ylabel(f"{config.CLASS_NAMES[class_id][:18]}\n({shape})", fontsize=8)
         if row == 0:
-            axes[row, 0].set_title("input 48×48", fontsize=9.5)
+            axes[row, 0].set_title("ulaz 48×48", fontsize=9.5)
 
         for col, maps in enumerate(activations, start=1):
             # Mean over channels: one panel per block rather than 128 panels, and it answers
@@ -267,13 +268,13 @@ def figure_activations(model: cnn_module.SmallCNN, frame, images: np.ndarray,
             axes[row, col].imshow(maps.mean(axis=0), cmap="magma", interpolation="nearest")
             if row == 0:
                 axes[row, col].set_title(
-                    f"block {col} → {maps.shape[0]}×{maps.shape[1]}×{maps.shape[2]}",
+                    f"blok {col} → {maps.shape[0]}×{maps.shape[1]}×{maps.shape[2]}",
                     fontsize=9.5)
         for ax in axes[row]:
             ax.set_xticks([])
             ax.set_yticks([])
 
-    fig.suptitle(
+    title = fig.suptitle(
         "Mean activation after each conv block — 48×48 → 24×24 → 12×12 → 6×6\n"
         "Channels widen 32 → 64 → 128 as resolution halves: the network trades *where* for "
         "*what*, which is the hierarchical property the structural table names.\n"
@@ -283,7 +284,7 @@ def figure_activations(model: cnn_module.SmallCNN, frame, images: np.ndarray,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.90))
     path = out_dir / "cnn_activations.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 

@@ -32,6 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gtsrb import cache, config, data
+from gtsrb.figures import save_demo_and_report
 
 TRAIN_COLOUR = "#2b6cb0"
 VAL_COLOUR = "#c05621"
@@ -75,17 +76,17 @@ def figure_leakage(out_dir: Path, frame) -> Path:
             axes[row, i].set_xticks([])
             axes[row, i].set_yticks([])
 
-    for row, text in ((0, "frames"), (1, "random per-image"), (2, "by track  (ours)")):
+    for row, text in ((0, "kadrovi"), (1, "nasumično po slikama"), (2, "po sekvencama  (naše)")):
         axes[row, 0].set_ylabel(text, fontsize=9, rotation=0, ha="right", va="center",
                                 labelpad=8, fontweight="bold" if row else "normal")
 
     n_val_naive = int(naive.sum())
     fig.legend(
-        handles=[plt.Rectangle((0, 0), 1, 1, color=TRAIN_COLOUR, label="train"),
-                 plt.Rectangle((0, 0), 1, 1, color=VAL_COLOUR, label="validation")],
+        handles=[plt.Rectangle((0, 0), 1, 1, color=TRAIN_COLOUR, label="trening"),
+                 plt.Rectangle((0, 0), 1, 1, color=VAL_COLOUR, label="validacija")],
         loc="lower center", ncol=2, frameon=False, fontsize=9, bbox_to_anchor=(0.5, -0.06),
     )
-    fig.suptitle(
+    title = fig.suptitle(
         f"One track = {n} photographs of the SAME physical sign, taken seconds apart as the "
         f"car approaches\n"
         f"A random per-image split sends {n_val_naive} of these frames to validation and "
@@ -96,7 +97,7 @@ def figure_leakage(out_dir: Path, frame) -> Path:
     )
     fig.tight_layout()
     path = out_dir / "split_leakage.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 
@@ -142,7 +143,7 @@ def figure_similarity(out_dir: Path, frame) -> Path:
     ax.legend(fontsize=9)
     ax.grid(alpha=0.3)
 
-    fig.suptitle(
+    title = fig.suptitle(
         "Why frames of one track are 'near-duplicates', measured rather than asserted\n"
         "Two frames of the same physical sign are far more alike than two different signs "
         "of the same class.\nThat gap is what a per-image split leaks across train and "
@@ -151,7 +152,7 @@ def figure_similarity(out_dir: Path, frame) -> Path:
     )
     fig.tight_layout(rect=(0, 0, 1, 0.90))
     path = out_dir / "split_similarity.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 
@@ -193,14 +194,14 @@ def figure_balance(out_dir: Path, frame) -> Path:
                      f"is 1/{tracks.min()} = {1 / tracks.min():.0%}", fontsize=10)
     bottom.grid(alpha=0.3, axis="y")
 
-    fig.suptitle(
+    title = fig.suptitle(
         "The cost of an atomic-track split, stated rather than hidden\n"
         "Every class keeps at least one track on each side, so macro-F1 is never undefined",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     path = out_dir / "split_balance.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 

@@ -61,6 +61,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gtsrb import config, degradations, results
+from gtsrb.figures import save_demo_and_report
 
 #: Report order, with the colour each method carries in every figure.
 METHODS: tuple[tuple[str, str, str], ...] = (
@@ -71,11 +72,20 @@ METHODS: tuple[tuple[str, str, str], ...] = (
     ("cnn_e2e", "CNN end-to-end", "#1a202c"),
 )
 
-PANELS: tuple[tuple[str, str, bool], ...] = (
-    ("noise", "Gaussian noise  σ", False),
-    ("blur", "motion blur  kernel (px)", False),
-    ("gamma", "gamma  γ", True),
+#: (degradation, Serbian panel title, Serbian x label, log x). The in-figure text is Serbian
+#: because the figure is embedded in a Serbian report; the English `suptitle` below is the
+#: demo's diagnostic and is stripped from the report copy by `save_demo_and_report`.
+PANELS: tuple[tuple[str, str, str, bool], ...] = (
+    ("noise", "Gausov šum", "σ", False),
+    ("blur", "Zamućenje usled kretanja", "kernel (px)", False),
+    ("gamma", "Gama korekcija", "γ", True),
 )
+
+#: What the y axis measures, per metric, in Serbian.
+METRIC_LABELS: dict[str, str] = {
+    "macro_f1": "makro-F1",
+    "accuracy": "tačnost",
+}
 
 
 def grid(metric: str) -> dict:
@@ -92,7 +102,7 @@ def grid(metric: str) -> dict:
         baseline = float(clean.value.iloc[0])
 
         per_degradation = {}
-        for degradation, _, _ in PANELS:
+        for degradation, *_ in PANELS:
             block = rows[rows.degradation == degradation].sort_values("level")
             per_degradation[degradation] = (
                 block.level.to_numpy(), block.value.to_numpy() / baseline * 100.0
@@ -104,7 +114,7 @@ def grid(metric: str) -> dict:
 def figure(data: dict, metric: str, out_dir: Path) -> Path:
     fig, axes = plt.subplots(1, 3, figsize=(14.5, 4.9), sharey=True)
 
-    for ax, (degradation, xlabel, log_x) in zip(axes, PANELS, strict=True):
+    for ax, (degradation, title, xlabel, log_x) in zip(axes, PANELS, strict=True):
         identity = degradations.identity_for(degradation)
         for method, label, colour in METHODS:
             levels, retained = data[method]["curves"][degradation]
@@ -121,11 +131,11 @@ def figure(data: dict, metric: str, out_dir: Path) -> Path:
             ax.set_xticks([], minor=True)
             ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
         ax.set_xlabel(xlabel, fontsize=10)
-        ax.set_title(f"{degradation}   (identity at {identity:g})", fontsize=11)
+        ax.set_title(f"{title}   (identity na {identity:g})", fontsize=11)
         ax.grid(alpha=0.3)
         ax.set_ylim(0, 108)
 
-    axes[0].set_ylabel(f"{metric.replace('_', '-')} retained\n(% of that method's clean score)",
+    axes[0].set_ylabel(f"zadržan {METRIC_LABELS[metric]}\n(% čistog rezultata same metode)",
                        fontsize=10)
 
     # Annotate what is actually VISIBLE in this panel. An earlier version pointed at "PCA and
@@ -133,13 +143,13 @@ def figure(data: dict, metric: str, out_dir: Path) -> Path:
     # starts at 100 % by construction and nothing can cross there. The crossing is in absolute
     # macro-F1 and belongs in Table 1 and the text, not here. What this panel does show is how
     # early HOG departs, which is the more striking fact anyway.
-    axes[0].annotate("HOG loses a fifth of its\nperformance at the MILDEST\nnoise level",
-                     xy=(5, 80.6), xytext=(13, 88), fontsize=9, color="#c05621",
+    axes[0].annotate("HOG gubi petinu učinka\nveć na najblažem\nnivou šuma",
+                     xy=(5, 80.6), xytext=(14, 56), fontsize=9, color="#c05621",
                      arrowprops={"arrowstyle": "->", "color": "#c05621", "lw": 1.2})
 
     handles, _ = axes[0].get_legend_handles_labels()
     legend_labels = [
-        f"{label}  (clean {data[method]['baseline']:.3f})"
+        f"{label}  (čisto {data[method]['baseline']:.3f})"
         for (method, label, _) in METHODS
     ]
     fig.legend(handles, legend_labels, loc="lower center", ncol=5, fontsize=9.5,
@@ -147,7 +157,7 @@ def figure(data: dict, metric: str, out_dir: Path) -> Path:
 
     worst = data["hog_svm"]["curves"]["noise"][1][-1]
     best = data["pca_svm"]["curves"]["noise"][1][-1]
-    fig.suptitle(
+    title = fig.suptitle(
         "Robustness: how fast each representation degrades, relative to its own clean score\n"
         f"THE RANKING INVERTS UNDER NOISE — PCA is LAST on clean data yet retains "
         f"{best:.1f} % at σ=40, where HOG (third on clean data) retains {worst:.1f} %: "
@@ -158,10 +168,11 @@ def figure(data: dict, metric: str, out_dir: Path) -> Path:
     )
     fig.tight_layout(rect=(0, 0.03, 1, 0.90))
 
-    out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / ("robustness_curves.png" if metric == "macro_f1"
                       else f"robustness_curves_{metric}.png")
-    fig.savefig(path, dpi=170, bbox_inches="tight")
+    # The report copy drops this suptitle -- the Serbian caption in main.tex says the same
+    # thing, and the demo copy keeps it so the inversion stays legible without the report.
+    save_demo_and_report(fig, path, title, dpi=170, bare_rect=(0, 0.03, 1, 1))
     plt.close(fig)
     return path
 
@@ -169,7 +180,7 @@ def figure(data: dict, metric: str, out_dir: Path) -> Path:
 def report_crossings(data: dict, metric: str) -> None:
     """Print the numbers the caption claims, so the figure cannot drift from the prose."""
     print(f"\n{metric} retention at the strongest level of each stressor:")
-    for degradation, _, _ in PANELS:
+    for degradation, *_ in PANELS:
         line = []
         for method, label, _ in METHODS:
             levels, retained = data[method]["curves"][degradation]

@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gtsrb import config
+from gtsrb.figures import bare_path
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,11 @@ class ReportFigure:
     task: str  #: which task produces it
     why: str  #: one line -- what it is doing in the report
     deliverable: bool  #: True = named "Figure:" in PROJECT_TASKS; False = flagged as worth including
+    #: True = copy the title-less `_bare` sibling instead of `source` itself. Figures that are
+    #: embedded in the report carry no title of their own: the Serbian `\caption{}` in
+    #: main.tex is the caption, and the generator's English suptitle is the demo's diagnostic,
+    #: which would only compete with it. See `gtsrb.figures.save_demo_and_report`.
+    bare: bool = False
 
 
 #: The report's figures. `deliverable=True` entries are the ones PROJECT_TASKS names
@@ -56,13 +62,13 @@ MANIFEST: tuple[ReportFigure, ...] = (
     ReportFigure(
         "demo/degradation/degradation_contact_sheet.png", "degradation_contact_sheet.png", "3.5",
         "Every degradation x level on one sample. Shows what the stressors actually do.",
-        deliverable=True),
+        deliverable=True, bare=True),
     # --- flagged: not named as deliverables, argued for here ---
     ReportFigure(
         "demo/split/split_leakage.png", "split_leakage.png", "1.7",
         "STRONGLY RECOMMENDED. One track's 30 frames and where each split rule sends them. "
         "The project's central methodological claim, made self-evident in one image.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "split/split_leakage_measured.png", "split_leakage_measured.png", "4.5",
         "STRONGLY RECOMMENDED. The leakage claim as a number: +5.08 pp accuracy and "
@@ -100,7 +106,7 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "The CNN's two outputs on one trunk: softmax head (cnn_e2e) and the penultimate "
         "layer branching into the shared LinearSVC (cnn_feat_svm). Explains why one network "
         "produces two of the five rows — the central point of the experimental design.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "demo/preprocessing/preprocessing_configs.png", "preprocessing_configs.png", "2.2",
         "The three preprocessing configs side by side — needed to read the ablation (9.7).",
@@ -129,7 +135,7 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "histogram is the SAME VECTOR, while BoVW+SPM changes. Orderlessness stops being an "
         "assertion and becomes a measurement, and it is the visual companion to the +10.4 pp "
         "layout result — the single clearest statement of the study's central axis.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "demo/bovw/bovw_blur_collapse.png", "bovw_blur_collapse.png", "6.6",
         "The demo that FALSIFIED a locked prediction. predictions.md expects blur to make "
@@ -141,7 +147,7 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "demo/bovw/bovw_grid_and_words.png", "bovw_grid_and_words.png", "6.6",
         "The dense grid and the codeword map across four sign shapes. The methodology "
         "section's explanatory figure for a reader who does not already know BoVW.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "demo/bovw/bovw_normalisation.png", "bovw_normalisation.png", "6.6",
         "Why power_l2: l1 and l2 leave the ratio between bins untouched, so only the square "
@@ -154,7 +160,7 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "improved at 18 — the patience rule firing, not a verified plateau. Also shows train "
         "loss falling ~1000x while validation plateaus, and that returning the LAST epoch "
         "instead of the best would have cost 0.63 pp.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "demo/cnn/cnn_dropout_check.png", "cnn_dropout_check.png", "7.6",
         "STRONGLY RECOMMENDED. The §10 gotcha made visible: in train mode `embed()` returns "
@@ -167,7 +173,7 @@ MANIFEST: tuple[ReportFigure, ...] = (
         "Mean activation per conv block across four sign shapes: 48->24->12->6 as channels "
         "widen 32->64->128. The hierarchical property the structural table names, shown "
         "rather than asserted — and directly comparable to HOG's fixed 8x8 cell grid.",
-        deliverable=False),
+        deliverable=False, bare=True),
     ReportFigure(
         "demo/cnn/cnn_first_layer_filters.png", "cnn_first_layer_filters.png", "7.6",
         "The 32 learned first-layer 3x3 kernels. They are oriented difference operators — "
@@ -178,30 +184,30 @@ MANIFEST: tuple[ReportFigure, ...] = (
     ReportFigure(
         "pca/pca_eigensigns.png", "pca_eigensigns.png", "4.4",
         "Top-16 eigenvectors as images. Ties directly to the Eigenfaces lecture.",
-        deliverable=True),
+        deliverable=True, bare=True),
     ReportFigure(
         "hog/hog_visualization.png", "hog_visualization.png", "5.4",
-        "HOG visualisation, one sample per super-category.", deliverable=True),
+        "HOG visualisation, one sample per super-category.", deliverable=True, bare=True),
     ReportFigure(
         "results/confusion_best_worst.png", "confusion_best_worst.png", "9.2",
-        "Confusion matrices for the best and worst method.", deliverable=True),
+        "Confusion matrices for the best and worst method.", deliverable=True, bare=True),
     ReportFigure(
         "results/accuracy_by_size.png", "accuracy_by_size.png", "9.4",
-        "Accuracy vs ROI height, one line per method.", deliverable=True),
+        "Accuracy vs ROI height, one line per method.", deliverable=True, bare=True),
     ReportFigure(
         "results/robustness_curves_accuracy.png", "robustness_curves_accuracy.png", "9.5",
         "The ACCURACY version, which is the figure the proposal's section 6.3 explicitly "
         "names. Every best/worst call matches the macro-F1 figure, but gamma's Spearman "
         "against the clean ranking is +0.10 here versus +0.90 there -- so 'gamma follows the "
         "clean ordering' is a macro-F1 statement, not a general one.",
-        deliverable=True),
+        deliverable=True, bare=True),
     ReportFigure(
         "results/robustness_curves.png", "robustness_curves.png", "9.5",
         "THE HEADLINE FIGURE. 3 panels, retention against each method's own clean baseline. "
         "Shows the ranking inverting under noise (PCA last on clean, 76.7 % retained at "
         "sigma=40 vs HOG's 14.8 %) and NOT inverting under blur or gamma — so the "
         "representation x stressor interaction is real but stressor-specific.",
-        deliverable=True),
+        deliverable=True, bare=True),
 )
 
 
@@ -217,6 +223,8 @@ def collect(check_only: bool = False) -> int:
     missing = 0
     for figure in MANIFEST:
         source = config.FIGURES_DIR / figure.source
+        if figure.bare:
+            source = bare_path(source)
         kind = "deliverable" if figure.deliverable else "flagged    "
         if not source.exists():
             missing += 1

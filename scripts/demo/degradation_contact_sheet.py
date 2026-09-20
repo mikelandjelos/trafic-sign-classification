@@ -29,11 +29,16 @@ from matplotlib.patches import Rectangle
 
 from gtsrb import cache, config, data, degradations
 from gtsrb import preprocessing as pp
+from gtsrb.figures import save_demo_and_report
 
 #: Order the rows so the reader meets them as the report discusses them.
 ROW_ORDER = ("noise", "blur", "gamma")
 
 UNITS = {"noise": "σ = {}", "blur": "k = {} px", "gamma": "γ = {}"}
+
+#: Row labels in Serbian -- the sheet is embedded in the Serbian report, where the registry's
+#: internal keys ("noise", "blur") would be the only English left in the image.
+ROW_LABELS = {"noise": "šum", "blur": "zamućenje", "gamma": "gama korekcija"}
 
 
 def pick_sharp_sign(frame, preproc: str, min_h: int = 45, max_h: int = 120):
@@ -79,7 +84,7 @@ def contact_sheet(row, preproc: str, out_dir: Path) -> Path:
             is_identity = level == spec.identity
             label = UNITS[name].format(level)
             ax.set_title(
-                f"{label}   (clean)" if is_identity else label,
+                f"{label}   (identity)" if is_identity else label,
                 fontsize=9,
                 fontweight="bold" if is_identity else "normal",
                 color="#1a7f37" if is_identity else "black",
@@ -91,13 +96,13 @@ def contact_sheet(row, preproc: str, out_dir: Path) -> Path:
                               fill=False, edgecolor="#1a7f37", linewidth=2.5)
                 )
             if c == 0:
-                ax.set_ylabel(f"{name}\n", fontsize=11, fontweight="bold")
+                ax.set_ylabel(f"{ROW_LABELS[name]}\n", fontsize=11, fontweight="bold")
 
         for c in range(len(spec.levels), n_levels):
             axes[r, c].axis("off")
 
     class_name = config.CLASS_NAMES[int(row["class_id"])]
-    fig.suptitle(
+    title = fig.suptitle(
         f"Controlled degradations — 48×48 model input ({preproc})\n"
         f"class {int(row['class_id'])}: {class_name}   ·   green = identity level "
         f"(note gamma's sits mid-row)",
@@ -105,7 +110,7 @@ def contact_sheet(row, preproc: str, out_dir: Path) -> Path:
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93), h_pad=2.6)
     path = out_dir / "degradation_contact_sheet.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 

@@ -38,14 +38,15 @@ import numpy as np
 from skimage import exposure
 
 from gtsrb import cache, config, data, tuning
+from gtsrb.figures import save_demo_and_report
 from gtsrb.representations.hog import HOGRepresentation
 
 #: One class per shape family, with the reason each is here.
 SAMPLES: tuple[tuple[int, str], ...] = (
-    (14, "octagonal"),            # Stop
-    (25, "triangular warning"),   # Road work
-    (38, "round mandatory"),      # Keep right
-    (5, "round prohibitory"),     # Speed limit 80 -- HOG's worst confusion (task 5.3)
+    (14, "osmougaoni"),               # Stop
+    (25, "trougaoni, upozorenje"),    # Road work
+    (38, "okrugli, obaveza"),         # Keep right
+    (5, "okrugli, zabrana"),          # Speed limit 80 -- HOG's worst confusion (task 5.3)
 )
 
 
@@ -84,11 +85,11 @@ def figure(phi: HOGRepresentation, frame, images: np.ndarray, out_dir: Path,
             axes[1, col].axvline(c * phi.pixels_per_cell[1] - 0.5, color="#c05621",
                                  lw=0.5, alpha=0.55)
 
-    axes[0, 0].set_ylabel("input\n48×48", fontsize=10, fontweight="bold")
-    axes[1, 0].set_ylabel(f"HOG\n{phi.cell_grid()[0]}×{phi.cell_grid()[1]} cells",
+    axes[0, 0].set_ylabel("ulaz\n48×48", fontsize=10, fontweight="bold")
+    axes[1, 0].set_ylabel(f"HOG\n{phi.cell_grid()[0]}×{phi.cell_grid()[1]} ćelija",
                           fontsize=10, fontweight="bold")
 
-    fig.suptitle(
+    title = fig.suptitle(
         f"HOG on four sign shapes — {preproc}, {phi.pixels_per_cell[0]} px cells, "
         f"{phi.orientations} orientations, {phi.n_features} dimensions\n"
         f"Each cell shows a star of segments weighted by orientation energy; the orange grid "
@@ -101,7 +102,7 @@ def figure(phi: HOGRepresentation, frame, images: np.ndarray, out_dir: Path,
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "hog_visualization.png"
-    fig.savefig(path, dpi=170, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=170, bare_rect=None)
     plt.close(fig)
     return path
 

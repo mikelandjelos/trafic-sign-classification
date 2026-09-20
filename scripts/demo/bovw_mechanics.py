@@ -60,6 +60,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from gtsrb import cache, config, data, degradations
+from gtsrb.figures import save_demo_and_report
 from gtsrb.representations.bovw import (
     BoVWRepresentation,
     BoVWSpatialPyramid,
@@ -68,10 +69,10 @@ from gtsrb.representations.bovw import (
 
 #: One per shape family, so the codeword map can be read across genuinely different signs.
 SAMPLES: tuple[tuple[int, str], ...] = (
-    (14, "octagonal"),
-    (25, "triangular warning"),
-    (38, "round mandatory"),
-    (5, "round prohibitory"),
+    (14, "osmougaoni"),
+    (25, "trougaoni, upozorenje"),
+    (38, "okrugli, obaveza"),
+    (5, "okrugli, zabrana"),
 )
 
 
@@ -104,15 +105,15 @@ def figure_grid_and_words(phi: BoVWRepresentation, frame, images: np.ndarray,
         # word ids mean nothing, and a sequential map would invent an ordering.
         axes[1, col].imshow(words % 20, cmap="tab20", interpolation="nearest", vmin=0,
                             vmax=19)
-        axes[1, col].set_title(f"{len(np.unique(words))} distinct words", fontsize=9)
+        axes[1, col].set_title(f"{len(np.unique(words))} različitih reči", fontsize=9)
         for ax in axes[:, col]:
             ax.set_xticks([])
             ax.set_yticks([])
 
-    axes[0, 0].set_ylabel(f"input + {phi.extractor.n_keypoints}\nkeypoints", fontsize=10,
+    axes[0, 0].set_ylabel(f"ulaz + {phi.extractor.n_keypoints}\nkeypoint-a", fontsize=10,
                           fontweight="bold")
-    axes[1, 0].set_ylabel("codeword map\n(colour = word id)", fontsize=10, fontweight="bold")
-    fig.suptitle(
+    axes[1, 0].set_ylabel("mapa reči\n(boja = id reči)", fontsize=10, fontweight="bold")
+    title = fig.suptitle(
         f"Dense SIFT on a fixed grid, then quantisation to {phi.n_words} visual words — "
         f"size {phi.extractor.keypoint_size} / step {phi.extractor.step}\n"
         "Every image contributes exactly the same number of descriptors, which is what makes "
@@ -123,7 +124,7 @@ def figure_grid_and_words(phi: BoVWRepresentation, frame, images: np.ndarray,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     path = out_dir / "bovw_grid_and_words.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 
@@ -165,30 +166,30 @@ def figure_permutation(phi: BoVWRepresentation, spm: BoVWSpatialPyramid, frame,
     grid_spec = fig.add_gridspec(2, 3, width_ratios=[1, 1.5, 1.5], hspace=0.38, wspace=0.26)
 
     for row, (word_ids, label) in enumerate(((words, "original"),
-                                             (words[order], "positions shuffled"))):
+                                             (words[order], "pozicije izmešane"))):
         ax = fig.add_subplot(grid_spec[row, 0])
         ax.imshow(word_ids.reshape(rows, cols) % 20, cmap="tab20", interpolation="nearest",
                   vmin=0, vmax=19)
-        ax.set_title(f"codeword map\n({label})", fontsize=9.5)
+        ax.set_title(f"mapa reči\n({label})", fontsize=9.5)
         ax.set_xticks([])
         ax.set_yticks([])
 
     for row, (a, b, label) in enumerate(((plain, plain_shuffled, "original"),
-                                         (plain, plain_shuffled, "shuffled"))):
+                                         (plain, plain_shuffled, "izmešano"))):
         ax = fig.add_subplot(grid_spec[row, 1])
         ax.bar(np.arange(len(a)), a if row == 0 else b, width=1.0, color="#2b6cb0")
-        ax.set_title(f"plain BoVW histogram — {label}", fontsize=9.5)
+        ax.set_title(f"obična BoVW histogram — {label}", fontsize=9.5)
         ax.set_ylim(0, float(max(plain.max(), plain_shuffled.max())) * 1.1)
-        ax.set_xlabel("visual word", fontsize=8)
+        ax.set_xlabel("vizuelna reč", fontsize=8)
 
-    for row, (vec, label) in enumerate(((pyr, "original"), (pyr_shuffled, "shuffled"))):
+    for row, (vec, label) in enumerate(((pyr, "original"), (pyr_shuffled, "izmešano"))):
         ax = fig.add_subplot(grid_spec[row, 2])
         ax.bar(np.arange(len(vec)), vec, width=1.0, color="#c05621")
         ax.set_title(f"BoVW + SPM (L={spm.levels}) — {label}", fontsize=9.5)
         ax.set_ylim(0, float(max(pyr.max(), pyr_shuffled.max())) * 1.1)
-        ax.set_xlabel(f"visual word x {spm.n_cells} spatial cells", fontsize=8)
+        ax.set_xlabel(f"vizuelna reč × {spm.n_cells} prostornih ćelija", fontsize=8)
 
-    fig.suptitle(
+    title = fig.suptitle(
         "What 'orderless' actually means — the same descriptors, re-pooled after shuffling "
         "their positions\n"
         f"Plain BoVW: max |Δ| = {d_plain:.1e}  →  the two histograms are the SAME VECTOR. "
@@ -203,7 +204,7 @@ def figure_permutation(phi: BoVWRepresentation, spm: BoVWSpatialPyramid, frame,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.85))
     path = out_dir / "bovw_permutation.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     print(f"    permutation: plain max|Δ| = {d_plain:.3e}, SPM max|Δ| = {d_pyr:.4f}")
     return path
@@ -227,10 +228,10 @@ def figure_normalisation(phi: BoVWRepresentation, frame, images: np.ndarray,
                color="#2b6cb0" if scheme != "power_l2" else "#2f855a")
         ax.set_title(f"{scheme}\ntop/second = {ratio:.2f}", fontsize=9.5,
                      fontweight="bold" if scheme == "power_l2" else "normal")
-        ax.set_xlabel("visual word", fontsize=8)
+        ax.set_xlabel("vizuelna reč", fontsize=8)
     axes[0].set_ylabel("weight", fontsize=9)
 
-    fig.suptitle(
+    title = fig.suptitle(
         "Only the square root changes the RATIO between bins — which is the whole point\n"
         "Every image contributes the same number of descriptors, so raw histograms already "
         "sum to a constant: l1 and l2 are pure rescales a linear classifier cannot see.\n"
@@ -240,7 +241,7 @@ def figure_normalisation(phi: BoVWRepresentation, frame, images: np.ndarray,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.84))
     path = out_dir / "bovw_normalisation.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     return path
 
@@ -281,7 +282,7 @@ def figure_blur_collapse(phi: BoVWRepresentation, frame, images: np.ndarray,
     right.grid(alpha=0.3)
     right.set_ylim(0, 1.0)
 
-    fig.suptitle(
+    title = fig.suptitle(
         "The failure test — and it falsified the prediction it was written to illustrate\n"
         f"Distinct words per image: {distinct[0]:.1f} → {distinct[-1]:.1f} "
         f"({(distinct[-1]/distinct[0]-1)*100:+.0f} %). Between-class cosine similarity: "
@@ -298,7 +299,7 @@ def figure_blur_collapse(phi: BoVWRepresentation, frame, images: np.ndarray,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.82))
     path = out_dir / "bovw_blur_collapse.png"
-    fig.savefig(path, dpi=160, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=160, bare_rect=None)
     plt.close(fig)
     print(f"    blur: distinct words {distinct[0]:.1f} -> {distinct[-1]:.1f}, "
           f"between-class cosine {similarity[0]:.3f} -> {similarity[-1]:.3f}")

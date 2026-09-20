@@ -25,6 +25,7 @@ import torch
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 from gtsrb import config
+from gtsrb.figures import save_demo_and_report
 from gtsrb.representations.cnn import SmallCNN
 
 CONV_COLOUR = "#2b6cb0"
@@ -86,7 +87,7 @@ def figure(model: SmallCNN, out_dir: Path) -> Path:
     main_y, box_h = 24.0, 8.0
 
     # --- input ---------------------------------------------------------------------------
-    box(ax, 1, main_y, 9, box_h, f"input\n{channels}×{height}×{width}", "#718096", alpha=0.10)
+    box(ax, 1, main_y, 9, box_h, f"ulaz\n{channels}×{height}×{width}", "#718096", alpha=0.10)
     cursor = 10.0
 
     # --- three conv blocks ----------------------------------------------------------------
@@ -98,7 +99,7 @@ def figure(model: SmallCNN, out_dir: Path) -> Path:
             "(conv3×3 → BN → ReLU) × 2\nmaxpool 2×2", CONV_COLOUR)
         ax.text(cursor + 7, main_y - 2.4, f"{c}×{h}×{w}", ha="center", va="top",
                 fontsize=9, fontweight="bold", color=CONV_COLOUR)
-        ax.text(cursor + 7, main_y + box_h + 1.0, f"{stage['params']:,} params",
+        ax.text(cursor + 7, main_y + box_h + 1.0, f"{stage['params']:,} parametara",
                 ha="center", va="bottom", fontsize=7.5, color="#718096")
         cursor += 14
 
@@ -108,7 +109,7 @@ def figure(model: SmallCNN, out_dir: Path) -> Path:
     flat = stages[2]["shape"][0] * stages[2]["shape"][1] * stages[2]["shape"][2]
     box(ax, cursor, main_y, 15, box_h,
         f"flatten {flat:,}\ndropout → FC {model.embedding_dim} → ReLU", FC_COLOUR)
-    ax.text(cursor + 7.5, main_y + box_h + 1.0, f"{stages[3]['params']:,} params",
+    ax.text(cursor + 7.5, main_y + box_h + 1.0, f"{stages[3]['params']:,} parametara",
             ha="center", va="bottom", fontsize=7.5, color="#718096")
     embed_x = cursor + 15
     cursor = embed_x
@@ -116,28 +117,28 @@ def figure(model: SmallCNN, out_dir: Path) -> Path:
     # --- the two heads ----------------------------------------------------------------------
     arrow(ax, cursor, main_y + box_h / 2, cursor + 4, main_y + box_h / 2, colour=E2E_COLOUR)
     box(ax, cursor + 4, main_y, 12, box_h, f"FC {config.N_CLASSES}\nsoftmax", E2E_COLOUR)
-    ax.text(cursor + 10, main_y + box_h + 1.0, f"{stages[4]['params']:,} params",
+    ax.text(cursor + 10, main_y + box_h + 1.0, f"{stages[4]['params']:,} parametara",
             ha="center", va="bottom", fontsize=7.5, color="#718096")
-    ax.text(cursor + 10, main_y - 3.0, "method  cnn_e2e", ha="center", va="top",
+    ax.text(cursor + 10, main_y - 3.0, "metoda  cnn_e2e", ha="center", va="top",
             fontsize=9.5, fontweight="bold", color=E2E_COLOUR)
 
     # the branch: penultimate features out to the shared classifier
     arrow(ax, embed_x - 7.5, main_y, embed_x - 7.5, main_y - 9, colour=SVM_COLOUR, ls=(0, (3, 2)))
-    ax.text(embed_x - 6.6, main_y - 4.5, f"{model.embedding_dim}-d\nfeatures", ha="left",
+    ax.text(embed_x - 6.6, main_y - 4.5, f"{model.embedding_dim}-d\nobeležja", ha="left",
             va="center", fontsize=8.5, fontweight="bold", color=SVM_COLOUR)
     box(ax, embed_x - 17, main_y - 17.5, 19, box_h,
-        "LinearSVC\n(the same one PCA, HOG,\nBoVW are classified with)", SVM_COLOUR,
+        "LinearSVC\n(isti kojim se klasifikuju\ni PCA, HOG i BoVW)", SVM_COLOUR,
         fontsize=8)
-    ax.text(embed_x - 7.5, main_y - 19.5, "method  cnn_feat_svm", ha="center", va="top",
+    ax.text(embed_x - 7.5, main_y - 19.5, "metoda  cnn_feat_svm", ha="center", va="top",
             fontsize=9.5, fontweight="bold", color=SVM_COLOUR)
 
     ax.text(2, 3.5,
-            f"total {model.n_parameters():,} parameters  ·  "
-            f"conv trunk {sum(s['params'] for s in stages[:3]):,}  ·  "
-            f"first FC layer {stages[3]['params']:,}",
+            f"ukupno {model.n_parameters():,} parametara  ·  "
+            f"konvolucioni deo {sum(s['params'] for s in stages[:3]):,}  ·  "
+            f"prvi FC sloj {stages[3]['params']:,}",
             fontsize=9, color="#4a5568")
 
-    fig.suptitle(
+    title = fig.suptitle(
         "Small CNN — one trunk, two methods\n"
         "The penultimate layer branches into the shared LinearSVC, which is the only way to "
         "compare a learned\nrepresentation like-for-like with PCA, HOG and BoVW; the softmax "
@@ -147,7 +148,7 @@ def figure(model: SmallCNN, out_dir: Path) -> Path:
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "cnn_architecture.png"
-    fig.savefig(path, dpi=170, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=170, bare_rect=None)
     plt.close(fig)
     return path
 

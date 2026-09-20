@@ -43,6 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import evaluate_grid
 
 from gtsrb import cache, config, data, evaluation
+from gtsrb.figures import save_demo_and_report
 
 METHODS: tuple[tuple[str, str], ...] = (
     ("pca_svm", "PCA"),
@@ -83,14 +84,14 @@ def figure_confusions(scored: dict, out_dir: Path) -> Path:
         # large classes look worse purely by being large.
         matrix = matrix / np.maximum(matrix.sum(axis=1, keepdims=True), 1)
         im = ax.imshow(matrix, cmap="magma_r", vmin=0, vmax=1, interpolation="nearest")
-        ax.set_title(f"{label} — macro-F1 {result.macro_f1:.4f}", fontsize=11)
-        ax.set_xlabel("predicted class", fontsize=9)
-        ax.set_ylabel("true class", fontsize=9)
+        ax.set_title(f"{label} — makro-F1 {result.macro_f1:.4f}", fontsize=11)
+        ax.set_xlabel("predviđena klasa", fontsize=9)
+        ax.set_ylabel("stvarna klasa", fontsize=9)
         ax.set_xticks(range(0, 43, 5))
         ax.set_yticks(range(0, 43, 5))
-        fig.colorbar(im, ax=ax, fraction=0.046, label="fraction of the true class")
+        fig.colorbar(im, ax=ax, fraction=0.046, label="udeo stvarne klase")
 
-    fig.suptitle(
+    title = fig.suptitle(
         f"Confusion matrices, clean test — best ({best_label}) and worst ({worst_label})\n"
         "Row-normalised, because the test classes differ 12.5× in frequency and raw counts "
         "would make the large classes look worse simply for being large.\n"
@@ -101,7 +102,7 @@ def figure_confusions(scored: dict, out_dir: Path) -> Path:
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "confusion_best_worst.png"
-    fig.savefig(path, dpi=165, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=165, bare_rect=None)
     plt.close(fig)
     print(f"\n  best={best_key}  worst={worst_key}")
     return path
@@ -191,8 +192,8 @@ def figure_accuracy_by_size(scored: dict, test, y_true, out_dir: Path) -> Path:
     ax.set_xticks(range(len(order)))
     ax.set_xticklabels([f"{b}\nn={n:,}" for b, n in zip(order, counts, strict=True)],
                        fontsize=9)
-    ax.set_xlabel("ROI height (px)", fontsize=10)
-    ax.set_ylabel("accuracy, clean test", fontsize=10)
+    ax.set_xlabel("visina ROI (px)", fontsize=10)
+    ax.set_ylabel("tačnost, čist test skup", fontsize=10)
     ax.grid(alpha=0.3)
     ax.legend(fontsize=9, loc="lower right")
     # Y truncated to 0.70: every method sits in [0.74, 1.00], so a zero baseline spends 74 %
@@ -203,7 +204,7 @@ def figure_accuracy_by_size(scored: dict, test, y_true, out_dir: Path) -> Path:
     smallest = {label: by_group_all[method][order[0]][0] for method, label in METHODS}
     best_small = max(smallest.items(), key=lambda kv: kv[1])
     worst_small = min(smallest.items(), key=lambda kv: kv[1])
-    fig.suptitle(
+    title = fig.suptitle(
         "Accuracy by sign size — the same clean-test predictions, grouped by ROI height\n"
         "Free: figure 9.2's predictions, partitioned differently. **Y axis starts at 0.70** — "
         "all five methods lie in [0.74, 1.00].\n"
@@ -217,7 +218,7 @@ def figure_accuracy_by_size(scored: dict, test, y_true, out_dir: Path) -> Path:
     fig.tight_layout(rect=(0, 0, 1, 0.83))
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / "accuracy_by_size.png"
-    fig.savefig(path, dpi=165, bbox_inches="tight")
+    save_demo_and_report(fig, path, title, dpi=165, bare_rect=None)
     plt.close(fig)
     return path
 
