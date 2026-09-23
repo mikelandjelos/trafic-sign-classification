@@ -268,3 +268,8 @@ figures/*
 
 # Built Visual Studio Code Extensions
 *.vsix
+
+# Beamer pomocne datoteke (prezentacija)
+*.nav
+*.snm
+*.vrb

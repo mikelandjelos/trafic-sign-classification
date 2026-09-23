@@ -1003,6 +1003,48 @@ buckets (task 9.4). Images themselves are used with the framing GTSRB provides.
       §2–§8 renumbered to §4–§10; three internal cross-references fixed and two hard-coded
       figure numbers replaced with names so they cannot break again.
       **23 pages** — over the 15–20 band by ~3, to be trimmed by the author.
+- [x] **Figures carry no baked-in title** (2026-09-21). Every matplotlib figure embedded in
+      the report was rendering an English `suptitle` *inside the PNG*, directly above the
+      Serbian `\caption{}` that says the same thing. `gtsrb.figures.save_demo_and_report`
+      now writes each figure **twice from one render** — the demo copy keeps its diagnostic
+      block (the CLAUDE.md demo rule requires it: those suptitles carry the measured
+      readings, several of which contradict a prediction), and a `_bare` sibling drops it for
+      the report. `collect_report_figures.py` gained a `bare` flag per MANIFEST entry, so
+      which form the report gets stays one reviewable list. In-figure labels are Serbian,
+      keeping the English terms already agreed (`identity`, `patience`, `keypoint`, `batch`,
+      `makro-F1`). 13 figures across 9 scripts; 7 tests in `tests/test_figures.py`.
+      **Also: §5 had a figure only for PCA.** `hog_visualization`, `bovw_grid_and_words` and
+      `cnn_activations` were committed but unused; all three are now embedded, and with
+      eigensigns they form a matched set on the **same four signs**. `cnn_first_layer_filters`
+      was considered and rejected — at 3×3 the kernels read as coloured squares.
+      **Found while fixing: Table 1 carried `\begin{tabular}{lrrrrrr}[width=0.77\textwidth]`.**
+      `tabular` has no `width` option, so it was typeset as literal text while the table ran
+      past the right margin. Now `\small` + `\tabcolsep=4.5pt`.
+- [x] **Presentation for the defence** — `docs/presentation/prezentacija.tex` →
+      **19 slides + 7 appendix**, 0 errors, no visible overflow. Serbian, same terminology and
+      style rules as the report (no mid-sentence colons, no `---`, no `…, a ne …`).
+      Beamer + `metropolis` + Fira, **pdflatex**, and **no babel** for the same reason as the
+      report (babel's `serbian` defaults to Cyrillic and needs `serbian.ldf`, absent here);
+      verified on `š đ č ć ž` / `Š Đ Č Ć Ž`.
+      Reads figures straight from `figures/report/`, which is exactly why the bare figures
+      matter — a slide gives its title in the frame, so a second title inside the image would
+      collide.
+      **The appendix is the defence material**, one slide per question that is likely to be
+      asked: why `LinearSVC`, the `C`-per-method vs fixed `class_weight` protocol, the
+      preprocessing axis and the hue-wrap defect, BoVW's +53.5 pp, the error-cluster table,
+      the software architecture, and the cost caveats. `appendixnumberbeamer` keeps those out
+      of the slide count.
+      **Two diagram slides added 2026-09-22**, both drawn in **TikZ inside the deck** rather
+      than in PlantUML. The five-module chain (M1 detekcija → M2 praćenje optičkim tokom →
+      **M3 prepoznavanje** → M4 vremenska agregacija → M5 semantičko tumačenje) opens the deck
+      and marks, without ambiguity, which single module this project delivers, which is what
+      proposal §4.1 asks for. The train/eval pipeline sits in the methodology section.
+      **Why TikZ and not PlantUML:** a `left to right direction` render of the pipeline came
+      out at **6.6:1**, so at slide width its text would have fallen to ~4 pt. A
+      `pipeline_slide.puml` was written, measured, and then deleted in favour of TikZ on
+      explicit coordinates, which fits 16:9 and scales with the slide.
+      `docs/diagrams/pipeline.puml` (portrait, English, detailed) is untouched and remains the
+      report's version.
 
 ---
 

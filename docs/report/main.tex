@@ -550,10 +550,10 @@ ograničenje je prostorna rezolucija; ugaona to nije.
 \includegraphics[width=\textwidth]{hog_visualization.png}
 \caption{HOG nad četiri oblika znaka. Svaka ćelija prikazuje zvezdu segmenata otežanih
 energijom orijentacije, a narandžasta mreža je granica ćelije, odnosno jedinica unutar koje
-HOG sažima gradijente. Prikazani su \emph{nenormalizovani} histogrami, dok klasifikator vidi
+HOG radi \textit{pooling} gradijenata. Prikazani su \emph{nenormalizovani} histogrami, dok klasifikator vidi
 blok-normalizovani vektor. Kod znaka \textit{Speed limit (80)} kružna ivica daje snažne
 poteze, a cifre samo kratke i slabe, što je upravo detalj koji razdvaja 80 od 50 i koji se
-sažimanjem gubi.}
+gubi u \textit{pooling}-u.}
 \end{figure}
 
 \subsection*{5.3 BoVW reprezentacija}
@@ -580,8 +580,8 @@ korisnom smislu.
 \includegraphics[width=0.7\textwidth]{bovw_grid_and_words.png}
 \caption{Gusti SIFT na fiksnoj mreži, pa kvantizacija na 1000 vizuelnih reči. Svaka slika
 doprinosi istim brojem deskriptora, što je ono što histograme čini uporedivim. Boje u donjem
-redu su nominalni identifikatori reči, pa susedne zakrpe iste boje dele istu reč. Položaj
-svake zakrpe se nakon toga \textbf{odbacuje}, i upravo to odbacivanje je svojstvo po kome se
+redu su nominalni identifikatori reči, pa susedni \textit{patch}-evi iste boje dele istu reč. Položaj
+svakog \textit{patch}-a se nakon toga \textbf{odbacuje}, i upravo to odbacivanje je svojstvo po kome se
 BoVW razlikuje od HOG-a.}
 \end{figure}
 
@@ -614,8 +614,8 @@ pa je ta asimetrija svojstvena samo mreži.
 \includegraphics[width=0.70\textwidth]{cnn_activations.png}
 \caption{Srednja aktivacija posle svakog konvolucionog bloka, nad istim znakovima kao na
 slikama 5 i 6. Rezolucija se prepolovljava $48 \to 24 \to 12 \to 6$ dok se broj kanala širi
-$32 \to 64 \to 128$, pa mreža trguje informaciju o tome \emph{gde} za informaciju o tome
-\emph{šta}. Do trećeg bloka ceo znak je opisan mrežom $6\times6$, grubljom od HOG-ovih ćelija
+$32 \to 64 \to 128$, pa mreža zadržava sve manje podataka o tome \emph{gde} se nešto
+nalazi, a sve više o tome \emph{šta} je. Do trećeg bloka ceo znak je opisan mrežom $6\times6$, grubljom od HOG-ovih ćelija
 $8\times8$, ali sa 128 naučenih kanala po poziciji umesto 9 unapred zadatih orijentacija.}
 \end{figure}
 
