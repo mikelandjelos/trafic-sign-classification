@@ -244,6 +244,8 @@ results/*.joblib
 # The manifest in that script is the single explicit list of what belongs in the report.
 figures/*
 !figures/report/
+# figures/paper/ is committed for the same reason: it goes into docs/paper/IEEESTEC_paper.doc.
+!figures/paper/
 
 # results.csv is a DELIVERABLE and IS committed -- do not add it here.
 
